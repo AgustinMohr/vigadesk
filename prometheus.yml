@@ -1,0 +1,17 @@
+scrape_configs:
+  - job_name: 'ms-clientes'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['ms-clientes:8080']
+  - job_name: 'ms-productos'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['ms-productos:8080']
+  - job_name: 'ms-pedidos'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['ms-pedidos:8080']
+  - job_name: 'gateway'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['ms-gateway:8080']

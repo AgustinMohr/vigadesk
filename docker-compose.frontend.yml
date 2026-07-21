@@ -1,0 +1,34 @@
+# Frontend + HAProxy. Requiere backend-net y el stack backend ya corriendo.
+services:
+  haproxy:
+    image: haproxy:3.0-alpine
+    container_name: dan-haproxy
+    ports:
+      - "80:80"
+    volumes:
+      - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    depends_on:
+      - frontend-ui
+    networks:
+      - backend-net
+
+  # Next.js frontend. SSR_FETCH_URL permite al servidor Next.js auto-consultarse
+  # via HAProxy. SPRING_GATEWAY_URL apunta al backend Gateway.
+  frontend-ui:
+    image: dan-frontend-ui:latest
+    container_name: dan-frontend-ui
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      SPRING_GATEWAY_URL: http://ms-gateway:8080
+      SSR_FETCH_URL: http://haproxy
+    expose:
+      - "3000"
+    networks:
+      - backend-net
+
+# Usa la misma red externa que el backend
+networks:
+  backend-net:
+    external: true

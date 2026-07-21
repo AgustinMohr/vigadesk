@@ -1,0 +1,653 @@
+### ==========================================================================
+###  PRUEBAS API REST — CLIENTES, OBRAS, PRODUCTOS, PEDIDOS
+###  Formato: HTTP file compatible con REST Client (VS Code) / IntelliJ HTTP
+###  Gateway: http://localhost:3080
+###  Servicios directos: ms-clientes:6080, ms-productos:6180, ms-pedidos:6280
+### ==========================================================================
+
+### ==========================================================================
+###  VARIABLES GLOBALES
+### ==========================================================================
+@gateway   = http://localhost:3080
+@clientes  = http://localhost:6080
+@productos = http://localhost:6180
+@pedidos   = http://localhost:6280
+@clienteId = 1
+@obraId    = 1
+@prodId    = 1
+@pedidoId  = 1
+
+
+### ==========================================================================
+###  1. CLIENTES  →  {{gateway}}/api/clientes  (ms-clientes)
+### ==========================================================================
+
+### ---------- CREACIÓN ----------
+
+### 1.1  Crear cliente válido
+POST {{gateway}}/api/clientes
+Content-Type: application/json
+
+{
+  "nombre": "Constructora del Sur",
+  "correoElectronico": "contacto@constsur.com",
+  "cuit": "30-12345678-9",
+  "maximoDescubierto": 50000
+}
+
+### 1.2  Crear cliente — nombre vacío (viola @NotBlank)
+POST {{gateway}}/api/clientes
+Content-Type: application/json
+
+{
+  "nombre": "",
+  "correoElectronico": "test@test.com",
+  "cuit": "30-11111111-1",
+  "maximoDescubierto": 20000
+}
+
+### 1.3  Crear cliente — email inválido (viola @Email)
+POST {{gateway}}/api/clientes
+Content-Type: application/json
+
+{
+  "nombre": "Cliente Test",
+  "correoElectronico": "email-invalido",
+  "maximoDescubierto": 20000
+}
+
+### 1.4  Crear cliente — maximoDescubierto menor a 10000 (viola @Min)
+POST {{gateway}}/api/clientes
+Content-Type: application/json
+
+{
+  "nombre": "Cliente Test",
+  "correoElectronico": "test@test.com",
+  "maximoDescubierto": 500
+}
+
+### 1.5  Crear cliente — body vacío
+POST {{gateway}}/api/clientes
+Content-Type: application/json
+
+{}
+
+### ---------- LISTAR ----------
+
+### 1.6  Obtener todos los clientes
+GET {{gateway}}/api/clientes
+
+### ---------- BÚSQUEDA POR ID ----------
+
+### 1.7  Obtener cliente por ID existente
+GET {{gateway}}/api/clientes/{{clienteId}}
+
+### 1.8  Obtener cliente por ID inexistente → 404
+GET {{gateway}}/api/clientes/99999
+
+### 1.9  Obtener cliente con ID negativo
+GET {{gateway}}/api/clientes/-1
+
+### ---------- ACTUALIZACIÓN ----------
+
+### 1.10 Actualizar cliente existente
+PUT {{gateway}}/api/clientes/{{clienteId}}
+Content-Type: application/json
+
+{
+  "nombre": "Constructora del Sur Actualizada",
+  "correoElectronico": "nuevo@constsur.com",
+  "cuit": "30-98765432-1",
+  "maximoDescubierto": 75000
+}
+
+### 1.11 Actualizar cliente inexistente → 404
+PUT {{gateway}}/api/clientes/99999
+Content-Type: application/json
+
+{
+  "nombre": "No existe",
+  "correoElectronico": "no@existe.com",
+  "maximoDescubierto": 20000
+}
+
+### 1.12 Actualizar parcialmente (solo nombre)
+PUT {{gateway}}/api/clientes/{{clienteId}}
+Content-Type: application/json
+
+{ "nombre": "Solo Nombre Cambiado" }
+
+### ---------- ELIMINACIÓN ----------
+
+### 1.13 Eliminar cliente existente → 204
+DELETE {{gateway}}/api/clientes/{{clienteId}}
+
+### 1.14 Eliminar cliente inexistente → 404
+DELETE {{gateway}}/api/clientes/99999
+
+### 1.15 Eliminar cliente ya eliminado → 404
+DELETE {{gateway}}/api/clientes/{{clienteId}}
+
+### ---------- SALDO ----------
+
+### 1.16 Verificar saldo suficiente (monto < maximoDescubierto)
+GET {{gateway}}/api/clientes/{{clienteId}}/saldo?monto=10000
+
+### 1.17 Verificar saldo con monto cero
+GET {{gateway}}/api/clientes/{{clienteId}}/saldo?monto=0
+
+### 1.18 Verificar saldo con monto que supera el descubierto
+GET {{gateway}}/api/clientes/{{clienteId}}/saldo?monto=999999
+
+### 1.19 Verificar saldo de cliente inexistente → 404
+GET {{gateway}}/api/clientes/99999/saldo?monto=5000
+
+### 1.20 Verificar saldo sin parámetro monto → 400
+GET {{gateway}}/api/clientes/{{clienteId}}/saldo
+
+### ---------- MÁXIMO DESCUBIERTO ----------
+
+### 1.21 Obtener máximo descubierto de cliente existente
+GET {{gateway}}/api/clientes/{{clienteId}}/maximo-descubierto
+
+### 1.22 Obtener máximo descubierto de cliente inexistente → 404
+GET {{gateway}}/api/clientes/99999/maximo-descubierto
+
+
+### ==========================================================================
+###  2. OBRAS  →  {{gateway}}/api/obras  (ms-clientes)
+### ==========================================================================
+
+### ---------- CREACIÓN ----------
+
+### 2.1  Crear obra válida (sin cliente asignado)
+POST {{gateway}}/api/obras
+Content-Type: application/json
+
+{
+  "direccion": "Av. Siempre Viva 742",
+  "lat": -34.6037,
+  "lng": -58.3816,
+  "presupuesto": 150000
+}
+
+### 2.2  Crear obra — presupuesto menor a 100 (viola @Min)
+POST {{gateway}}/api/obras
+Content-Type: application/json
+
+{
+  "direccion": "Calle Falsa 123",
+  "lat": -34.60,
+  "lng": -58.38,
+  "presupuesto": 50
+}
+
+### 2.3  Crear obra — sin presupuesto (viola @NotNull)
+POST {{gateway}}/api/obras
+Content-Type: application/json
+
+{
+  "direccion": "Obra sin presupuesto",
+  "lat": 0,
+  "lng": 0
+}
+
+### 2.4  Crear obra — body vacío
+POST {{gateway}}/api/obras
+Content-Type: application/json
+
+{}
+
+### ---------- LISTAR ----------
+
+### 2.5  Obtener todas las obras
+GET {{gateway}}/api/obras
+
+### 2.6  Obtener obras sin cliente asignado
+GET {{gateway}}/api/obras/sin-asignar
+
+### 2.7  Obtener obras por cliente existente
+GET {{gateway}}/api/obras/by-cliente/{{clienteId}}
+
+### 2.8  Obtener obras por cliente inexistente → lista vacía
+GET {{gateway}}/api/obras/by-cliente/99999
+
+### ---------- BÚSQUEDA POR ID ----------
+
+### 2.9  Obtener obra por ID existente
+GET {{gateway}}/api/obras/{{obraId}}
+
+### 2.10 Obtener obra por ID inexistente → 404
+GET {{gateway}}/api/obras/99999
+
+### ---------- ACTUALIZACIÓN ----------
+
+### 2.11 Actualizar obra existente
+PUT {{gateway}}/api/obras/{{obraId}}
+Content-Type: application/json
+
+{
+  "direccion": "Nueva Dirección 456",
+  "lat": -34.61,
+  "lng": -58.39,
+  "presupuesto": 200000
+}
+
+### 2.12 Actualizar obra inexistente → 404
+PUT {{gateway}}/api/obras/99999
+Content-Type: application/json
+
+{
+  "direccion": "No existe",
+  "presupuesto": 100000
+}
+
+### ---------- ASIGNAR CLIENTE ----------
+
+### 2.13 Asignar obra a cliente existente
+PUT {{gateway}}/api/obras/{{obraId}}/asignar-cliente/3
+
+### 2.14 Asignar obra inexistente a cliente → 404
+PUT {{gateway}}/api/obras/99999/asignar-cliente/{{clienteId}}
+
+### 2.15 Asignar obra a cliente inexistente → 404
+PUT {{gateway}}/api/obras/{{obraId}}/asignar-cliente/99999
+
+### 2.16 Asignar obra ya asignada a otro cliente (reasignación)
+PUT {{gateway}}/api/obras/{{obraId}}/asignar-cliente/{{clienteId}}
+
+### ---------- ELIMINACIÓN ----------
+
+### 2.17 Eliminar obra existente → 204
+DELETE {{gateway}}/api/obras/{{obraId}}
+
+### 2.18 Eliminar obra inexistente → 404
+DELETE {{gateway}}/api/obras/99999
+
+### 2.19 Eliminar obra ya eliminada → 404
+DELETE {{gateway}}/api/obras/{{obraId}}
+
+
+### ==========================================================================
+###  3. PRODUCTOS  →  {{gateway}}/api/productos  (ms-productos)
+###  CATEGORÍAS  →  {{productos}}/api/categorias  (directo, sin gateway)
+### ==========================================================================
+
+### ---------- CREACIÓN ----------
+
+### 3.1  Crear producto válido
+POST {{gateway}}/api/productos
+Content-Type: application/json
+
+{
+  "nombre": "Producto nuevo",
+  "descripcion": "Cemento Portland",
+  "stockActual": 200,
+  "stockMinimo": 50,
+  "precio": 4500.00,
+  "categoria": "CEMENTOS"
+}
+
+### 3.2  Crear producto — sin nombre (viola @NotNull)
+POST {{gateway}}/api/productos
+Content-Type: application/json
+
+{
+  "descripcion": "Producto sin nombre",
+  "stockActual": 100,
+  "stockMinimo": 10,
+  "precio": 5000.00,
+  "categoria": "PLACAS"
+}
+
+### 3.3  Crear producto — categoría inválida (no existe en enum)
+POST {{gateway}}/api/productos
+Content-Type: application/json
+
+{
+  "nombre": "Producto Inválido",
+  "stockActual": 10,
+  "stockMinimo": 5,
+  "precio": 1000.00,
+  "categoria": "INEXISTENTE"
+}
+
+### 3.4  Crear producto — sin precio (viola @NotNull)
+POST {{gateway}}/api/productos
+Content-Type: application/json
+
+{
+  "nombre": "Sin Precio",
+  "stockActual": 10,
+  "stockMinimo": 5,
+  "categoria": "MORTEROS"
+}
+
+### 3.5  Crear productos adicionales para pruebas de stock
+POST {{gateway}}/api/productos
+Content-Type: application/json
+
+{
+  "nombre": "Placa de Yeso 1.20x2.40",
+  "descripcion": "Placa de yeso estándar",
+  "stockActual": 200,
+  "stockMinimo": 30,
+  "precio": 3200.00,
+  "categoria": "PLACAS"
+}
+
+###
+
+POST {{gateway}}/api/productos
+Content-Type: application/json
+
+{
+  "nombre": "Perfil Metálico U 34x34",
+  "descripcion": "Perfil metálico para estructura",
+  "stockActual": 1000,
+  "stockMinimo": 100,
+  "precio": 450.00,
+  "categoria": "PERFILES"
+}
+
+### ---------- LISTAR ----------
+
+### 3.6  Obtener todos los productos
+GET {{gateway}}/api/productos
+
+### ---------- BÚSQUEDA POR ID ----------
+
+### 3.7  Obtener producto por ID existente
+GET {{gateway}}/api/productos/{{prodId}}
+
+### 3.8  Obtener producto por ID inexistente → 404
+GET {{gateway}}/api/productos/99999
+
+### ---------- DESCUENTO PROMOCIONAL ----------
+
+### 3.9  Asignar descuento promocional a producto
+PUT {{gateway}}/api/productos/{{prodId}}/descuento
+Content-Type: application/json
+
+{ "descuentoPromocional": 500.00 }
+
+### 3.10 Asignar descuento a producto inexistente → 404
+PUT {{gateway}}/api/productos/99999/descuento
+Content-Type: application/json
+
+{ "descuentoPromocional": 100.00 }
+
+### 3.11 Asignar descuento cero (limpia el descuento)
+PUT {{gateway}}/api/productos/{{prodId}}/descuento
+Content-Type: application/json
+
+{ "descuentoPromocional": 0 }
+
+### ---------- PROVISIÓN (REPONER STOCK) ----------
+
+### 3.12 Procesar provisión válida
+PUT {{gateway}}/api/productos/provision
+Content-Type: application/json
+
+{
+  "idProducto": {{prodId}},
+  "cantidad": 100,
+  "precio": 8000.00
+}
+
+### 3.13 Procesar provisión con cantidad cero
+PUT {{gateway}}/api/productos/provision
+Content-Type: application/json
+
+{
+  "idProducto": {{prodId}},
+  "cantidad": 0,
+  "precio": 8000.00
+}
+
+### 3.14 Procesar provisión de producto inexistente
+PUT {{gateway}}/api/productos/provision
+Content-Type: application/json
+
+{
+  "idProducto": 99999,
+  "cantidad": 50,
+  "precio": 7000.00
+}
+
+### ---------- VERIFICAR STOCK ----------
+
+### 3.15 Check stock — cantidad menor al stock actual
+PUT {{gateway}}/api/productos/stock/check
+Content-Type: application/json
+
+[{ "idProducto": {{prodId}}, "cantidad": 10 }]
+
+### 3.16 Check stock — cantidad mayor al stock actual (insuficiente)
+PUT {{gateway}}/api/productos/stock/check
+Content-Type: application/json
+
+[{ "idProducto": {{prodId}}, "cantidad": 999999 }]
+
+### 3.17 Check stock — múltiples productos
+PUT {{gateway}}/api/productos/stock/check
+Content-Type: application/json
+
+[
+  { "idProducto": {{prodId}}, "cantidad": 5 },
+  { "idProducto": 99999, "cantidad": 1 }
+]
+
+###
+PUT {{gateway}}/api/productos/stock/check
+Content-Type: application/json
+
+[
+  { "idProducto": {{prodId}}, "cantidad": 5 },
+  { "idProducto": 2, "cantidad": 999999 }
+]
+
+###
+PUT {{gateway}}/api/productos/stock/check
+Content-Type: application/json
+
+[
+  { "idProducto": {{prodId}}, "cantidad": 5 },
+  { "idProducto": 80, "cantidad": 100 }
+]
+
+### 3.18 Check stock — lista vacía
+PUT {{gateway}}/api/productos/stock/check
+Content-Type: application/json
+
+[]
+
+### ---------- CATEGORÍAS ----------
+
+### 3.19 Listar categorías
+GET {{gateway}}/productos/api/categorias
+
+### ---------- ELIMINACIÓN ----------
+
+### 3.20 Eliminar producto existente → 204
+DELETE {{gateway}}/api/productos/{{prodId}}
+
+### 3.21 Eliminar producto inexistente → 204 (deleteById es idempotente)
+DELETE {{gateway}}/api/productos/99999
+
+### 3.22 Eliminar producto ya eliminado → 204
+DELETE {{gateway}}/api/productos/{{prodId}}
+
+
+### ==========================================================================
+###  4. PEDIDOS  →  {{gateway}}/api/pedidos  (ms-pedidos)
+### ==========================================================================
+
+### ---------- CREACIÓN ----------
+
+### 4.1  Crear pedido válido completo
+POST {{gateway}}/api/pedidos
+Content-Type: application/json
+
+{
+  "fecha": "2024-11-01T10:00:00Z",
+  "numeroPedido": 1001,
+  "usuario": "jperez",
+  "observaciones": "Pedido urgente",
+  "cliente": {
+    "id": 1,
+    "nombre": "Constructora del Sur",
+    "correoElectronico": "contacto@constsur.com",
+    "cuit": "30-12345678-9"
+  },
+  "obra": {
+    "id": 1,
+    "direccion": "Av. Siempre Viva 742"
+  },
+  "total": 123500.00,
+  "estado": "RECIBIDO",
+  "detalle": [
+    {
+      "producto": { "id": 1, "nombre": "Cemento Portland CPC 50kg", "precio": 8500.00 },
+      "cantidad": 10,
+      "precioUnitario": 8500.00,
+      "descuento": 0,
+      "precioFinal": 85000.00
+    },
+    {
+      "producto": { "id": 2, "nombre": "Placa de Yeso 1.20x2.40", "precio": 3200.00 },
+      "cantidad": 5,
+      "precioUnitario": 3200.00,
+      "descuento": 200.00,
+      "precioFinal": 15800.00
+    }
+  ]
+}
+
+### 4.2  Crear pedido con solo campos obligatorios
+POST {{gateway}}/api/pedidos
+Content-Type: application/json
+
+{
+  "usuario": "admin",
+  "cliente": { "id": 1, "nombre": "Constructora del Sur" },
+  "obra": { "id": 1, "direccion": "Av. Siempre Viva 742" },
+  "total": 50000.00,
+  "estado": "RECIBIDO",
+  "detalle": [
+    {
+      "producto": { "id": 1, "nombre": "Cemento Portland CPC 50kg", "precio":8500.00 },
+      "cantidad": 5,
+      "precioUnitario": 8500.00,
+      "precioFinal": 42500.00
+    }
+  ]
+}
+
+### 4.3  Crear pedido sin detalle (posible error)
+POST {{gateway}}/api/pedidos
+Content-Type: application/json
+
+{
+  "usuario": "test",
+  "cliente": { "id": 1 },
+  "obra": { "id": 1 },
+  "total": 0,
+  "estado": "RECIBIDO"
+}
+
+### 4.4  Crear pedido con estado inválido (no existe en enum)
+POST {{gateway}}/api/pedidos
+Content-Type: application/json
+
+{
+  "usuario": "test",
+  "cliente": { "id": 1 },
+  "obra": { "id": 1 },
+  "total": 1000,
+  "estado": "ESTADO_INEXISTENTE",
+  "detalle": []
+}
+
+### 4.5  Crear pedido con body vacío
+POST {{gateway}}/api/pedidos
+Content-Type: application/json
+
+{}
+
+### ---------- LISTAR ----------
+
+### 4.6  Obtener todos los pedidos
+GET {{gateway}}/api/pedidos
+
+### ---------- BÚSQUEDA POR ID ----------
+
+### 4.7  Obtener pedido por ID existente
+GET {{gateway}}/api/pedidos/{{pedidoId}}
+
+### 4.8  Obtener pedido por ID inexistente → 404
+GET {{gateway}}/api/pedidos/99999
+
+### 4.9  Obtener pedido con ID vacío
+GET {{gateway}}/api/pedidos/
+
+### ---------- ACTUALIZACIÓN DE ESTADO ----------
+
+### 4.10 Cambiar estado a ACEPTADO (error)
+PATCH {{gateway}}/api/pedidos/{{pedidoId}}/estado
+Content-Type: application/json
+
+{ "estado": "ACEPTADO" }
+
+### 4.11 Cambiar estado a EN_PREPARACION (error)
+PATCH {{gateway}}/api/pedidos/{{pedidoId}}/estado
+Content-Type: application/json
+
+{ "estado": "EN_PREPARACION" }
+
+### 4.12 Cambiar estado a ENTREGADO
+PATCH {{gateway}}/api/pedidos/{{pedidoId}}/estado
+Content-Type: application/json
+
+{ "estado": "ENTREGADO" }
+
+### 4.13 Cambiar estado a CANCELADO
+PATCH {{gateway}}/api/pedidos/{{pedidoId}}/estado
+Content-Type: application/json
+
+{ "estado": "CANCELADO" }
+
+### 4.14 Cambiar estado a RECHAZADO (error)
+PATCH {{gateway}}/api/pedidos/{{pedidoId}}/estado
+Content-Type: application/json
+
+{ "estado": "RECHAZADO" }
+
+### 4.15 Cambiar estado de pedido inexistente → 404
+PATCH {{gateway}}/api/pedidos/99999/estado
+Content-Type: application/json
+
+{ "estado": "ACEPTADO" }
+
+### 4.16 Cambiar estado con valor inválido
+PATCH {{gateway}}/api/pedidos/{{pedidoId}}/estado
+Content-Type: application/json
+
+{ "estado": "INEXISTENTE" }
+
+### 4.17 Cambiar estado con body vacío
+PATCH {{gateway}}/api/pedidos/{{pedidoId}}/estado
+Content-Type: application/json
+
+{}
+
+### ---------- ELIMINACIÓN ----------
+
+### 4.18 Eliminar pedido existente → 204
+DELETE {{gateway}}/api/pedidos/{{pedidoId}}
+
+### 4.19 Eliminar pedido inexistente → 204 (idempotente)
+DELETE {{gateway}}/api/pedidos/99999
+
+### 4.20 Eliminar pedido ya eliminado → 204
+DELETE {{gateway}}/api/pedidos/{{pedidoId}}

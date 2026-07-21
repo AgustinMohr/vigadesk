@@ -1,0 +1,20 @@
+services:
+
+  ms-eureka:
+    image: ms-eureka:latest
+    container_name: ms-eureka
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      SPRING_EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/
+      SPRING_EUREKA_HOST_NAME: ms-eureka
+      SPRING_EUREKA_PORT: 8761
+    ports:
+      - "8761:8761"
+    networks:
+      - backend-net
+
+networks:
+  backend-net:
+    external: true

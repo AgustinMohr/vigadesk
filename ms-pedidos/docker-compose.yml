@@ -1,0 +1,66 @@
+
+
+services:
+
+  mongo-db:
+    image: mongo
+    container_name: mongo-db
+    restart: always
+    ports:
+      - 27017:27017
+    volumes:
+      - mongo-data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: dan
+    networks:
+      - pedidos-net
+
+  mongo-express:
+    image: mongo-express
+    restart: always
+    ports:
+      - 8027:8081
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: root
+      ME_CONFIG_MONGODB_ADMINPASSWORD: dan
+      ME_CONFIG_MONGODB_URL: mongodb://root:dan@mongo-db:27017/
+      ME_CONFIG_BASICAUTH: false
+    depends_on:
+      - mongo-db
+    networks:
+      - pedidos-net
+
+  ms-pedidos:
+    image: ms-pedidos:latest
+    container_name: ms-pedidos
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      SPRING_DATA_MONGODB_HOST: mongo-db
+      SPRING_DATA_MONGODB_PORT: 27017
+      SPRING_DATA_MONGODB_DATABASE: pedidosdb
+      SPRING_DATA_MONGODB_USERNAME: root
+      SPRING_DATA_MONGODB_PASSWORD: dan
+      SPRING_DATA_MONGODB_URL: mongodb://root:dan@mongo-db:27017/pedidosdb?authSource=admin
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/
+    ports:
+      - "6280:8080"
+    depends_on:
+      - mongo-db
+    networks:
+      - pedidos-net
+      - backend-net
+
+
+networks:
+  backend-net:
+    external: true
+  pedidos-net:
+    driver: bridge
+
+volumes:
+  mongo-data:

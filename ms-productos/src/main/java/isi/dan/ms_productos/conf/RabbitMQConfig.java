@@ -1,0 +1,23 @@
+package isi.dan.ms_productos.conf;
+
+import org.springframework.amqp.core.Queue;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class RabbitMQConfig {
+
+    public static final String STOCK_UPDATE_QUEUE = "stock-update-queue";
+    public static final String STOCK_RETURN_QUEUE = "stock-return-queue";
+
+    @Bean
+    public Queue stockUpdateQueue() {
+        return new Queue(STOCK_UPDATE_QUEUE, true);
+    }
+
+    @Bean
+    public Queue stockReturnQueue() {
+        return new Queue(STOCK_RETURN_QUEUE, true);
+    }
+}
+
