@@ -11,6 +11,7 @@ import jakarta.persistence.Table;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 @Entity
@@ -35,5 +36,9 @@ public class Cliente {
     @Column(name="MAXIMO_DESCUBIERTO")
     @Min(value = 10000, message = "El descubierto maximo debe ser al menos 10000")
     private BigDecimal maximoDescubierto;
+
+    @NotNull(message = "El maximo de obras activas es obligatorio")
+    @Column(name="MAX_OBRAS_ACTIVAS")
+    private Integer maxObrasActivas;
     
 }

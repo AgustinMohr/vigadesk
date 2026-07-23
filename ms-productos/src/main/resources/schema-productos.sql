@@ -2,6 +2,7 @@ DROP TABLE IF EXISTS ms_prd_producto CASCADE;
 
 CREATE TABLE ms_prd_producto (
     id                    BIGSERIAL PRIMARY KEY,
+    codigo                VARCHAR(50),
     nombre                VARCHAR(255) NOT NULL,
     descripcion           VARCHAR(500),
     stock_actual          INTEGER NOT NULL DEFAULT 0,

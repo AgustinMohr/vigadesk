@@ -4,6 +4,8 @@ import java.math.BigDecimal;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -36,5 +38,8 @@ public class Obra {
     @NotNull(message = "El presupuesto es obligatorio")
     @Min(value=100, message = "El presupuesto debe ser al menos de 100")
     private BigDecimal presupuesto;
+
+    @Enumerated(EnumType.STRING)
+    private EstadoObra estado;
 
 }

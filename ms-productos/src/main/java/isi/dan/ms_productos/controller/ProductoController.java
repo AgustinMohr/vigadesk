@@ -17,6 +17,7 @@ import isi.dan.ms_productos.exception.ProductoNotFoundException;
 import isi.dan.ms_productos.modelo.Producto;
 import isi.dan.ms_productos.servicio.ProductoService;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
@@ -45,6 +46,24 @@ public class ProductoController {
     @LogExecutionTime
     public ResponseEntity<Producto> getProductoById(@PathVariable Long id) throws ProductoNotFoundException {
         return  ResponseEntity.ok(productoService.getProductoById(id));
+    }
+
+    @PutMapping("/{id}")
+    @LogExecutionTime
+    public ResponseEntity<Producto> updateProducto(@PathVariable Long id, @RequestBody @Validated Producto producto) {
+        return ResponseEntity.ok(productoService.updateProducto(id, producto));
+    }
+
+    @GetMapping("/search")
+    @LogExecutionTime
+    public List<Producto> searchProductos(
+            @RequestParam(required = false) String nombre,
+            @RequestParam(required = false) String codigo,
+            @RequestParam(required = false) BigDecimal precioMin,
+            @RequestParam(required = false) BigDecimal precioMax,
+            @RequestParam(required = false) Integer stockMin,
+            @RequestParam(required = false) Integer stockMax) {
+        return productoService.searchProductos(nombre, codigo, precioMin, precioMax, stockMin, stockMax);
     }
 
     @DeleteMapping("/{id}")

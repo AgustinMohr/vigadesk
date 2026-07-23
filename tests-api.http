@@ -256,15 +256,53 @@ PUT {{gateway}}/api/obras/{{obraId}}/asignar-cliente/99999
 ### 2.16 Asignar obra ya asignada a otro cliente (reasignación)
 PUT {{gateway}}/api/obras/{{obraId}}/asignar-cliente/{{clienteId}}
 
+### ---------- CAMBIO DE ESTADO ----------
+
+### 2.17 Cambiar estado a FINALIZADA
+PUT {{gateway}}/api/obras/{{obraId}}/estado
+Content-Type: application/json
+
+{ "estado": "FINALIZADA" }
+
+### 2.18 Cambiar estado a HABILITADA
+PUT {{gateway}}/api/obras/{{obraId}}/estado
+Content-Type: application/json
+
+{ "estado": "HABILITADA" }
+
+### 2.19 Cambiar estado a PENDIENTE
+PUT {{gateway}}/api/obras/{{obraId}}/estado
+Content-Type: application/json
+
+{ "estado": "PENDIENTE" }
+
+### 2.20 Cambiar estado con valor inválido → 400
+PUT {{gateway}}/api/obras/{{obraId}}/estado
+Content-Type: application/json
+
+{ "estado": "INEXISTENTE" }
+
+### 2.21 Cambiar estado de obra inexistente → 400
+PUT {{gateway}}/api/obras/99999/estado
+Content-Type: application/json
+
+{ "estado": "FINALIZADA" }
+
+### 2.22 Cambiar estado sin body → 400
+PUT {{gateway}}/api/obras/{{obraId}}/estado
+Content-Type: application/json
+
+{}
+
 ### ---------- ELIMINACIÓN ----------
 
-### 2.17 Eliminar obra existente → 204
+### 2.23 Eliminar obra existente → 204
 DELETE {{gateway}}/api/obras/{{obraId}}
 
-### 2.18 Eliminar obra inexistente → 404
+### 2.24 Eliminar obra inexistente → 404
 DELETE {{gateway}}/api/obras/99999
 
-### 2.19 Eliminar obra ya eliminada → 404
+### 2.25 Eliminar obra ya eliminada → 404
 DELETE {{gateway}}/api/obras/{{obraId}}
 
 
@@ -390,9 +428,9 @@ PUT {{gateway}}/api/productos/provision
 Content-Type: application/json
 
 {
-  "idProducto": {{prodId}},
-  "cantidad": 100,
-  "precio": 8000.00
+  "idProducto": 11,
+  "cantidad": 20,
+  "precio": 9999999.00
 }
 
 ### 3.13 Procesar provisión con cantidad cero

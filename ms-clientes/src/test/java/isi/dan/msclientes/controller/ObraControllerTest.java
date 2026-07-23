@@ -2,6 +2,7 @@ package isi.dan.msclientes.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import isi.dan.msclientes.model.EstadoObra;
 import isi.dan.msclientes.model.Obra;
 import isi.dan.msclientes.servicios.ObraService;
 
@@ -122,11 +123,42 @@ public class ObraControllerTest {
     }
 
     @Test
-    void testAsignarCliente_NotFound() throws Exception {
+    void testAsignarCliente_BadRequest() throws Exception {
         Mockito.when(obraService.asignarCliente(99, 1)).thenThrow(new RuntimeException("Not found"));
 
         mockMvc.perform(put("/api/obras/99/asignar-cliente/1"))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void testCambiarEstado_Ok() throws Exception {
+        obra.setEstado(EstadoObra.FINALIZADA);
+        Mockito.when(obraService.cambiarEstado(1, EstadoObra.FINALIZADA)).thenReturn(obra);
+
+        mockMvc.perform(put("/api/obras/1/estado")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"estado\": \"FINALIZADA\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("FINALIZADA"));
+    }
+
+    @Test
+    void testCambiarEstado_InvalidEstado() throws Exception {
+        mockMvc.perform(put("/api/obras/1/estado")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"estado\": \"INEXISTENTE\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void testCambiarEstado_ServiceError() throws Exception {
+        Mockito.when(obraService.cambiarEstado(1, EstadoObra.HABILITADA))
+                .thenThrow(new RuntimeException("No se puede habilitar"));
+
+        mockMvc.perform(put("/api/obras/1/estado")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"estado\": \"HABILITADA\"}"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -145,6 +177,49 @@ public class ObraControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(asJsonString(obra)))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void testCreate_ServiceError() throws Exception {
+        Mockito.when(obraService.save(Mockito.any(Obra.class)))
+                .thenThrow(new RuntimeException("Cliente no encontrado: 99"));
+
+        mockMvc.perform(post("/api/obras")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(asJsonString(obra)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void testCambiarEstado_PENDIENTE() throws Exception {
+        obra.setEstado(EstadoObra.PENDIENTE);
+        Mockito.when(obraService.cambiarEstado(1, EstadoObra.PENDIENTE)).thenReturn(obra);
+
+        mockMvc.perform(put("/api/obras/1/estado")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"estado\": \"PENDIENTE\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("PENDIENTE"));
+    }
+
+    @Test
+    void testCambiarEstado_HABILITADA() throws Exception {
+        obra.setEstado(EstadoObra.HABILITADA);
+        Mockito.when(obraService.cambiarEstado(1, EstadoObra.HABILITADA)).thenReturn(obra);
+
+        mockMvc.perform(put("/api/obras/1/estado")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"estado\": \"HABILITADA\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("HABILITADA"));
+    }
+
+    @Test
+    void testCambiarEstado_EmptyBody() throws Exception {
+        mockMvc.perform(put("/api/obras/1/estado")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

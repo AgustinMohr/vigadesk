@@ -29,6 +29,16 @@ public class PedidoController {
         return pedidoService.getAllPedidos();
     }
 
+    @GetMapping("/search")
+    public List<Pedido> searchPedidos(
+            @RequestParam(required = false) String clienteNombre,
+            @RequestParam(required = false) String estado) {
+        EstadoPedido estadoEnum = (estado != null && !estado.isBlank())
+                ? EstadoPedido.valueOf(estado.toUpperCase())
+                : null;
+        return pedidoService.searchPedidos(clienteNombre, estadoEnum);
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<Pedido> getPedidoById(@PathVariable String id) {
         return ResponseEntity.ok(pedidoService.getPedidoById(id));

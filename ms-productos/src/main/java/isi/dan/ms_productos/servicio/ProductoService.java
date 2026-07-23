@@ -1,7 +1,10 @@
 package isi.dan.ms_productos.servicio;
 
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+
+import org.springframework.data.jpa.domain.Specification;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -157,7 +160,8 @@ public void handleStockReturn(Message msg) {
         Producto producto = productoRepository.findById(provision.getIdProducto())
                 .orElseThrow(() -> new ProductoNotFoundException(provision.getIdProducto()));
         producto.setStockActual(producto.getStockActual() + provision.getCantidad());
-        producto.setPrecio(provision.getPrecio());
+		if (provision.getPrecio() != null)
+     		producto.setPrecio(provision.getPrecio());
         return productoRepository.save(producto);
     }
 
@@ -178,6 +182,50 @@ public void handleStockReturn(Message msg) {
 
     public void deleteProducto(Long id) {
         productoRepository.deleteById(id);
+    }
+
+    public Producto updateProducto(Long id, Producto productoActualizado) {
+        Producto producto = productoRepository.findById(id)
+                .orElseThrow(() -> new ProductoNotFoundException(id));
+        producto.setCodigo(productoActualizado.getCodigo());
+        producto.setNombre(productoActualizado.getNombre());
+        producto.setDescripcion(productoActualizado.getDescripcion());
+        producto.setPrecio(productoActualizado.getPrecio());
+        producto.setStockMinimo(productoActualizado.getStockMinimo());
+        producto.setCategoria(productoActualizado.getCategoria());
+        producto.setDescuentoPromocional(productoActualizado.getDescuentoPromocional());
+        return productoRepository.save(producto);
+    }
+
+    public List<Producto> searchProductos(String nombre, String codigo,
+                                           BigDecimal precioMin, BigDecimal precioMax,
+                                           Integer stockMin, Integer stockMax) {
+        Specification<Producto> spec = Specification.where(null);
+        if (nombre != null && !nombre.isBlank()) {
+            spec = spec.and((root, query, cb) ->
+                    cb.like(cb.lower(root.get("nombre")), "%" + nombre.toLowerCase() + "%"));
+        }
+        if (codigo != null && !codigo.isBlank()) {
+            spec = spec.and((root, query, cb) ->
+                    cb.like(cb.lower(root.get("codigo")), "%" + codigo.toLowerCase() + "%"));
+        }
+        if (precioMin != null) {
+            spec = spec.and((root, query, cb) ->
+                    cb.greaterThanOrEqualTo(root.get("precio"), precioMin));
+        }
+        if (precioMax != null) {
+            spec = spec.and((root, query, cb) ->
+                    cb.lessThanOrEqualTo(root.get("precio"), precioMax));
+        }
+        if (stockMin != null) {
+            spec = spec.and((root, query, cb) ->
+                    cb.greaterThanOrEqualTo(root.get("stockActual"), stockMin));
+        }
+        if (stockMax != null) {
+            spec = spec.and((root, query, cb) ->
+                    cb.lessThanOrEqualTo(root.get("stockActual"), stockMax));
+        }
+        return productoRepository.findAll(spec);
     }
 }
 

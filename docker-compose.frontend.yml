@@ -28,7 +28,6 @@ services:
     networks:
       - backend-net
 
-# Usa la misma red externa que el backend
 networks:
   backend-net:
     external: true

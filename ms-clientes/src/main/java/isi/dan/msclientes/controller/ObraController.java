@@ -1,10 +1,13 @@
 package isi.dan.msclientes.controller;
 
+import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import isi.dan.msclientes.aop.LogExecutionTime;
+import isi.dan.msclientes.model.EstadoObra;
 import isi.dan.msclientes.model.Obra;
 import isi.dan.msclientes.servicios.ObraService;
 
@@ -44,8 +47,13 @@ public class ObraController {
     }
 
     @PostMapping
-    public Obra create(@RequestBody Obra obra) {
-        return obraService.save(obra);
+    public ResponseEntity<?> create(@RequestBody Obra obra) {
+        try {
+            Obra saved = obraService.save(obra);
+            return ResponseEntity.ok(saved);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     @PutMapping("/{id}")
@@ -58,12 +66,25 @@ public class ObraController {
     }
 
     @PutMapping("/{obraId}/asignar-cliente/{clienteId}")
-    public ResponseEntity<Obra> asignarCliente(@PathVariable Integer obraId, @PathVariable Integer clienteId) {
+    public ResponseEntity<?> asignarCliente(@PathVariable Integer obraId, @PathVariable Integer clienteId) {
         try {
             Obra obra = obraService.asignarCliente(obraId, clienteId);
             return ResponseEntity.ok(obra);
         } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{id}/estado")
+    public ResponseEntity<?> cambiarEstado(@PathVariable Integer id, @RequestBody Map<String, String> body) {
+        try {
+            EstadoObra nuevoEstado = EstadoObra.valueOf(body.get("estado"));
+            Obra obra = obraService.cambiarEstado(id, nuevoEstado);
+            return ResponseEntity.ok(obra);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Estado no valido: " + body.get("estado")));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 

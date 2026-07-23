@@ -40,6 +40,7 @@ class ClienteServiceTest {
         cliente.setCorreoElectronico("test@cliente.com");
         cliente.setCuit("12998887776");
         cliente.setMaximoDescubierto(BigDecimal.valueOf(100000));
+        cliente.setMaxObrasActivas(5);
     }
 
     @Test

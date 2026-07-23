@@ -10,6 +10,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 
 import feign.FeignException;
@@ -26,6 +29,9 @@ public class PedidoService {
 
     @Autowired
     private PedidoRepository pedidoRepository;
+
+    @Autowired
+    private MongoTemplate mongoTemplate;
 
     @Autowired
     private RabbitTemplate rabbitTemplate;
@@ -135,5 +141,17 @@ public class PedidoService {
 
     public void deletePedido(String id) {
         pedidoRepository.deleteById(id);
+    }
+
+    public List<Pedido> searchPedidos(String clienteNombre, EstadoPedido estado) {
+        Criteria criteria = new Criteria();
+        if (clienteNombre != null && !clienteNombre.isBlank()) {
+            criteria.and("cliente.nombre").regex(clienteNombre, "i");
+        }
+        if (estado != null) {
+            criteria.and("estado").is(estado.name());
+        }
+        Query query = new Query(criteria);
+        return mongoTemplate.find(query, Pedido.class);
     }
 }

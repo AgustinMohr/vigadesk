@@ -39,6 +39,7 @@ public class ClienteControllerTest {
         cliente.setNombre("Test Cliente");
         cliente.setCorreoElectronico("test@cliente.com");
         cliente.setCuit("12998887776");
+        cliente.setMaxObrasActivas(5);
     }
 
     @Test
