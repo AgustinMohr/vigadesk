@@ -1,7 +1,0 @@
-TODO: agregar boton de "aplicar descuento" a los productos para aplicar descuento promocional (usa endpoint PUT)
-
-TODO: agregar boton "ver" en pedido que muestre un detalle con los productos, la cantidad y el precio.
-
-TODO: agregar columna "descuento" en productos que muestre el descuento promocional
-
-TODO: agregar información al dashboard que muestre informacion resumida como la cantidad de clientes que hay, la cantidad de obras, productos y pedidos.
