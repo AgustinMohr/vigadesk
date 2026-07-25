@@ -1,6 +1,9 @@
+"use client";
+
 import type { Producto } from "@/services/productoService";
 import Button from "./Button";
 import { useSort } from "@/hooks/useSort";
+import { useAuth } from "@/lib/auth/AuthContext";
 
 const thClass =
   "px-4 py-3 text-left font-medium text-slate-600 cursor-pointer select-none hover:text-slate-900";
@@ -20,6 +23,7 @@ export default function ProductoTable({
   onDelete,
   onAplicarDescuento,
 }: ProductoTableProps) {
+  const { isAdmin } = useAuth();
   const { sortedData, toggleSort, indicator } = useSort(productos, "nombre");
 
   return (
@@ -80,15 +84,21 @@ export default function ProductoTable({
                 </td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex justify-end gap-2">
-                    <Button variant="secondary" onClick={() => onAplicarDescuento(producto)}>
-                      Descuento
-                    </Button>
-                    <Button variant="secondary" onClick={() => onEdit(producto)}>
-                      Editar
-                    </Button>
-                    <Button variant="danger" onClick={() => onDelete(producto)}>
-                      Eliminar
-                    </Button>
+                    {isAdmin && (
+                      <Button variant="secondary" onClick={() => onAplicarDescuento(producto)}>
+                        Descuento
+                      </Button>
+                    )}
+                    {isAdmin && (
+                      <Button variant="secondary" onClick={() => onEdit(producto)}>
+                        Editar
+                      </Button>
+                    )}
+                    {isAdmin && (
+                      <Button variant="danger" onClick={() => onDelete(producto)}>
+                        Eliminar
+                      </Button>
+                    )}
                   </div>
                 </td>
               </tr>

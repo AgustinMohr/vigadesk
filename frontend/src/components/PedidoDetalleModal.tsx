@@ -119,7 +119,7 @@ export default function PedidoDetalleModal({
                     </td>
                     <td className="px-3 py-2 text-right text-slate-600">{item.cantidad}</td>
                     <td className="px-3 py-2 text-right text-slate-600">
-                      {formatCurrency(item.precioUnitario)}
+                      {formatCurrency(item.precioUnitario ?? item.producto.precio ?? 0)}
                     </td>
                     <td className="px-3 py-2 text-right text-slate-600">
                       {item.descuento && item.descuento > 0
@@ -127,9 +127,7 @@ export default function PedidoDetalleModal({
                         : "—"}
                     </td>
                     <td className="px-3 py-2 text-right font-medium text-slate-900">
-                      {item.precioFinal != null
-                        ? formatCurrency(item.precioFinal * item.cantidad)
-                        : formatCurrency(item.precioUnitario != null ? item.precioUnitario * item.cantidad : undefined)}
+                      {formatCurrency((item.precioUnitario ?? item.producto.precio ?? 0) * item.cantidad)}
                     </td>
                   </tr>
                 ))

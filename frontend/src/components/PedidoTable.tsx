@@ -1,6 +1,9 @@
+"use client";
+
 import type { Pedido } from "@/services/pedidoService";
 import Button from "./Button";
 import { useSort } from "@/hooks/useSort";
+import { useAuth } from "@/lib/auth/AuthContext";
 
 const thClass =
   "px-4 py-3 text-left font-medium text-slate-600 cursor-pointer select-none hover:text-slate-900";
@@ -54,6 +57,7 @@ export default function PedidoTable({
   onDelete,
   onVer,
 }: PedidoTableProps) {
+  const { isAdmin } = useAuth();
   const { sortedData, toggleSort, indicator } = useSort(
     pedidos,
     "numeroPedido",
@@ -121,14 +125,16 @@ export default function PedidoTable({
                     <Button variant="secondary" onClick={() => onVer(pedido)}>
                       Ver
                     </Button>
-                    {(pedido.estado === "ACEPTADO" || pedido.estado === "EN_PREPARACION") && (
+                    {isAdmin && (pedido.estado === "ACEPTADO" || pedido.estado === "EN_PREPARACION") && (
                       <Button variant="secondary" onClick={() => onUpdateEstado(pedido)}>
                         Estado
                       </Button>
                     )}
-                    <Button variant="danger" onClick={() => onDelete(pedido)}>
-                      Eliminar
-                    </Button>
+                    {isAdmin && (
+                      <Button variant="danger" onClick={() => onDelete(pedido)}>
+                        Eliminar
+                      </Button>
+                    )}
                   </div>
                 </td>
               </tr>

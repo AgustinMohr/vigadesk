@@ -7,6 +7,7 @@ import PedidoTable from "@/components/PedidoTable";
 import PedidoForm from "@/components/PedidoForm";
 import PedidoEstadoModal from "@/components/PedidoEstadoModal";
 import PedidoDetalleModal from "@/components/PedidoDetalleModal";
+import { useAuth } from "@/lib/auth/AuthContext";
 
 const ESTADOS_PEDIDO = ["PENDIENTE", "ACEPTADO", "EN_PREPARACION", "ENTREGADO", "CANCELADO"];
 
@@ -47,6 +48,8 @@ export default function PedidosPageClient({
   const [pedidoDetalle, setPedidoDetalle] = useState<Pedido | null>(null);
   const [searchCliente, setSearchCliente] = useState("");
   const [searchEstado, setSearchEstado] = useState("");
+
+  const { isAdmin } = useAuth();
 
   const handleCreate = () => {
     setShowForm(true);
@@ -149,7 +152,7 @@ export default function PedidosPageClient({
             Gestión de pedidos de clientes.
           </p>
         </div>
-        <Button onClick={handleCreate}>Nuevo pedido</Button>
+        {isAdmin && <Button onClick={handleCreate}>Nuevo pedido</Button>}
       </div>
 
       {/* Filtros de búsqueda: nombre de cliente, estado, y botones buscar/limpiar */}

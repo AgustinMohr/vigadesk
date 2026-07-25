@@ -7,6 +7,7 @@ import ClienteTable from "@/components/ClienteTable";
 import ClienteForm from "@/components/ClienteForm";
 import ClienteDetailModal from "@/components/ClienteDetailModal";
 import AsignarObraModal from "@/components/AsignarObraModal";
+import { useAuth } from "@/lib/auth/AuthContext";
 
 // Modos de búsqueda disponibles: por nombre, CUIT o email
 type SearchMode = "nombre" | "cuit" | "email";
@@ -126,6 +127,8 @@ export default function ClientesPageClient({
     setSelectedCliente(undefined);
   };
 
+  const { isAdmin } = useAuth();
+
   // Configuración de los modos de búsqueda
   const searchModes: { key: SearchMode; label: string }[] = [
     { key: "nombre", label: "Nombre" },
@@ -143,7 +146,7 @@ export default function ClientesPageClient({
             Gestión de clientes registrados.
           </p>
         </div>
-        <Button onClick={handleCreate}>Nuevo cliente</Button>
+        {isAdmin && <Button onClick={handleCreate}>Nuevo cliente</Button>}
       </div>
 
       <div className="mt-6">

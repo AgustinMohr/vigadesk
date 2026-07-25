@@ -6,6 +6,7 @@ import Button from "@/components/Button";
 import ProductoTable from "@/components/ProductoTable";
 import ProductoForm from "@/components/ProductoForm";
 import DescuentoModal from "@/components/DescuentoModal";
+import { useAuth } from "@/lib/auth/AuthContext";
 
 export default function ProductosPageClient({
   initialProductos,
@@ -61,6 +62,8 @@ export default function ProductosPageClient({
       return true;
     });
   }, [productos, searchNombre, searchCodigo, searchPrecioMin, searchPrecioMax, searchStockMin, searchStockMax]);
+
+  const { isAdmin } = useAuth();
 
   const handleCreate = () => {
     setSelectedProducto(undefined);
@@ -134,7 +137,7 @@ export default function ProductosPageClient({
             Gestión del catálogo de productos.
           </p>
         </div>
-        <Button onClick={handleCreate}>Nuevo producto</Button>
+        {isAdmin && <Button onClick={handleCreate}>Nuevo producto</Button>}
       </div>
 
       {/* Filtros de búsqueda: nombre, código, precio (min/max), stock (min/max) */}

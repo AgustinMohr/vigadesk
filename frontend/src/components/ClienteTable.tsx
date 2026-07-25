@@ -1,6 +1,9 @@
+"use client";
+
 import type { Cliente } from "@/services/clienteService";
 import Button from "./Button";
 import { useSort } from "@/hooks/useSort";
+import { useAuth } from "@/lib/auth/AuthContext";
 
 const thClass =
   "px-4 py-3 text-left font-medium text-slate-600 cursor-pointer select-none hover:text-slate-900";
@@ -20,6 +23,7 @@ export default function ClienteTable({
   onView,
   onAssignObra,
 }: ClienteTableProps) {
+  const { isAdmin } = useAuth();
   const { sortedData, toggleSort, indicator } = useSort(clientes, "nombre");
 
   return (
@@ -73,15 +77,21 @@ export default function ClienteTable({
                     <Button variant="secondary" onClick={() => onView(cliente)}>
                       Ver
                     </Button>
-                    <Button variant="secondary" onClick={() => onAssignObra(cliente)}>
-                      Asignar obra
-                    </Button>
-                    <Button variant="secondary" onClick={() => onEdit(cliente)}>
-                      Editar
-                    </Button>
-                    <Button variant="danger" onClick={() => onDelete(cliente)}>
-                      Eliminar
-                    </Button>
+                    {isAdmin && (
+                      <Button variant="secondary" onClick={() => onAssignObra(cliente)}>
+                        Asignar obra
+                      </Button>
+                    )}
+                    {isAdmin && (
+                      <Button variant="secondary" onClick={() => onEdit(cliente)}>
+                        Editar
+                      </Button>
+                    )}
+                    {isAdmin && (
+                      <Button variant="danger" onClick={() => onDelete(cliente)}>
+                        Eliminar
+                      </Button>
+                    )}
                   </div>
                 </td>
               </tr>

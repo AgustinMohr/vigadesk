@@ -8,6 +8,7 @@ import {
   type Producto,
 } from "@/services/productoService";
 import { pedidoService, type Pedido } from "@/services/pedidoService";
+import StockBajoModal from "@/components/StockBajoModal";
 
 const estadoColors: Record<string, string> = {
   RECIBIDO: "text-yellow-700 bg-yellow-100",
@@ -28,6 +29,7 @@ export default function DashboardClient() {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAllStockBajo, setShowAllStockBajo] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -158,13 +160,25 @@ export default function DashboardClient() {
                 </div>
               ))}
               {productosStockBajo.length > 10 && (
-                <p className="text-xs text-slate-400 text-center pt-1">
-                  y {productosStockBajo.length - 10} más…
-                </p>
+                <div className="pt-2 text-center">
+                  <button
+                    onClick={() => setShowAllStockBajo(true)}
+                    className="text-sm font-medium text-slate-600 underline underline-offset-2 hover:text-slate-900"
+                  >
+                    Ver más ({productosStockBajo.length - 10} restantes)
+                  </button>
+                </div>
               )}
             </div>
           )}
         </div>
+
+        {showAllStockBajo && (
+          <StockBajoModal
+            productos={productosStockBajo}
+            onClose={() => setShowAllStockBajo(false)}
+          />
+        )}
       </div>
     </section>
   );
