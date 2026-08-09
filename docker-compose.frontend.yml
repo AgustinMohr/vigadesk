@@ -2,7 +2,7 @@
 services:
   haproxy:
     image: haproxy:3.0-alpine
-    container_name: dan-haproxy
+    container_name: haproxy
     ports:
       - "80:80"
     volumes:
@@ -16,12 +16,13 @@ services:
   # via HAProxy. SPRING_GATEWAY_URL apunta al backend Gateway.
   frontend-ui:
     image: dan-frontend-ui:latest
-    container_name: dan-frontend-ui
+    container_name: frontend-ui
     build:
       context: ./frontend
       dockerfile: Dockerfile
     environment:
-      SPRING_GATEWAY_URL: http://ms-gateway:8080
+      # SPRING_GATEWAY_URL: http://ms-gateway:8080
+      HAPROXY_URL: http://haproxy:80
       SSR_FETCH_URL: http://haproxy
     expose:
       - "3000"

@@ -1,6 +1,10 @@
-// Servicio API para el CRUD de clientes
-import { http } from "./http";
+// ==============================================================
+// SERVICE DE CLIENTES (mismo patrón que obraService.ts)
+// Solo CRUD: la app no tiene búsqueda especial de clientes.
+// ==============================================================
+import { http } from './http';
 
+// Forma de un cliente según el JSON del backend
 export type Cliente = {
   id?: number;
   nombre: string;
@@ -10,7 +14,7 @@ export type Cliente = {
   maxObrasActivas?: number;
 };
 
-const basePath = "/api/clientes";
+const basePath = '/api/clientes';
 
 export const clienteService = {
   getAll: () => http.get<Cliente[]>(basePath),

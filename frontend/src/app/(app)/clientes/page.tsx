@@ -1,7 +1,10 @@
-import ClientesPageClient from "./ClientesPageClient";
+// ==============================================================
+// Página /clientes (Server Component)
+// Mismo patrón que /obras: el server solo monta al Client Component
+// con datos iniciales vacíos; el cliente hace el fetch con reintentos.
+// ==============================================================
+import ClientesPageClient from './ClientesPageClient';
 
-// Server Component: se renderiza en el servidor y envía el HTML al navegador.
-// Pasa un array vacío como initialClientes para que el cliente haga fetch con reintentos.
-export default function ClientesPage() {
+export default function ClientesPage () {
   return <ClientesPageClient initialClientes={[]} />;
 }

@@ -1,14 +1,22 @@
-"use client";
+// ==============================================================
+// COMPONENTE CLIENTE de /productos
+// Es la MISMA estructura que ObrasPageClient.tsx (ver ahí la explicación
+// de useState/useEffect/useMemo/handlers/modales). Particularidades:
+//  - Filtros de búsqueda múltiples: nombre, código, precio y stock (min/max).
+//  - Modal DescuentoModal para aplicar descuento promocional a un producto.
+// ==============================================================
 
-import { useEffect, useMemo, useState } from "react";
-import { productoService, type Producto } from "@/services/productoService";
-import Button from "@/components/Button";
-import ProductoTable from "@/components/ProductoTable";
-import ProductoForm from "@/components/ProductoForm";
-import DescuentoModal from "@/components/DescuentoModal";
-import { useAuth } from "@/lib/auth/AuthContext";
+'use client';
 
-export default function ProductosPageClient({
+import { useEffect, useMemo, useState } from 'react';
+import { productoService, type Producto } from '@/services/productoService';
+import Button from '@/components/Button';
+import ProductoTable from '@/components/ProductoTable';
+import ProductoForm from '@/components/ProductoForm';
+import DescuentoModal from '@/components/DescuentoModal';
+import { useAuth } from '@/lib/auth/AuthContext';
+
+export default function ProductosPageClient ({
   initialProductos,
 }: {
   initialProductos: Producto[];
@@ -16,7 +24,7 @@ export default function ProductosPageClient({
   // Si SSR no trajo datos, reintenta cada 5s hasta obtenerlos
   const [productos, setProductos] = useState<Producto[]>(initialProductos);
   const [loading, setLoading] = useState(initialProductos.length === 0);
-  const [fetchError, setFetchError] = useState("");
+  const [fetchError, setFetchError] = useState('');
 
   useEffect(() => {
     if (initialProductos.length > 0) return;
@@ -43,18 +51,18 @@ export default function ProductosPageClient({
   const [showForm, setShowForm] = useState(false);
   const [selectedProducto, setSelectedProducto] = useState<Producto | undefined>();
   const [productoDescuento, setProductoDescuento] = useState<Producto | null>(null);
-  const [searchNombre, setSearchNombre] = useState("");
-  const [searchCodigo, setSearchCodigo] = useState("");
-  const [searchPrecioMin, setSearchPrecioMin] = useState("");
-  const [searchPrecioMax, setSearchPrecioMax] = useState("");
-  const [searchStockMin, setSearchStockMin] = useState("");
-  const [searchStockMax, setSearchStockMax] = useState("");
+  const [searchNombre, setSearchNombre] = useState('');
+  const [searchCodigo, setSearchCodigo] = useState('');
+  const [searchPrecioMin, setSearchPrecioMin] = useState('');
+  const [searchPrecioMax, setSearchPrecioMax] = useState('');
+  const [searchStockMin, setSearchStockMin] = useState('');
+  const [searchStockMax, setSearchStockMax] = useState('');
 
   // Filtros: aplica SOLO si el usuario escribió algo en el campo correspondiente
   const filteredProductos = useMemo(() => {
     return productos.filter((p) => {
       if (searchNombre && !p.nombre.toLowerCase().includes(searchNombre.toLowerCase())) return false;
-      if (searchCodigo && !(p.codigo ?? "").toLowerCase().includes(searchCodigo.toLowerCase())) return false;
+      if (searchCodigo && !(p.codigo ?? '').toLowerCase().includes(searchCodigo.toLowerCase())) return false;
       if (searchPrecioMin && (p.precio ?? 0) < Number(searchPrecioMin)) return false;
       if (searchPrecioMax && (p.precio ?? 0) > Number(searchPrecioMax)) return false;
       if (searchStockMin && (p.stockActual ?? 0) < Number(searchStockMin)) return false;
@@ -81,7 +89,7 @@ export default function ProductosPageClient({
       const data = await productoService.getAll();
       setProductos(data);
     } catch {
-      setFetchError("No se pudieron cargar los productos.");
+      setFetchError('No se pudieron cargar los productos.');
     }
   };
 
@@ -92,7 +100,7 @@ export default function ProductosPageClient({
       await productoService.delete(producto.id!);
       await refreshProductos();
     } catch {
-      alert("No se pudo eliminar el producto.");
+      alert('No se pudo eliminar el producto.');
     }
   };
 
@@ -130,10 +138,10 @@ export default function ProductosPageClient({
   return (
     <section>
       {/* Encabezado: título y botón crear */}
-      <div className="flex items-center justify-between">
+      <div className='flex items-center justify-between'>
         <div>
-          <h2 className="text-2xl font-semibold">Productos</h2>
-          <p className="mt-2 text-slate-600">
+          <h2 className='text-2xl font-semibold'>Productos</h2>
+          <p className='mt-2 text-slate-600'>
             Gestión del catálogo de productos.
           </p>
         </div>
@@ -141,28 +149,32 @@ export default function ProductosPageClient({
       </div>
 
       {/* Filtros de búsqueda: nombre, código, precio (min/max), stock (min/max) */}
-      <div className="mt-6">
-        <div className="mb-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          <input placeholder="Nombre…" value={searchNombre} onChange={(e) => setSearchNombre(e.target.value)} className="rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none" />
-          <input placeholder="Código…" value={searchCodigo} onChange={(e) => setSearchCodigo(e.target.value)} className="rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none" />
-          <input type="number" placeholder="Precio mín…" value={searchPrecioMin} onChange={(e) => setSearchPrecioMin(e.target.value)} className="rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none" />
-          <input type="number" placeholder="Precio máx…" value={searchPrecioMax} onChange={(e) => setSearchPrecioMax(e.target.value)} className="rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none" />
-          <input type="number" placeholder="Stock mín…" value={searchStockMin} onChange={(e) => setSearchStockMin(e.target.value)} className="rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none" />
-          <input type="number" placeholder="Stock máx…" value={searchStockMax} onChange={(e) => setSearchStockMax(e.target.value)} className="rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none" />
+      <div className='mt-6'>
+        <div className='mb-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3'>
+          <input placeholder='Nombre…' value={searchNombre} onChange={(e) => setSearchNombre(e.target.value)} className='rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none' />
+          <input placeholder='Código…' value={searchCodigo} onChange={(e) => setSearchCodigo(e.target.value)} className='rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none' />
+          <input type='number' placeholder='Precio mín…' value={searchPrecioMin} onChange={(e) => setSearchPrecioMin(e.target.value)} className='rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none' />
+          <input type='number' placeholder='Precio máx…' value={searchPrecioMax} onChange={(e) => setSearchPrecioMax(e.target.value)} className='rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none' />
+          <input type='number' placeholder='Stock mín…' value={searchStockMin} onChange={(e) => setSearchStockMin(e.target.value)} className='rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none' />
+          <input type='number' placeholder='Stock máx…' value={searchStockMax} onChange={(e) => setSearchStockMax(e.target.value)} className='rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none' />
         </div>
 
-        {loading ? (
-          <p className="text-slate-400">Cargando productos…</p>
-        ) : fetchError ? (
-          <p className="text-red-600">{fetchError}</p>
-        ) : (
-          <ProductoTable
-            productos={filteredProductos}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            onAplicarDescuento={handleAplicarDescuento}
-          />
-        )}
+        {loading
+          ? (
+            <p className='text-slate-400'>Cargando productos…</p>
+            )
+          : fetchError
+            ? (
+              <p className='text-red-600'>{fetchError}</p>
+              )
+            : (
+              <ProductoTable
+                productos={filteredProductos}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onAplicarDescuento={handleAplicarDescuento}
+              />
+              )}
       </div>
 
       {showForm && (

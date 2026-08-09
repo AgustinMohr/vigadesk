@@ -1,18 +1,21 @@
-// ESLint flat config: reglas de Next.js (core-web-vitals + TypeScript)
-import { defineConfig, globalIgnores } from "eslint/config";
-import nextVitals from "eslint-config-next/core-web-vitals";
-import nextTs from "eslint-config-next/typescript";
+// ESLint flat config usando Neostandard (el sucesor moderno de StandardJS),
+// pensado para ESLint 9 y compatible con TypeScript de fabrica.
+// Opciones elegidas:
+//  - ts: true   → analiza archivos .ts/.tsx con reglas de TypeScript.
+//  - semi: true → respeta el punto y coma (estilo "semistandard"), no lo borra.
+//  - env        → browser (localStorage/window en el cliente) + node (route.ts).
+//  - ignores    → archivos generados que no queremos lintar.
+import neostandard from 'neostandard';
 
-const eslintConfig = defineConfig([
-  ...nextVitals,
-  ...nextTs,
-  // Override default ignores of eslint-config-next.
-  globalIgnores([
-    ".next/**",
-    "out/**",
-    "build/**",
-    "next-env.d.ts",
-  ]),
-]);
-
-export default eslintConfig;
+export default neostandard({
+  ts: true,
+  semi: true,
+  env: ['browser', 'node'],
+  ignores: [
+    '.next/**',
+    'out/**',
+    'build/**',
+    'next-env.d.ts',
+    'public/**',
+  ],
+});

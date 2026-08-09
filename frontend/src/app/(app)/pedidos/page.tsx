@@ -1,7 +1,9 @@
-import PedidosPageClient from "./PedidosPageClient";
+// ==============================================================
+// Página /pedidos (Server Component)
+// Mismo patrón que /obras: el server solo monta al Client Component.
+// ==============================================================
+import PedidosPageClient from './PedidosPageClient';
 
-// Server Component: se renderiza en el servidor.
-// Pasa array vacío para que el cliente haga fetch con reintentos.
-export default function PedidosPage() {
+export default function PedidosPage () {
   return <PedidosPageClient initialPedidos={[]} />;
 }

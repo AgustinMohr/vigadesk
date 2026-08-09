@@ -1,8 +1,14 @@
-"use client";
+// ==============================================================
+// FORMULARIO DE CLIENTE (modal crear/editar)
+// Mismo patrón que ObraForm.tsx: inputs controlados con useState,
+// validación antes de enviar, y onSubmit(data) avisa al padre.
+// ==============================================================
 
-import { useState } from "react";
-import type { Cliente } from "@/services/clienteService";
-import Button from "./Button";
+'use client';
+
+import { useState } from 'react';
+import type { Cliente } from '@/services/clienteService';
+import Button from './Button';
 
 // Modal formulario para crear o editar un cliente
 type ClienteFormProps = {
@@ -11,37 +17,37 @@ type ClienteFormProps = {
   onCancel: () => void;
 };
 
-export default function ClienteForm({
+export default function ClienteForm ({
   cliente,
   onSubmit,
   onCancel,
 }: ClienteFormProps) {
-  const [nombre, setNombre] = useState(cliente?.nombre ?? "");
+  const [nombre, setNombre] = useState(cliente?.nombre ?? '');
   const [correoElectronico, setCorreoElectronico] = useState(
-    cliente?.correoElectronico ?? ""
+    cliente?.correoElectronico ?? ''
   );
-  const [cuit, setCuit] = useState(cliente?.cuit ?? "");
+  const [cuit, setCuit] = useState(cliente?.cuit ?? '');
   const [maximoDescubierto, setMaximoDescubierto] = useState(
-    cliente?.maximoDescubierto?.toString() ?? ""
+    cliente?.maximoDescubierto?.toString() ?? ''
   );
   const [maxObrasActivas, setMaxObrasActivas] = useState(
-    cliente?.maxObrasActivas?.toString() ?? ""
+    cliente?.maxObrasActivas?.toString() ?? ''
   );
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const isEditing = !!cliente;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    setError('');
 
     if (!nombre.trim() || !correoElectronico.trim()) {
-      setError("Nombre y correo electrónico son obligatorios.");
+      setError('Nombre y correo electrónico son obligatorios.');
       return;
     }
     if (!maxObrasActivas.trim() || Number(maxObrasActivas) < 1) {
-      setError("Las obras activas máximas deben ser al menos 1.");
+      setError('Las obras activas máximas deben ser al menos 1.');
       return;
     }
 
@@ -57,96 +63,96 @@ export default function ClienteForm({
         maxObrasActivas: Number(maxObrasActivas),
       });
     } catch {
-      setError("Ocurrió un error al guardar el cliente.");
+      setError('Ocurrió un error al guardar el cliente.');
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-        <h3 className="mb-4 text-lg font-semibold text-slate-900">
-          {isEditing ? "Editar cliente" : "Nuevo cliente"}
+    <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40'>
+      <div className='w-full max-w-md rounded-lg bg-white p-6 shadow-xl'>
+        <h3 className='mb-4 text-lg font-semibold text-slate-900'>
+          {isEditing ? 'Editar cliente' : 'Nuevo cliente'}
         </h3>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className='space-y-4'>
           <div>
-            <label className="block text-sm font-medium text-slate-700">
-              Nombre <span className="text-red-500">*</span>
+            <label className='block text-sm font-medium text-slate-700'>
+              Nombre <span className='text-red-500'>*</span>
             </label>
             <input
-              type="text"
+              type='text'
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+              className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700">
-              Correo electrónico <span className="text-red-500">*</span>
+            <label className='block text-sm font-medium text-slate-700'>
+              Correo electrónico <span className='text-red-500'>*</span>
             </label>
             <input
-              type="email"
+              type='email'
               value={correoElectronico}
               onChange={(e) => setCorreoElectronico(e.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+              className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700">
+            <label className='block text-sm font-medium text-slate-700'>
               CUIT
             </label>
             <input
-              type="text"
+              type='text'
               value={cuit}
               onChange={(e) => setCuit(e.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+              className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700">
+            <label className='block text-sm font-medium text-slate-700'>
               Descubierto máximo
             </label>
             <input
-              type="number"
+              type='number'
               value={maximoDescubierto}
               onChange={(e) => setMaximoDescubierto(e.target.value)}
               min={10000}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+              className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700">
-              Obras activas máximas <span className="text-red-500">*</span>
+            <label className='block text-sm font-medium text-slate-700'>
+              Obras activas máximas <span className='text-red-500'>*</span>
             </label>
             <input
-              type="number"
+              type='number'
               value={maxObrasActivas}
               onChange={(e) => setMaxObrasActivas(e.target.value)}
               min={1}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+              className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
             />
           </div>
 
           {error && (
-            <p className="text-sm text-red-600">{error}</p>
+            <p className='text-sm text-red-600'>{error}</p>
           )}
 
-          <div className="flex justify-end gap-2 pt-2">
+          <div className='flex justify-end gap-2 pt-2'>
             <Button
-              variant="secondary"
+              variant='secondary'
               onClick={onCancel}
               disabled={submitting}
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={submitting}>
-              {submitting ? "Guardando…" : "Guardar"}
+            <Button type='submit' disabled={submitting}>
+              {submitting ? 'Guardando…' : 'Guardar'}
             </Button>
           </div>
         </form>

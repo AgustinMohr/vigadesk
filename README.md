@@ -1,388 +1,521 @@
-# tp-dan-2024
+# tp-dan-2024 — Sistema de Gestión de Pedidos
 
-Sistema de microservicios con Spring Boot, Next.js y HAProxy. Arquitectura orientada a microservicios con descubrimiento Eureka, API Gateway Spring Cloud Gateway, frontend SSR en Next.js y reverse proxy HAProxy.
-
----
-
-## Arquitectura general
-
-```
-                     ┌───────────────────────────────────────┐
-                     │            HAPROXY :80                │
-                     │  haproxy/haproxy.cfg                  │
-                     │                                       │
-                     │  ¿path_beg /api/?                     │
-                     │       │                               │
-                     │       ├── Sí ──▶ backend gateway_backend
-                     │       │          ms-gateway-svc:8080  │
-                     │       │                               │
-                     │       └── No ──▶ backend next_frontend
-                     │                   frontend-ui:3000    │
-                     └────────────┬─────────────────┬────────┘
-                                  │                 │
-                          ┌───────▼──────┐         │
-                          │  Next.js     │         │
-                          │  :3000       │         │
-                          │              │         │
-                          │ Server Comp. │         │
-                          │ SSR fetch vía│         │
-                          │ HAProxy      │         │
-                          │              │         │
-                          └───────┬──────┘         │
-                                  │                │
-                                  │  SSR fetch:    │
-                                  │  http://haproxy│
-                                  │  /api/clientes │
-                                  ▼                ▼
-                     ┌───────────────────────────────────────┐
-                     │       SPRING GATEWAY :3080            │
-                     │                                       │
-                     │  Routes: /api/**, /clientes/**,       │
-                     │          /productos/**, /pedidos/**   │
-                     │                                       │
-                     │  RewritePath con anclaje ^            │
-                     │  + compression gzip                   │
-                     └──────────────────┬────────────────────┘
-                                        │ lb://
-                                ┌───────▼────────┐
-                                │  Eureka :8761  │
-                                │  Service       │
-                                │  Discovery     │
-                                └───────┬────────┘
-                                        │
-                          ┌─────────────┴──────────────┐
-                          │     Microservicios + DBs    │
-                          │                            │
-                          │  ms-clientes  :6080 (MySQL)│
-                          │  ms-productos :6180 (PgSQL)│
-                          │  ms-pedidos   :6280 (Mongo)│
-                          │  RabbitMQ     :5672        │
-                          └────────────────────────────┘
-```
+Sistema de microservicios para la gestión de clientes, productos y pedidos, con frontend en Next.js, API Gateway con Spring Cloud Gateway, service discovery con Eureka, y reverse proxy con HAProxy.
 
 ---
 
-## Estructura del repositorio
+## 1. Arquitectura general
 
-| Directorio | Rol | Stack | Puerto host |
-|---|---|---|---|
-| `haproxy/` | Reverse proxy / entry point | HAProxy 3.0 | 80 |
-| `frontend/` | UI server-side rendering | Next 16, React 19, Tailwind v4 | 3000 |
-| `dan-gateway/` | API Gateway + Load Balancer | SB 3.2.3, Java 17 | 3080 |
-| `dan-eureka-srv/` | Service Discovery | SB 3.2.5, Java 21 | 8761 |
-| `ms-clientes/` | Microservicio Clientes | SB 3.2.5, Java 21, MySQL | 6080 |
-| `ms-productos/` | Microservicio Productos | SB 3.2.6, Java 21, PostgreSQL | 6180 |
-| `ms-pedidos/` | Microservicio Pedidos | SB 3.2.6, Java 21, MongoDB | 6280 |
+```
+Browser
+  │
+  ▼ :80
+HAProxy ──────────────────────────────────┐
+  │                                       │
+  │ /api/*                                │ default
+  ▼                                       ▼
+Spring Gateway :8080              Next.js :3000
+  │                                       │
+  │ lb:// (Eureka)                        │ SSR fetch
+  ▼                                       ▼
+  ┌─────────────────┐         ┌─────────────────────┐
+  │   ms-clientes   │ ──►     │   ms-productos      │
+  │   Spring 3.2.5  │         │   Spring 3.2.6      │
+  │   MySQL + JPA   │         │   PostgreSQL + JPA  │
+  │   Puerto 6080   │         │   Puerto 6180       │
+  └────────┬────────┘         └──────────┬──────────┘
+           │                             │
+           │              ┌──────────────┴──────────────┐
+           │              │         RabbitMQ             │
+           │              │  stock-update-queue          │
+           │              │  stock-return-queue          │
+           │              └──────────────┬──────────────┘
+           │                             │
+           │              ┌──────────────┴──────────┐
+           │              │      ms-pedidos          │
+           │              │   Spring 3.2.6           │
+           │              │   MongoDB                │
+           │              │   Puerto 6280            │
+           │              └─────────────────────────┘
+           │
+  ┌────────┴────────┐
+  │   Eureka :8761  │
+  └─────────────────┘
+```
+
+Cada microservicio se registra en Eureka al arrancar. El Gateway resuelve las rutas mediante `lb://` (load balancing sobre instancias registradas). La comunicación síncrona entre servicios usa Feign Clients. La comunicación asíncrona usa RabbitMQ.
 
 ---
 
-## Flujo de comunicación
+## 2. Infraestructura (Docker)
 
-El sistema tiene **dos caminos de request** que se separan en HAProxy según la URL:
+### Redes
 
-### Camino A — Páginas UI (no empieza con `/api/`)
+Todos los servicios comparten la red externa `backend-net`, creada manualmente:
 
-El browser navega a `/dashboard`, `/clientes`, etc. HAProxy las reconoce como tráfico que **no** empieza con `/api/` y las envía a Next.js.
-
-```
-Browser → HAProxy:80  (no /api/)  →  Next.js:3000
-                                          │
-                                    Server Component (SSR)
-                                          │
-                              fetch("http://haproxy/api/clientes")
-                                          │  ↓
-                              HAProxy detecta /api/ → Gateway
-                                          │  ↓
-                                    Microservicio → DB
-                                          │
-                                    HTML con datos renderizados
-                                          │
-                              ◀── Browser recibe HTML listo
+```bash
+docker network create backend-net
 ```
 
-Next.js, durante el SSR, hace un fetch a `http://haproxy/api/clientes` usando la variable `SSR_FETCH_URL=http://haproxy`. Esta request **sale por HAProxy** (el tráfico atraviesa el balanceador igual que las API calls del browser), y HAProxy la enruta al Gateway por empezar con `/api/`. **Todo el tráfico pasa por HAProxy.**
+### Composes
 
-Si el backend no está listo aún (primer arranque), el Server Component reintenta hasta 3 veces con pausas de 1.5s. Si aún así falla, el Client Component hace un fetch de respaldo silencioso desde el browser automáticamente.
+| Archivo | Contenido |
+|---|---|
+| `docker-compose.yml` | Backend completo: Eureka, Gateway, 3 microservicios, 3 bases de datos, RabbitMQ |
+| `docker-compose.frontend.yml` | HAProxy + Next.js |
+| `dan-eureka-srv/docker-compose.yml` | Eureka standalone |
+| `dan-gateway/docker-compose.yml` | Gateway standalone |
+| `ms-clientes/docker-compose.yml` | ms-clientes + MySQL |
+| `ms-productos/docker-compose.yml` | ms-productos + PostgreSQL |
+| `ms-pedidos/docker-compose.yml` | ms-pedidos + MongoDB |
 
-### Camino B — Llamadas API (empieza con `/api/`)
+### Dockerfiles
 
-El frontend (ya renderizado en el browser) necesita datos: hace `fetch("/api/clientes")`. Esta llamada sale desde el browser hacia el origen (`localhost:80`), y **HAProxy** la intercepta porque el path empieza con `/api/`.
+**Java (todos los microservicios):** 3 etapas
+1. `maven:3.9.6-eclipse-temurin-17` — descarga dependencias (`dependency:go-offline`)
+2. `maven:3.9.6-eclipse-temurin-17` — compila JAR (`mvn clean package -DskipTests`)
+3. `eclipse-temurin:17-jre-alpine` — ejecuta el JAR
 
-```
-Browser → HAProxy:80  (/api/)  →  Gateway:3080
-                                      │
-                              RewritePath
-                              (^/clientes/ → /api/...)
-                                      │
-                              lb://ms-clientes (via Eureka)
-                                      │
-                              ms-clientes:8080 → MySQL
-                                      │
-                              ◀── JSON response
-```
+**Frontend:** 3 etapas
+1. `node:22-alpine` — `npm ci`
+2. `node:22-alpine` — `npm run build`
+3. `node:22-alpine` — ejecuta `server.js` desde `.next/standalone`
+
+### Healthchecks
+
+Cada base de datos y RabbitMQ tiene healthchecks que los servicios esperan antes de arrancar mediante `depends_on` + `condition: service_healthy`.
 
 ---
 
-## 1. HAProxy — Punto de entrada
+## 3. Service Discovery (Eureka)
 
-**Archivo:** `haproxy/haproxy.cfg`
-
-```haproxy
-frontend http_in
-    bind *:80
-
-    acl is_api path_beg /api/
-    use_backend gateway_backend if is_api
-    default_backend next_frontend
-
-backend next_frontend
-    option httpchk GET /
-    server frontend-ui frontend-ui:3000 check
-
-backend gateway_backend
-    option httpchk GET /actuator/health
-    server gateway ms-gateway-svc:8080 check
-```
-
-**Lógica de enrutamiento:**
-- Si el path comienza con `/api/` → envía al Gateway (`ms-gateway-svc:8080`)
-- Cualquier otra cosa (páginas, assets, etc.) → envía a Next.js (`frontend-ui:3000`)
-- Ambos backends tienen healthcheck para detectar caídas
-
----
-
-## 2. Next.js — UI con Server Components
-
-**Archivo:** `frontend/src/app/(app)/clientes/page.tsx` (ejemplo de Server Component)
-
-```typescript
-async function getInitialClientes(): Promise<Cliente[]> {
-  const baseUrl =
-    process.env.SSR_FETCH_URL
-    ?? process.env.SPRING_GATEWAY_URL
-    ?? "http://localhost:3080";
-
-  for (let i = 0; i < 3; i++) {
-    try {
-      const res = await fetch(`${baseUrl}/api/clientes`);
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) return data;
-      }
-    } catch {
-      if (i < 2) await new Promise((r) => setTimeout(r, 1500));
-    }
-  }
-  return [];
-}
-```
-
-Las páginas de datos usan **Server Components**: el fetch se ejecuta en el servidor durante SSR. Los datos llegan ya renderizados en el HTML. No hay spinner de carga inicial.
-
-El fetch SSR usa `SSR_FETCH_URL=http://haproxy` (en Docker) para que todo el tráfico pase por HAProxy. Incluye 3 reintentos con pausa para cubrir el tiempo de arranque del backend.
-
-Si SSR no pudo obtener datos (back-end no listo), el **Client Component** tiene un `useEffect` de respaldo que hace un fetch silencioso desde el browser automáticamente, sin mostrar loading ni requerir que el usuario refresque:
-
-```typescript
-// ClientesPageClient.tsx
-useEffect(() => {
-    if (initialClientes.length === 0 && !fetchError) {
-        clienteService.getAll()
-            .then(setClientes)
-            .catch(() => setFetchError("No se pudieron cargar los clientes."));
-    }
-}, []);
-```
-
-La interactividad (CRUD, modales, búsqueda) se delega a **Client Components** (`ClientesPageClient.tsx`) que reciben los datos como prop y mantienen toda la lógica interactiva.
-
-### Estructura de rutas UI
-
-```
-/                    → redirect a /dashboard
-/login               → página de login (estática)
-/dashboard           → panel principal
-/clientes            → ABM clientes
-/productos           → ABM productos
-/pedidos             → ABM pedidos
-```
-
-Todas las rutas internas (`dashboard`, `clientes`, `productos`, `pedidos`) están dentro del grupo `(app)`, que aplica el layout con `Navbar` + `Sidebar`. `/login` está fuera del grupo y se renderiza sin navegación.
-
-### Servicios HTTP del frontend
-
-**Archivo:** `frontend/src/services/http.ts`
-
-```typescript
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
-    const response = await fetch(path, {
-        headers: { "Content-Type": "application/json", ...options?.headers },
-        ...options,
-    });
-    if (!response.ok) throw new Error(`Error HTTP ${response.status}`);
-    if (response.status === 204) return undefined as T;
-    return response.json() as Promise<T>;
-}
-```
-
-Servicios específicos que consumen las APIs:
-
-| Archivo | Base path | Métodos |
-|---|---|---|
-| `services/clienteService.ts` | `/api/clientes` | getAll, getById, create, update, delete |
-| `services/obraService.ts` | `/api/obras` | getAll, getById, getByClienteId, getSinAsignar, asignarCliente |
-| `services/productoService.ts` | `/api/productos` | getAll, getById, create, delete |
-| `services/pedidoService.ts` | `/api/pedidos` | getAll, getById, create, delete |
-
-### Proxy route para desarrollo local
-
-**Archivo:** `frontend/src/app/api/[...path]/route.ts`
-
-Cuando se ejecuta `npm run dev` (sin HAProxy), las llamadas a `/api/*` son atrapadas por este catch-all route de Next.js y reenviadas al Gateway. Mapea los recursos a prefijos:
-
-```
-/api/clientes/*   → {gateway}/clientes/api/clientes/*
-/api/obras/*      → {gateway}/clientes/api/obras/*
-/api/productos/*  → {gateway}/productos/api/productos/*
-/api/pedidos/*    → {gateway}/pedidos/api/pedidos/*
-```
-
-En producción con HAProxy, **no se usa**: HAProxy intercepta `/api/*` antes de llegar a Next.js.
-
----
-
-## 3. Spring Gateway — Enrutamiento y balanceo
-
-**Archivo:** `dan-gateway/src/main/resources/application.properties`
-
-### Rutas declarativas
-
-| ID | Predicates (Path) | RewritePath | URI (Eureka) |
-|---|---|---|---|
-| `clientes` | `/clientes/**, /api/clientes/**, /api/obras/**` | `^/clientes/?(?<segment>.*)` → `/$\{segment}` | `lb://ms-clientes` |
-| `productos` | `/productos/**, /api/productos/**` | `^/productos/?(?<segment>.*)` → `/$\{segment}` | `lb://ms-productos` |
-| `pedidos` | `/pedidos/**, /api/pedidos/**` | `^/pedidos/?(?<segment>.*)` → `/$\{segment}` | `lb://MS-PEDIDOS` |
-
-### Cómo funciona el RewritePath
-
-El anclaje `^` al inicio del regex es crítico. Permite que el Gateway acepte requests desde **dos orígenes distintos**:
-
-| Request llega como | ¿Match `^/clientes/`? | Resultado | Origen |
-|---|---|---|---|
-| `/clientes/api/clientes` | Sí → segment=`api/clientes` | `/api/clientes` | Next.js proxy (local dev) |
-| `/api/clientes` | No → sin rewrite | `/api/clientes` | HAProxy directo (producción) |
-
-`lb://` resuelve la dirección real del microservicio consultando a Eureka, permitiendo balanceo entre réplicas.
-
-### Compresión
+`dan-eureka-srv` en puerto **8761**. Servidor standalone (`registerWithEureka=false`).
 
 ```properties
-spring.cloud.gateway.compression.enabled=true
-```
-
-Habilita compresión gzip en las respuestas del Gateway.
-
----
-
-## 4. Eureka — Service Discovery
-
-**Archivo:** `dan-eureka-srv/src/main/resources/application.properties`
-
-```properties
-server.port=${SPRING_EUREKA_PORT}
 eureka.instance.hostname=${SPRING_EUREKA_HOST_NAME}
-eureka.client.registerWithEureka=false
-eureka.client.fetchRegistry=false
+eureka.client.serviceUrl.defaultZone=${SPRING_EUREKA_DEFAULT_ZONE}
 ```
 
-Cada microservicio se registra con el mismo patrón (ej. `ms-clientes/src/main/resources/application.properties`):
-
+Todos los microservicios se registran con:
 ```properties
-eureka.client.serviceUrl.defaultZone=${SPRING_EUREKA_DEFAULT_ZONE}
-eureka.client.initialInstanceInfoReplicationIntervalSeconds=5
-eureka.client.registryFetchIntervalSeconds=5
+eureka.client.serviceUrl.defaultZone=http://ms-eureka:8761/eureka/
 eureka.instance.leaseRenewalIntervalInSeconds=5
 eureka.instance.leaseExpirationDurationInSeconds=5
 ```
 
-Polling cada 5s para renovar lease y actualizar el registro.
+---
 
-El Gateway usa `@EnableDiscoveryClient` + `@LoadBalanced WebClient.Builder` para consumir los servicios registrados via `lb://`.
+## 4. API Gateway (Spring Cloud Gateway)
+
+`dan-gateway` en puerto **3080** (host) → **8080** (container).
+
+### Rutas configuradas
+
+| Ruta externa | URI (Eureka LB) | RewritePath |
+|---|---|---|
+| `/clientes/**`, `/api/clientes/**`, `/api/obras/**` | `lb://ms-clientes` | `/clientes/(.*) → /$1` |
+| `/productos/**`, `/api/productos/**`, `/api/categorias/**` | `lb://ms-productos` | `/productos/(.*) → /$1` |
+| `/pedidos/**`, `/api/pedidos/**` | `lb://ms-pedidos` | `/pedidos/(.*) → /$1` |
+
+El Gateway realiza **load balancing** contra las instancias registradas en Eureka. La compresión GZIP está habilitada globalmente.
 
 ---
 
-## 5. Tabla completa de resolución de rutas
+## 5. HAProxy
 
-| Llamada desde el frontend | ¿HAProxy hacia? | Gateway recibe | ¿Rewrite? | Microservicio recibe |
-|---|---|---|---|---|
-| `GET /api/clientes` | Gateway | `/api/clientes` | No (no empieza con `/clientes`) | `GET /api/clientes` |
-| `GET /api/clientes/5` | Gateway | `/api/clientes/5` | No | `GET /api/clientes/5` |
-| `POST /api/clientes` | Gateway | `/api/clientes` | No | `POST /api/clientes` |
-| `PUT /api/clientes/5` | Gateway | `/api/clientes/5` | No | `PUT /api/clientes/5` |
-| `DELETE /api/clientes/5` | Gateway | `/api/clientes/5` | No | `DELETE /api/clientes/5` |
-| `GET /api/obras` | Gateway | `/api/obras` | No | `GET /api/obras` |
-| `GET /api/obras/sin-asignar` | Gateway | `/api/obras/sin-asignar` | No | `GET /api/obras/sin-asignar` |
-| `PUT /api/obras/3/asignar-cliente/1` | Gateway | `/api/obras/3/asignar-cliente/1` | No | `PUT /api/obras/3/asignar-cliente/1` |
-| `GET /api/productos` | Gateway | `/api/productos` | No | `GET /api/productos` |
-| `POST /api/pedidos` | Gateway | `/api/pedidos` | No | `POST /api/pedidos` |
+Escucha en puerto **80**. Routing:
+
+- `/api/*` → backend `gateway_backend` (Spring Gateway :8080)
+- Cualquier otra ruta → backend `next_frontend` (Next.js :3000)
+
+Healthchecks en ambos backends.
 
 ---
 
-## 6. Docker Compose
+## 6. Microservicios
 
-### `docker-compose.yml` — Backend
+### 6.1 ms-clientes
 
-Servicios: `rabbitmq`, `ms-eureka-svc`, `mysql`, `ms-clientes-svc`, `pg-dan`, `ms-productos-svc`, `mongo-dan`, `ms-pedidos-svc`, `ms-gateway-svc`.
+| Atributo | Valor |
+|---|---|
+| Framework | Spring Boot 3.2.5 |
+| Java | 21 |
+| Base de datos | MySQL 8.0 — `dandb` |
+| Tablas | `MS_CLI_CLIENTE`, `MS_CLI_OBRA` |
+| Puerto | 6080 (host) : 8080 (container) |
 
-Todos en red `backend-net` (external, creada previamente). Healthchecks encadenados para garantizar orden de arranque.
+**Modelos:**
 
-### `docker-compose.frontend.yml` — Frontend + HAProxy
+```java
+// Cliente
+id: Integer, nombre: String, correoElectronico: String,
+cuit: String, maximoDescubierto: BigDecimal, maxObrasActivas: Integer
 
-```yaml
-haproxy:
-    image: haproxy:3.0-alpine
-    ports: ["80:80"]
-    volumes: ["./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro"]
-    depends_on: [frontend-ui]
-    networks: [backend-net]
-
-frontend-ui:
-    build: ./frontend
-    environment:
-        SPRING_GATEWAY_URL: http://ms-gateway-svc:8080
-        SSR_FETCH_URL: http://haproxy
-    expose: ["3000"]
-    networks: [backend-net]
+// Obra
+id: Integer, direccion: String, lat: float, lng: float,
+cliente: @ManyToOne, presupuesto: BigDecimal,
+estado: EstadoObra (HABILITADA | PENDIENTE | FINALIZADA)
 ```
 
-Dos variables de entorno controlan las URLs de conexión:
-- `SPRING_GATEWAY_URL=http://ms-gateway-svc:8080` — usada por el proxy route de Next.js (`api/[...path]/route.ts`) en desarrollo local sin HAProxy
-- `SSR_FETCH_URL=http://haproxy` — usada por los Server Components para que el fetch SSR también pase por HAProxy
+**Endpoints:**
+
+| Método | Path | Descripción |
+|---|---|---|
+| GET | `/api/clientes` | Listar todos |
+| GET | `/api/clientes/{id}` | Obtener por ID |
+| POST | `/api/clientes` | Crear |
+| PUT | `/api/clientes/{id}` | Actualizar |
+| DELETE | `/api/clientes/{id}` | Eliminar |
+| GET | `/api/clientes/{id}/saldo?monto=X` | Verificar si monto ≤ maximoDescubierto |
+| GET | `/api/clientes/{id}/maximo-descubierto` | Obtener máximo descubierto |
+| GET | `/api/obras` | Listar obras |
+| GET | `/api/obras/sin-asignar` | Obras sin cliente |
+| GET | `/api/obras/by-cliente/{id}` | Obras de un cliente |
+| POST | `/api/obras` | Crear obra |
+| PUT | `/api/obras/{id}/asignar-cliente/{clienteId}` | Asignar obra a cliente |
+| PUT | `/api/obras/{id}/estado` | Cambiar estado |
+
+**Lógica de negocio:**
+- Al asignar una obra a un cliente, se verifica que no supere `maxObrasActivas`
+- `checkSaldo` compara el monto acumulado de pedidos contra `maximoDescubierto`
+- `@LogExecutionTime` via AOP registra tiempos de ejecución en logs
+
+### 6.2 ms-productos
+
+| Atributo | Valor |
+|---|---|
+| Framework | Spring Boot 3.2.6 |
+| Java | 21 |
+| Base de datos | PostgreSQL 17 — `pg-dan` |
+| Tabla | `ms_prd_producto` (schema vía `schema-productos.sql`) |
+| Puerto | 6180 (host) : 8080 (container) |
+
+**Modelos:**
+
+```java
+// Producto
+id: Long, codigo: String, nombre: String, descripcion: String,
+stockActual: int, stockMinimo: int, precio: BigDecimal,
+descuentoPromocional: BigDecimal, categoria: Categoria (enum)
+
+// Categoria: CEMENTOS | PLACAS | PERFILES | MORTEROS | YESERIA
+```
+
+**Endpoints:**
+
+| Método | Path | Descripción |
+|---|---|---|
+| GET | `/api/productos` | Listar todos |
+| GET | `/api/productos/{id}` | Obtener por ID |
+| POST | `/api/productos` | Crear |
+| PUT | `/api/productos/{id}` | Actualizar |
+| DELETE | `/api/productos/{id}` | Eliminar |
+| GET | `/api/productos/search` | Buscar por nombre, código, precio, stock |
+| PUT | `/api/productos/stock/check` | Verificar disponibilidad de stock |
+| PUT | `/api/productos/provision` | Procesar provisión de stock |
+| PUT | `/api/productos/{id}/descuento` | Aplicar descuento promocional |
+| GET | `/api/categorias` | Listar categorías |
+
+**RabbitMQ:** Envía mensajes a `stock-update-queue` con formato `"{idProducto};{cantidad}"` al procesar una provisión.
+
+### 6.3 ms-pedidos
+
+| Atributo | Valor |
+|---|---|
+| Framework | Spring Boot 3.2.6 |
+| Java | 21 |
+| Base de datos | MongoDB — `pedidosdb` |
+| Colección | `pedidos` |
+| Puerto | 6280 (host) : 8080 (container) |
+
+**Modelos:**
+
+```java
+// Pedido
+id: String (MongoDB _id), fecha: Instant, numeroPedido: Integer,
+usuario: String, observaciones: String,
+cliente: Cliente (embebido), obra: Obra (embebido),
+total: BigDecimal, estado: EstadoPedido,
+detalle: List<DetallePedido>
+
+// DetallePedido
+producto: Producto (embebido), cantidad: Integer,
+precioUnitario: BigDecimal, descuento: BigDecimal,
+precioFinal: BigDecimal
+
+// EstadoPedido: RECIBIDO → ACEPTADO → EN_PREPARACION → ENTREGADO
+//                                       ↘ CANCELADO / RECHAZADO
+```
+
+**Endpoints:**
+
+| Método | Path | Descripción |
+|---|---|---|
+| GET | `/api/pedidos` | Listar todos |
+| GET | `/api/pedidos/search` | Buscar por cliente/estado |
+| GET | `/api/pedidos/{id}` | Obtener por ID |
+| POST | `/api/pedidos` | Crear |
+| PATCH | `/api/pedidos/{id}/estado` | Actualizar estado (ENTREGADO | CANCELADO) |
+| DELETE | `/api/pedidos/{id}` | Eliminar |
+
+**Feign Clients:**
+
+```java
+// Comunicación con ms-clientes
+@FeignClient(name = "ms-clientes")
+interface ClienteFeignClient {
+    @GetMapping("/api/clientes/{id}/maximo-descubierto")
+    BigDecimal getMaximoDescubierto(@PathVariable Integer id);
+
+    @GetMapping("/api/clientes/{id}/saldo")
+    Boolean checkSaldo(@PathVariable Integer id, @RequestParam BigDecimal monto);
+}
+
+// Comunicación con ms-productos
+@FeignClient(name = "ms-productos")
+interface ProductoFeignClient {
+    @PutMapping("/api/productos/stock/check")
+    Boolean checkStock(@RequestBody List<StockUpdateDTO> items);
+}
+```
+
+**Flujo de creación de pedido:**
+
+```
+POST /api/pedidos
+  │
+  ├─ 1. Calcular total = Σ(producto.precio × cantidad)
+  │
+  ├─ 2. Consultar maximoDescubierto del cliente (Feign → ms-clientes)
+  │     └─ Si error → RECIBIDO (pendiente de validación)
+  │
+  ├─ 3. Sumar totales de pedidos ACEPTADOS + EN_PREPARACION del cliente
+  │
+  ├─ 4. Verificar saldo: (gastado + nuevoTotal) ≤ maximoDescubierto
+  │     └─ Si supera → RECHAZADO
+  │
+  ├─ 5. Si ok → ACEPTADO
+  │
+  ├─ 6. Verificar stock (Feign → ms-productos)
+  │     └─ Si hay stock → EN_PREPARACION y enviar mensaje a stock-update-queue
+  │     └─ Si no → queda en ACEPTADO
+  │
+  └─ 7. Guardar en MongoDB
+```
+
+**Manejo de cancelación:** Al cancelar un pedido (PATCH a ENTREGADO o CANCELADO), se envía un mensaje a `stock-return-queue` para reponer el stock de cada producto.
 
 ---
 
-## 7. RabbitMQ — Comunicación asíncrona
+## 7. Comunicación entre servicios
 
-Cola durable `stock-update-queue` compartida entre `ms-pedidos` (productor) y `ms-productos` (consumidor). Al crear un pedido, `ms-pedidos` envía mensajes `"idProducto;cantidad"` a la cola; `ms-productos` los consume para actualizar stock.
+| Tipo | Mecanismo | Origen → Destino | Propósito |
+|---|---|---|---|
+| Síncrono | Feign Client + Eureka | ms-pedidos → ms-clientes | Consultar máximo descubierto y saldo |
+| Síncrono | Feign Client + Eureka | ms-pedidos → ms-productos | Verificar disponibilidad de stock |
+| Asíncrono | RabbitMQ (AMQP) | ms-productos → `stock-update-queue` | Notificar actualización de stock |
+| Asíncrono | RabbitMQ (AMQP) | ms-pedidos → `stock-update-queue` | Descontar stock al crear pedido |
+| Asíncrono | RabbitMQ (AMQP) | ms-pedidos → `stock-return-queue` | Reponer stock al cancelar pedido |
+
+### RabbitMQ
+
+Configuración idéntica en `ms-productos` y `ms-pedidos`:
+
+```java
+@Configuration
+public class RabbitMQConfig {
+    public static final String STOCK_UPDATE_QUEUE = "stock-update-queue";
+    public static final String STOCK_RETURN_QUEUE = "stock-return-queue";
+
+    @Bean
+    public Queue stockUpdateQueue() { return new Queue(STOCK_UPDATE_QUEUE, true); }
+
+    @Bean
+    public Queue stockReturnQueue() { return new Queue(STOCK_RETURN_QUEUE, true); }
+}
+```
+
+Los mensajes tienen formato `"{idProducto};{cantidad}"` (ej: `"42;5"`).
 
 ---
 
-## 8. Comandos
+## 8. Frontend (Next.js 16 + React 19 + Tailwind v4)
+
+### Estructura del proyecto
+
+```
+frontend/src/
+├── app/
+│   ├── layout.tsx              # Layout raíz (fonts, metadata)
+│   ├── page.tsx                # Redirige a /dashboard
+│   ├── login/page.tsx          # Página de login
+│   ├── (app)/
+│   │   ├── layout.tsx          # Layout interno (AuthLayout wrapper)
+│   │   ├── AuthLayout.tsx      # AuthProvider + AuthGuard + Navbar + Sidebar
+│   │   ├── dashboard/          # Dashboard con resumen + stock bajo
+│   │   ├── clientes/           # CRUD clientes
+│   │   ├── productos/          # CRUD productos
+│   │   └── pedidos/            # CRUD pedidos
+│   └── api/[...path]/route.ts  # Proxy → Spring Gateway
+├── components/                 # Button, Tablas, Modales, Navbar, Sidebar
+├── services/                   # http.ts, clienteService, productoService, pedidoService, obraService
+├── hooks/                      # useSort
+└── lib/
+    └── auth/                   # AuthContext, types, testUsers
+```
+
+### Proxy API
+
+`frontend/src/app/api/[...path]/route.ts` captura todas las rutas `/api/*` y las reenvía al Spring Gateway:
+
+| Ruta frontend | Ruta gateway |
+|---|---|
+| `/api/clientes/*` | `/clientes/api/clientes/*` |
+| `/api/obras/*` | `/clientes/api/obras/*` |
+| `/api/productos/*` | `/productos/api/productos/*` |
+| `/api/categorias/*` | `/productos/api/categorias/*` |
+| `/api/pedidos/*` | `/pedidos/api/pedidos/*` |
+
+La URL base se configura via `SPRING_GATEWAY_URL` (default `http://localhost:3080`). El Server-Side Rendering usa `SSR_FETCH_URL` (default `http://haproxy`) para que las peticiones SSR no pasen por HAProxy y eviten ciclos.
+
+### Autenticación
+
+Sistema de autenticación client-side usando React Context + localStorage. Dos roles:
+
+| Rol | Permisos |
+|---|---|
+| ADMIN | CRUD completo en todas las entidades |
+| GUEST | Solo lectura (Ver detalle, navegar tablas) |
+
+**Usuarios de prueba:**
+
+| Email | Contraseña | Rol |
+|---|---|---|
+| `admin@example.com` | `admin123` | ADMIN |
+| `guest@example.com` | `guest123` | GUEST |
+
+El `AuthGuard` en `AuthLayout.tsx` redirige a `/login` si no hay sesión. Los botones de crear, editar, eliminar y acciones especiales se ocultan condicionalmente con `{isAdmin && <Button>}`.
+
+---
+
+## 9. Bases de datos
+
+| Servicio | Motor | Puerto | Base de datos | Usuario | Password |
+|---|---|---|---|---|---|
+| ms-clientes | MySQL 8.0 | 3306 | `dandb` | `danuser` | `danpassword` |
+| ms-productos | PostgreSQL 17 | 5432 | `pg-dan` | `pguser` | `pgpassword` |
+| ms-pedidos | MongoDB | 27017 | `pedidosdb` | `root` | `dan` |
+
+### Esquemas
+
+**MySQL (ms-clientes):** Tablas `MS_CLI_CLIENTE` y `MS_CLI_OBRA` creadas por JPA (`ddl-auto: update`).
+
+**PostgreSQL (ms-productos):** Tabla `ms_prd_producto` creada por `schema-productos.sql`. Datos de prueba insertados por `test-data-productos.sql`.
+
+**MongoDB (ms-pedidos):** Colección `pedidos` sin esquema fijo. Inicialización vía `mongo-init-pedidos.js`.
+
+---
+
+## 10. Monitoreo y métricas
+
+| Servicio | Prometheus | Actuator | Graylog | Zipkin | AOP |
+|---|---|---|---|---|---|
+| ms-clientes | ✔ | ✔ | ✔ (GELF) | ✗ (comentado) | ✔ `@LogExecutionTime` |
+| ms-productos | ✔ | ✔ | ✔ (GELF) | ✔ | ✔ `@LogExecutionTime` |
+| ms-pedidos | ✔ | ✔ | ✔ (GELF) | ✗ | ✗ |
+| dan-gateway | ✔ | ✔ | ✗ | ✗ | ✗ |
+
+Endpoints expuestos: `/actuator/health`, `/actuator/metrics`, `/actuator/prometheus`.
+
+---
+
+## 11. Testing
+
+| Servicio | Framework | Base de datos test | Containers | Cobertura |
+|---|---|---|---|---|
+| ms-clientes | JUnit 5 + Testcontainers | H2 (default), MySQL (testcontainers) | MySQL | JaCoCo ≥ 80% |
+| ms-productos | JUnit 5 + Testcontainers | H2 (default) | PostgreSQL, RabbitMQ | JaCoCo ≥ 80% |
+| ms-pedidos | JUnit 5 + Testcontainers | MongoDB (testcontainers) | MongoDB, RabbitMQ | JaCoCo ≥ 80% |
+
+El perfil de test deshabilita Eureka (`eureka.client.enabled=false`) y RabbitMQ listener (`spring.rabbitmq.listener.simple.auto-startup=false`).
+
+---
+
+## 12. Cómo ejecutar
+
+### Prerequisito único
 
 ```bash
-# Prerrequisito (una sola vez)
 docker network create backend-net
+```
 
-# Backend completo
+### Backend completo
+
+```bash
 docker compose -f docker-compose.yml up --build
+```
 
-# Frontend + HAProxy
+### Frontend + HAProxy
+
+(Requiere el backend corriendo)
+
+```bash
 docker compose -f docker-compose.frontend.yml up --build
+```
 
-# Frontend en desarrollo local (sin Docker, sin HAProxy)
+### Servicio individual sin Docker
+
+```bash
+cd ms-clientes   # o ms-productos, ms-pedidos, dan-eureka-srv, dan-gateway
+./mvnw clean package -DskipTests
+java -jar target/*.jar
+```
+
+### Frontend en modo desarrollo
+
+```bash
 cd frontend
 npm run dev
-
-# Build individual de un microservicio
-cd ms-clientes && ./mvnw clean package -DskipTests
 ```
+
+---
+
+## 13. Variables de entorno
+
+Cada microservicio usa placeholders `${SPRING_*}` en `application.properties`. No hay valores default en los properties — todo se configura por entorno.
+
+| Variable | Servicio | Propósito |
+|---|---|---|
+| `SPRING_DATASOURCE_URL` | ms-clientes, ms-productos | URL JDBC de la base de datos |
+| `SPRING_DATASOURCE_USERNAME` | ms-clientes, ms-productos | Usuario de base de datos |
+| `SPRING_DATASOURCE_PASSWORD` | ms-clientes, ms-productos | Password de base de datos |
+| `SPRING_JPA_HIBERNATE_DDL_AUTO` | ms-clientes | Estrategia DDL (update) |
+| `SPRING_JPA_DATABASE_PLATFORM` | ms-clientes, ms-productos | Dialect Hibernate |
+| `SPRING_DATA_MONGODB_URL` | ms-pedidos | URI de conexión MongoDB |
+| `SPRING_RABBITMQ_HOST` | ms-clientes, ms-productos, ms-pedidos | Host RabbitMQ |
+| `SPRING_RABBITMQ_PORT` | ms-clientes, ms-productos, ms-pedidos | Puerto RabbitMQ |
+| `SPRING_EUREKA_DEFAULT_ZONE` | Todos | URL de Eureka server |
+| `SPRING_EUREKA_HOST_NAME` | dan-eureka-srv | Hostname de Eureka |
+| `SPRING_EUREKA_PORT` | dan-eureka-srv | Puerto de Eureka |
+| `SPRING_GATEWAY_URL` | frontend | URL base del Gateway para el proxy |
+| `SSR_FETCH_URL` | frontend | URL base para SSR fetches |
+| `JAVA_TOOL_OPTIONS` | Todos | Memory limits (`-Xms`, `-Xmx`) |
+
+---
+
+## 14. Puertos expuestos
+
+| Servicio | Puerto interno | Puerto host |
+|---|---|---|
+| HAProxy | 80 | 80 |
+| Next.js | 3000 | — (via HAProxy) |
+| Spring Gateway | 8080 | 3080 |
+| Eureka | 8761 | 8761 |
+| ms-clientes | 8080 | 6080 |
+| ms-productos | 8080 | 6180 |
+| ms-pedidos | 8080 | 6280 |
+| MySQL | 3306 | 3306 |
+| PostgreSQL | 5432 | 5432 |
+| MongoDB | 27017 | 27017 |
+| RabbitMQ (AMQP) | 5672 | 5672 |
+| RabbitMQ (Management) | 15672 | 15672 |

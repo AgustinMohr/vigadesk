@@ -1,7 +1,14 @@
-// Servicio API para el CRUD de pedidos
-// Incluye búsqueda por nombre de cliente y estado, y actualización de estado vía PATCH
-import { http } from "./http";
+// ==============================================================
+// SERVICE DE PEDIDOS (mismo patrón que obraService.ts)
+// --------------------------------------------------------------
+// Tipos: un pedido tiene cliente + obra + lista de detalle (productos
+// con cantidad/precio/descuento). `SearchParams` incluye `clienteId`
+// para que el usuario CLIENTE vea solo los pedidos de SU empresa
+// (el frontend filtra por clienteId al llamar a search()).
+// ==============================================================
+import { http } from './http';
 
+// Info mínima del cliente/obra/producto dentro del pedido
 export type ClienteInfo = {
   id: number;
   nombre: string;
@@ -30,7 +37,7 @@ export type DetallePedido = {
 };
 
 export type Pedido = {
-  id?: string;
+  id?: string; // MongoDB → el id es un string, no number
   fecha?: string;
   numeroPedido?: number;
   usuario?: string;
@@ -45,16 +52,20 @@ export type Pedido = {
 export type SearchParams = {
   clienteNombre?: string;
   estado?: string;
+  clienteId?: number;
 };
 
-const basePath = "/api/pedidos";
+const basePath = '/api/pedidos';
 
-function buildSearchQuery(params: SearchParams): string {
+// Arma la query string (?clienteId=1&estado=...) de forma segura
+// (URLSearchParams escapa caracteres especiales).
+function buildSearchQuery (params: SearchParams): string {
   const query = new URLSearchParams();
-  if (params.clienteNombre) query.set("clienteNombre", params.clienteNombre);
-  if (params.estado) query.set("estado", params.estado);
+  if (params.clienteNombre) query.set('clienteNombre', params.clienteNombre);
+  if (params.estado) query.set('estado', params.estado);
+  if (params.clienteId != null) query.set('clienteId', String(params.clienteId));
   const qs = query.toString();
-  return qs ? `?${qs}` : "";
+  return qs ? `?${qs}` : '';
 }
 
 export const pedidoService = {
