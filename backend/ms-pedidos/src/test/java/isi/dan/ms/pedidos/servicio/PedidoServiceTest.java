@@ -22,6 +22,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Query;
 
 import isi.dan.ms.pedidos.conf.RabbitMQConfig;
 import isi.dan.ms.pedidos.dao.PedidoRepository;
@@ -38,6 +40,9 @@ class PedidoServiceTest {
 
     @Mock
     private PedidoRepository pedidoRepository;
+
+    @Mock
+    private MongoTemplate mongoTemplate;
 
     @Mock
     private RabbitTemplate rabbitTemplate;
@@ -94,6 +99,26 @@ class PedidoServiceTest {
         Pedido result = pedidoService.savePedido(pedido);
 
         assertThat(result.getTotal()).isEqualByComparingTo(BigDecimal.valueOf(5000));
+    }
+
+    @Test
+    void savePedido_ShouldCalculateLineAmountsWithDiscount() {
+        producto.setDescuentoPromocional(BigDecimal.valueOf(10));
+        when(clienteFeignClient.getMaximoDescubierto(1)).thenReturn(BigDecimal.valueOf(100000));
+        when(clienteFeignClient.checkSaldo(any(), any())).thenReturn(true);
+        when(pedidoRepository.findByCliente_IdAndEstadoInActivos(any(), any()))
+                .thenReturn(Collections.emptyList());
+        when(productoFeignClient.checkStock(any())).thenReturn(true);
+        when(pedidoRepository.save(any(Pedido.class))).thenAnswer(i -> i.getArgument(0));
+
+        Pedido result = pedidoService.savePedido(pedido);
+
+        // 1000 * 5 * (1 - 0.10) = 4500 por línea y como total
+        DetallePedido linea = result.getDetalle().get(0);
+        assertThat(linea.getPrecioUnitario()).isEqualByComparingTo(BigDecimal.valueOf(1000));
+        assertThat(linea.getDescuento()).isEqualByComparingTo(BigDecimal.valueOf(10));
+        assertThat(linea.getPrecioFinal()).isEqualByComparingTo(BigDecimal.valueOf(4500));
+        assertThat(result.getTotal()).isEqualByComparingTo(BigDecimal.valueOf(4500));
     }
 
     @Test
@@ -330,5 +355,42 @@ class PedidoServiceTest {
         pedidoService.deletePedido("1");
 
         verify(pedidoRepository, never()).save(any(Pedido.class));
+    }
+
+    @Test
+    void searchPedidos_ByClienteId_ShouldReturnPedidos() {
+        when(mongoTemplate.find(any(Query.class), eq(Pedido.class))).thenReturn(Collections.singletonList(pedido));
+
+        List<Pedido> result = pedidoService.searchPedidos(null, null, 1);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getCliente().getId()).isEqualTo(1);
+    }
+
+    @Test
+    void searchPedidos_ByEstado_ShouldReturnPedidos() {
+        when(mongoTemplate.find(any(Query.class), eq(Pedido.class))).thenReturn(Collections.singletonList(pedido));
+
+        List<Pedido> result = pedidoService.searchPedidos(null, EstadoPedido.ENTREGADO, null);
+
+        assertThat(result).hasSize(1);
+    }
+
+    @Test
+    void searchPedidos_ByClienteNombre_ShouldReturnPedidos() {
+        when(mongoTemplate.find(any(Query.class), eq(Pedido.class))).thenReturn(Collections.singletonList(pedido));
+
+        List<Pedido> result = pedidoService.searchPedidos("Constructora", null, null);
+
+        assertThat(result).hasSize(1);
+    }
+
+    @Test
+    void searchPedidos_SinFiltros_ShouldReturnPedidos() {
+        when(mongoTemplate.find(any(Query.class), eq(Pedido.class))).thenReturn(Collections.singletonList(pedido));
+
+        List<Pedido> result = pedidoService.searchPedidos(null, null, null);
+
+        assertThat(result).hasSize(1);
     }
 }

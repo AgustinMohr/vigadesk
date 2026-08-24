@@ -1,18 +1,18 @@
 package isi.dan.msclientes.controller;
 
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import isi.dan.msclientes.aop.LogExecutionTime;
+import isi.dan.msclientes.exception.ObraNotFoundException;
 import isi.dan.msclientes.model.EstadoObra;
 import isi.dan.msclientes.model.Obra;
 import isi.dan.msclientes.servicios.ObraService;
-
-import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/obras")
@@ -42,58 +42,43 @@ public class ObraController {
     @GetMapping("/{id}")
     @LogExecutionTime
     public ResponseEntity<Obra> getById(@PathVariable Integer id) {
-        Optional<Obra> obra = obraService.findById(id);
-        return obra.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+        Obra obra = obraService.findById(id)
+                .orElseThrow(() -> new ObraNotFoundException("Obra " + id + " no encontrada"));
+        return ResponseEntity.ok(obra);
     }
 
     @PostMapping
-    public ResponseEntity<?> create(@RequestBody Obra obra) {
-        try {
-            Obra saved = obraService.save(obra);
-            return ResponseEntity.ok(saved);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+    public ResponseEntity<Obra> create(@RequestBody @Validated Obra obra) {
+        return ResponseEntity.ok(obraService.save(obra));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Obra> update(@PathVariable Integer id, @RequestBody Obra obra) {
-        if (!obraService.findById(id).isPresent()) {
-            return ResponseEntity.notFound().build();
-        }
-        obra.setId(id);
+    public ResponseEntity<Obra> update(@PathVariable Integer id, @RequestBody @Validated Obra obra) {
+        Obra existente = obraService.findById(id)
+                .orElseThrow(() -> new ObraNotFoundException("Obra " + id + " no encontrada"));
+        obra.setId(existente.getId());
         return ResponseEntity.ok(obraService.update(obra));
     }
 
     @PutMapping("/{obraId}/asignar-cliente/{clienteId}")
-    public ResponseEntity<?> asignarCliente(@PathVariable Integer obraId, @PathVariable Integer clienteId) {
-        try {
-            Obra obra = obraService.asignarCliente(obraId, clienteId);
-            return ResponseEntity.ok(obra);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+    public ResponseEntity<Obra> asignarCliente(@PathVariable Integer obraId, @PathVariable Integer clienteId) {
+        return ResponseEntity.ok(obraService.asignarCliente(obraId, clienteId));
     }
 
     @PutMapping("/{id}/estado")
-    public ResponseEntity<?> cambiarEstado(@PathVariable Integer id, @RequestBody Map<String, String> body) {
-        try {
-            EstadoObra nuevoEstado = EstadoObra.valueOf(body.get("estado"));
-            Obra obra = obraService.cambiarEstado(id, nuevoEstado);
-            return ResponseEntity.ok(obra);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Estado no valido: " + body.get("estado")));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+    public ResponseEntity<Obra> cambiarEstado(@PathVariable Integer id, @RequestBody Map<String, String> body) {
+        String estado = body.get("estado");
+        if (estado == null || estado.isBlank()) {
+            throw new IllegalArgumentException("El campo 'estado' es obligatorio");
         }
+        return ResponseEntity.ok(obraService.cambiarEstado(id, EstadoObra.valueOf(estado.toUpperCase())));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Integer id) {
-        if (!obraService.findById(id).isPresent()) {
-            return ResponseEntity.notFound().build();
-        }
-        obraService.deleteById(id);
+        Obra obra = obraService.findById(id)
+                .orElseThrow(() -> new ObraNotFoundException("Obra " + id + " no encontrada"));
+        obraService.deleteById(obra.getId());
         return ResponseEntity.noContent().build();
     }
 }

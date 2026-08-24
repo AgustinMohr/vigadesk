@@ -10,9 +10,9 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import lombok.Data;
 
 @Entity
@@ -35,7 +35,7 @@ public class Cliente {
     private String cuit;
 
     @Column(name="MAXIMO_DESCUBIERTO")
-    @Min(value = 10000, message = "El descubierto maximo debe ser al menos 10000")
+    @Positive(message = "El descubierto maximo debe ser un valor mayor que cero")
     private BigDecimal maximoDescubierto;
 
     @NotNull(message = "El maximo de obras activas es obligatorio")

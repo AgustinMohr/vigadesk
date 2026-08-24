@@ -1,31 +1,53 @@
-# Compiled class file
+# ============================================================================
+# tp-dan-2024 - Git Ignore
+# ============================================================================
+
+# ==== Java / Maven ====
+target/
 *.class
-
-# Log file
-*.log
-
-# BlueJ files
-*.ctxt
-
-# Mobile Tools for Java (J2ME)
-.mtj.tmp/
-
-# Package Files #
 *.jar
 *.war
 *.nar
 *.ear
+*.ctxt
+*.mvn/wrapper/maven-wrapper.jar
+
+# ==== Node.js / Next.js ====
+node_modules/
+.next/
+out/
+dist/
+*.tsbuildinfo
+next-env.d.ts
+npm-debug.log*
+yarn-error.log*
+
+# ==== Variables de entorno / secretos ====
+.env
+.env.*
+!.env.example
+
+# ==== IDE / editores ====
+.idea/
+*.iml
+.vscode/*
+!.vscode/settings.json
+
+# ==== Sistema operativo ====
+.DS_Store
+Thumbs.db
+
+# ==== Logs ====
+*.log
+hs_err_pid*
+replay_pid*
+
+# ==== Empaguetados / comprimidos ====
 *.zip
 *.tar.gz
 *.rar
 
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
-hs_err_pid*
-replay_pid*
-
-.DS_Store
-
-#Archivos
+# ==== Archivos locales del proyecto ====
 AGENTS.md
 "comandos e ips.txt"
 opencode.json

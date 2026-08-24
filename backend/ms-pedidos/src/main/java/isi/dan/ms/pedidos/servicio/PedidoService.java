@@ -45,9 +45,23 @@ public class PedidoService {
     Logger log = LoggerFactory.getLogger(PedidoService.class);
 
     public Pedido savePedido(Pedido pedido) {
-        BigDecimal total = pedido.getDetalle().stream()
-                .map(d -> d.getProducto().getPrecio().multiply(BigDecimal.valueOf(d.getCantidad())))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        // Monto de cada línea y total del pedido: por línea se calcula
+        // precioFinal = precioUnitario * cantidad * (1 - descuento/100).
+        BigDecimal total = BigDecimal.ZERO;
+        for (DetallePedido detalle : pedido.getDetalle()) {
+            BigDecimal precioUnitario = detalle.getProducto().getPrecio();
+            BigDecimal descuento = detalle.getProducto().getDescuentoPromocional() != null
+                    ? detalle.getProducto().getDescuentoPromocional()
+                    : BigDecimal.ZERO;
+            BigDecimal precioFinal = precioUnitario
+                    .multiply(BigDecimal.valueOf(detalle.getCantidad()))
+                    .multiply(BigDecimal.ONE.subtract(descuento.divide(BigDecimal.valueOf(100))));
+
+            detalle.setPrecioUnitario(precioUnitario);
+            detalle.setDescuento(descuento);
+            detalle.setPrecioFinal(precioFinal);
+            total = total.add(precioFinal);
+        }
         pedido.setTotal(total);
         pedido.setFecha(Instant.now());
         pedido.setNumeroPedido(Math.abs((int) (Instant.now().toEpochMilli() % 1000000)));

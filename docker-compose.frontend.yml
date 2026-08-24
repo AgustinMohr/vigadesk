@@ -6,7 +6,7 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - ./frontend/haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     depends_on:
       - frontend-ui
     networks:
@@ -18,10 +18,9 @@ services:
     image: dan-frontend-ui:latest
     container_name: frontend-ui
     build:
-      context: ./frontend
+      context: ./frontend/ui
       dockerfile: Dockerfile
     environment:
-      # SPRING_GATEWAY_URL: http://ms-gateway:8080
       HAPROXY_URL: http://haproxy:80
       SSR_FETCH_URL: http://haproxy
     expose:

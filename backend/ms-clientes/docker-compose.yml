@@ -3,10 +3,10 @@ services:
     image: mysql:8.0
     container_name: mysql-db
     environment:
-      MYSQL_ROOT_PASSWORD: danrootpassword
-      MYSQL_DATABASE: dandb
-      MYSQL_USER: danuser
-      MYSQL_PASSWORD: danpassword
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-danrootpassword}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-dandb}
+      MYSQL_USER: ${MYSQL_USER:-danuser}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-danpassword}
     ports:
       - "3306:3306"
     volumes:
@@ -18,15 +18,17 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/dandb
-      SPRING_DATASOURCE_USERNAME: danuser
-      SPRING_DATASOURCE_PASSWORD: danpassword
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-dandb}
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-danuser}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-danpassword}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.MySQL8Dialect
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-guest}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
       SPRING_EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/
-      JWT_SECRET: dan-2024-super-secreto-jwt-para-el-tp-de-apps-en-la-nube-abc123
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me-1234567890-abcdef}
     ports:
       - "6080:8080"
     depends_on:

@@ -14,4 +14,6 @@ public interface ClienteRepository extends JpaRepository<Cliente, Integer> {
     List<Cliente> findByHabilitadoTrue();
 
     Optional<Cliente> findByIdAndHabilitadoTrue(Integer id);
+
+    Optional<Cliente> findByCorreoElectronico(String correoElectronico);
 }

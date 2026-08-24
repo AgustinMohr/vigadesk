@@ -2,10 +2,20 @@ package isi.dan.ms_productos.exception;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.lang.reflect.Method;
+import java.util.Map;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.BeanPropertyBindingResult;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+
+import isi.dan.ms_productos.controller.ProductoController;
+import isi.dan.ms_productos.modelo.Producto;
 
 class RestControllerExceptionTest {
 
@@ -61,5 +71,31 @@ class RestControllerExceptionTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
         assertThat(response.getBody().detalle()).isEqualTo("causa especifica");
+    }
+
+    @Test
+    void handleInsufficientStock_ShouldReturnBadRequestWithMessage() {
+        InsufficientStockException ex = new InsufficientStockException("Stock insuficiente para el producto ID 1");
+
+        ResponseEntity<Map<String, Object>> response = handler.handleInsufficientStock(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody()).containsEntry("status", HttpStatus.BAD_REQUEST.value());
+        assertThat(response.getBody()).containsEntry("mensaje", "Stock insuficiente para el producto ID 1");
+    }
+
+    @Test
+    void handleValidationExceptions_ShouldReturnBadRequestWithFieldErrors() throws Exception {
+        Method method = ProductoController.class.getMethod("createProducto", Producto.class);
+        MethodParameter parameter = new MethodParameter(method, 0);
+        BeanPropertyBindingResult bindingResult = new BeanPropertyBindingResult(new Producto(), "producto");
+        bindingResult.addError(new FieldError("producto", "nombre", "El nombre es obligatorio"));
+        MethodArgumentNotValidException ex = new MethodArgumentNotValidException(parameter, bindingResult);
+
+        ResponseEntity<Map<String, String>> response = handler.handleValidationExceptions(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).containsEntry("nombre", "El nombre es obligatorio");
     }
 }

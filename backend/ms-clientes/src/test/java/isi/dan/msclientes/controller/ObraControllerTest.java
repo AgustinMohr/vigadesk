@@ -191,6 +191,30 @@ public class ObraControllerTest {
     }
 
     @Test
+    void testCreate_PresupuestoNull_ShouldReturnBadRequest() throws Exception {
+        Obra invalida = new Obra();
+        invalida.setDireccion("Obra sin presupuesto");
+        // presupuesto null → @NotNull
+
+        mockMvc.perform(post("/api/obras")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(asJsonString(invalida)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void testCreate_PresupuestoMenorQueMinimo_ShouldReturnBadRequest() throws Exception {
+        Obra invalida = new Obra();
+        invalida.setDireccion("Obra barata");
+        invalida.setPresupuesto(BigDecimal.valueOf(99)); // @Min(100)
+
+        mockMvc.perform(post("/api/obras")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(asJsonString(invalida)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void testCambiarEstado_PENDIENTE() throws Exception {
         obra.setEstado(EstadoObra.PENDIENTE);
         Mockito.when(obraService.cambiarEstado(1, EstadoObra.PENDIENTE)).thenReturn(obra);

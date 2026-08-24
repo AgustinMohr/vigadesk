@@ -17,6 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import isi.dan.msclientes.dao.ClienteRepository;
 import isi.dan.msclientes.model.Cliente;
@@ -34,6 +35,7 @@ class ClienteServiceTest {
 
     @BeforeEach
     void setUp() {
+        ReflectionTestUtils.setField(clienteService, "maximoDescubiertoDefault", BigDecimal.valueOf(10000));
         cliente = new Cliente();
         cliente.setId(1);
         cliente.setNombre("Test Cliente");
@@ -82,16 +84,55 @@ class ClienteServiceTest {
         assertThat(result.getNombre()).isEqualTo("Test Cliente");
     }
 
-	// TODO: arreglar test
-    // @Test
-    // void update_ShouldReturnUpdatedCliente() {
-    //     when(clienteRepository.save(any(Cliente.class))).thenReturn(cliente);
+    @Test
+    void save_WhenMaximoDescubiertoNull_ShouldApplyExternalizedDefault() {
+        when(clienteRepository.save(any(Cliente.class))).thenAnswer(i -> i.getArgument(0));
 
-    //     Cliente result = clienteService.update(cliente);
+        Cliente sinMaximo = new Cliente();
+        sinMaximo.setNombre("Sin Maximo");
+        sinMaximo.setCorreoElectronico("sinmaximo@cliente.com");
+        sinMaximo.setMaxObrasActivas(2);
 
-    //     assertThat(result).isNotNull();
-    //     assertThat(result.getNombre()).isEqualTo("Test Cliente");
-    // }
+        Cliente result = clienteService.save(sinMaximo);
+
+        assertThat(result.getMaximoDescubierto()).isEqualByComparingTo(BigDecimal.valueOf(10000));
+    }
+
+    @Test
+    void update_ShouldUpdateOnlyNonNullFieldsAndSave() {
+        when(clienteRepository.save(any(Cliente.class))).thenReturn(cliente);
+
+        Cliente actualizado = new Cliente();
+        actualizado.setNombre("Nombre Actualizado");
+        actualizado.setCorreoElectronico("nuevo@cliente.com");
+
+        Cliente result = clienteService.update(cliente, actualizado);
+
+        assertThat(result.getNombre()).isEqualTo("Nombre Actualizado");
+        assertThat(result.getCorreoElectronico()).isEqualTo("nuevo@cliente.com");
+        assertThat(result.getCuit()).isEqualTo("12998887776");
+        verify(clienteRepository).save(cliente);
+    }
+
+    @Test
+    void update_ShouldUpdateAllProvidedFieldsIncludingMaxObrasActivas() {
+        when(clienteRepository.save(any(Cliente.class))).thenAnswer(i -> i.getArgument(0));
+
+        Cliente nuevo = new Cliente();
+        nuevo.setNombre("Nuevo Nombre");
+        nuevo.setCorreoElectronico("nuevo@cliente.com");
+        nuevo.setCuit("40998887776");
+        nuevo.setMaximoDescubierto(BigDecimal.valueOf(999));
+        nuevo.setMaxObrasActivas(4);
+
+        Cliente result = clienteService.update(cliente, nuevo);
+
+        assertThat(result.getNombre()).isEqualTo("Nuevo Nombre");
+        assertThat(result.getCorreoElectronico()).isEqualTo("nuevo@cliente.com");
+        assertThat(result.getCuit()).isEqualTo("40998887776");
+        assertThat(result.getMaximoDescubierto()).isEqualByComparingTo(BigDecimal.valueOf(999));
+        assertThat(result.getMaxObrasActivas()).isEqualTo(4);
+    }
 
     @Test
     void deleteById_ShouldSoftDeleteCliente() {
@@ -136,6 +177,24 @@ class ClienteServiceTest {
         when(clienteRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(cliente));
 
         boolean result = clienteService.checkSaldo(1, BigDecimal.valueOf(100000));
+
+        assertThat(result).isTrue();
+    }
+
+    @Test
+    void checkSaldo_WhenMontoNegativo_ShouldReturnTrue() {
+        when(clienteRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(cliente));
+
+        boolean result = clienteService.checkSaldo(1, BigDecimal.valueOf(-5000));
+
+        assertThat(result).isTrue();
+    }
+
+    @Test
+    void checkSaldo_WhenMontoCero_ShouldReturnTrue() {
+        when(clienteRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(cliente));
+
+        boolean result = clienteService.checkSaldo(1, BigDecimal.ZERO);
 
         assertThat(result).isTrue();
     }

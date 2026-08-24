@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import isi.dan.msclientes.dao.UsuarioRepository;
@@ -15,6 +16,9 @@ public class UsuarioService {
 
     @Autowired
     private UsuarioRepository usuarioRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     public List<UsuarioCliente> findAll() {
         return usuarioRepository.findByHabilitadoTrue();
@@ -28,12 +32,19 @@ public class UsuarioService {
         if (usuarioRepository.existsByEmailAndHabilitadoTrue(usuario.getEmail())) {
             throw new IllegalArgumentException("Ya existe un usuario habilitado con el email " + usuario.getEmail());
         }
+        usuario.setPassword(passwordEncoder.encode(usuario.getPassword()));
         return usuarioRepository.save(usuario);
     }
 
     public UsuarioCliente update(UsuarioCliente existente, UsuarioCliente nuevo) {
         if (nuevo.getNombre() != null) {
             existente.setNombre(nuevo.getNombre());
+        }
+        if (nuevo.getApellido() != null) {
+            existente.setApellido(nuevo.getApellido());
+        }
+        if (nuevo.getDni() != null) {
+            existente.setDni(nuevo.getDni());
         }
         if (nuevo.getEmail() != null) {
             usuarioRepository.findByEmailAndHabilitadoTrue(nuevo.getEmail())
@@ -44,7 +55,7 @@ public class UsuarioService {
             existente.setEmail(nuevo.getEmail());
         }
         if (nuevo.getPassword() != null && !nuevo.getPassword().isBlank()) {
-            existente.setPassword(nuevo.getPassword());
+            existente.setPassword(passwordEncoder.encode(nuevo.getPassword()));
         }
         if (nuevo.getCliente() != null && nuevo.getCliente().getId() != null) {
             existente.setCliente(nuevo.getCliente());
@@ -60,8 +71,8 @@ public class UsuarioService {
         });
     }
 
-    public Optional<UsuarioCliente> validarLogin(String email, String password) {
+    public Optional<UsuarioCliente> validarLogin(String email, String rawPassword) {
         return usuarioRepository.findByEmailAndHabilitadoTrue(email)
-                .filter(usuario -> usuario.getPassword().equals(password));
+                .filter(usuario -> passwordEncoder.matches(rawPassword, usuario.getPassword()));
     }
 }

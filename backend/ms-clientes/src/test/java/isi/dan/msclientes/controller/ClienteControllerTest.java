@@ -82,6 +82,46 @@ public class ClienteControllerTest {
     }
 
     @Test
+    void testCreate_EmailInvalido_ShouldReturnBadRequest() throws Exception {
+        Cliente invalido = new Cliente();
+        invalido.setNombre("Email Invalido");
+        invalido.setCorreoElectronico("no-es-un-email");
+        invalido.setMaxObrasActivas(2);
+
+        mockMvc.perform(post("/api/clientes")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(asJsonString(invalido)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void testCreate_SinMaxObrasActivas_ShouldReturnBadRequest() throws Exception {
+        Cliente invalido = new Cliente();
+        invalido.setNombre("Sin Max Obras");
+        invalido.setCorreoElectronico("valido@cliente.com");
+        // maxObrasActivas null → @NotNull
+
+        mockMvc.perform(post("/api/clientes")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(asJsonString(invalido)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void testCreate_MaximoDescubiertoNegativo_ShouldReturnBadRequest() throws Exception {
+        Cliente invalido = new Cliente();
+        invalido.setNombre("Maximo Negativo");
+        invalido.setCorreoElectronico("valido@cliente.com");
+        invalido.setMaxObrasActivas(2);
+        invalido.setMaximoDescubierto(BigDecimal.valueOf(-100));
+
+        mockMvc.perform(post("/api/clientes")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(asJsonString(invalido)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void testUpdate() throws Exception {
         Mockito.when(clienteService.findById(1)).thenReturn(Optional.of(cliente));
         Mockito.when(clienteService.update(Mockito.any(Cliente.class), Mockito.any(Cliente.class))).thenReturn(cliente);

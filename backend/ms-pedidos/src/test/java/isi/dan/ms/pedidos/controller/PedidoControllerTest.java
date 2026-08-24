@@ -111,6 +111,31 @@ class PedidoControllerTest {
     }
 
     @Test
+    void testCreate_DetalleVacio_ShouldReturnBadRequest() throws Exception {
+        Pedido invalido = new Pedido();
+        invalido.setCliente(pedido.getCliente());
+        invalido.setDetalle(Collections.emptyList());
+        // numeroPedido null y detalle vacío → @NotNull / @NotEmpty
+
+        mockMvc.perform(post("/api/pedidos")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(asJsonString(invalido)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void testSearch() throws Exception {
+        Mockito.when(pedidoService.searchPedidos(Mockito.any(), Mockito.any(), Mockito.any()))
+                .thenReturn(Collections.singletonList(pedido));
+
+        mockMvc.perform(get("/api/pedidos/search")
+                .param("estado", "ENTREGADO")
+                .param("clienteId", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value("pedido-1"));
+    }
+
+    @Test
     void testUpdateEstado() throws Exception {
         EstadoUpdateRequest request = new EstadoUpdateRequest();
         request.setEstado(EstadoPedido.ENTREGADO);
@@ -140,6 +165,15 @@ class PedidoControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(asJsonString(request)))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void testUpdateEstado_EstadoNull_ShouldReturnBadRequest() throws Exception {
+        // Body sin campo "estado" → @NotNull en EstadoUpdateRequest
+        mockMvc.perform(patch("/api/pedidos/pedido-1/estado")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

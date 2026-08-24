@@ -28,6 +28,10 @@ public class UsuarioCliente {
     @NotBlank(message = "El nombre es obligatorio")
     private String nombre;
 
+    private String apellido;
+
+    private String dni;
+
     @Column(name = "EMAIL")
     @Email(message = "Email debe ser valido")
     @NotBlank(message = "Email es obligatorio")

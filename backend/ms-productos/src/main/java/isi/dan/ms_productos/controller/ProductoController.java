@@ -1,13 +1,9 @@
 package isi.dan.ms_productos.controller;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
-
 
 import isi.dan.ms_productos.aop.LogExecutionTime;
 import isi.dan.ms_productos.dto.DescuentoDTO;
@@ -25,9 +21,6 @@ import java.util.List;
 public class ProductoController {
     @Autowired
     private ProductoService productoService;
-
-    Logger log = LoggerFactory.getLogger(ProductoController.class);
-
 
     @PostMapping
     @LogExecutionTime

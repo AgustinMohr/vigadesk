@@ -91,6 +91,51 @@ class ProductoControllerTest {
     }
 
     @Test
+    void testCreate_ProductoInvalido_ShouldReturnBadRequest() throws Exception {
+        Producto invalido = new Producto();
+        invalido.setPrecio(BigDecimal.valueOf(5000));
+        // nombre null → @NotNull
+
+        mockMvc.perform(post("/api/productos")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(asJsonString(invalido)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void testUpdate() throws Exception {
+        Producto actualizado = new Producto();
+        actualizado.setId(1L);
+        actualizado.setNombre("Cemento Premium");
+        actualizado.setPrecio(BigDecimal.valueOf(6000));
+        actualizado.setStockMinimo(5);
+
+        Mockito.when(productoService.updateProducto(Mockito.eq(1L), Mockito.any(Producto.class))).thenReturn(actualizado);
+
+        mockMvc.perform(put("/api/productos/1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(asJsonString(producto)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nombre").value("Cemento Premium"));
+    }
+
+    @Test
+    void testSearch() throws Exception {
+        Mockito.when(productoService.searchProductos(
+                        Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any()))
+                .thenReturn(Collections.singletonList(producto));
+
+        mockMvc.perform(get("/api/productos/search")
+                .param("nombre", "cemento")
+                .param("precioMin", "100")
+                .param("precioMax", "10000")
+                .param("stockMin", "0")
+                .param("stockMax", "500"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].nombre").value("Cemento Portland"));
+    }
+
+    @Test
     void testDelete() throws Exception {
         Mockito.when(productoService.getProductoById(1L)).thenReturn(producto);
         Mockito.doNothing().when(productoService).deleteProducto(1L);

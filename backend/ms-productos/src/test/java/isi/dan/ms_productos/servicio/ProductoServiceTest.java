@@ -20,6 +20,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.amqp.AmqpRejectAndDontRequeueException;
 import org.springframework.amqp.core.Message;
+import org.springframework.data.jpa.domain.Specification;
 
 import isi.dan.ms_productos.dao.ProductoRepository;
 import isi.dan.ms_productos.dto.DescuentoDTO;
@@ -274,6 +275,101 @@ class ProductoServiceTest {
     void handleStockReturn_ProductoNoExiste_ShouldNotFail() {
         Message msg = new Message("99;5".getBytes(StandardCharsets.UTF_8));
         when(productoRepository.findByIdAndHabilitadoTrue(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> productoService.handleStockReturn(msg))
+                .isInstanceOf(AmqpRejectAndDontRequeueException.class);
+    }
+
+    @Test
+    void searchProductos_NoFilters_ShouldReturnAllHabilitados() {
+        when(productoRepository.findAll(any(Specification.class)))
+                .thenReturn(Collections.singletonList(producto));
+
+        List<Producto> result = productoService.searchProductos(null, null, null, null, null, null);
+
+        assertThat(result).hasSize(1);
+    }
+
+    @Test
+    void searchProductos_ByNombreYCodigo_ShouldFilter() {
+        when(productoRepository.findAll(any(Specification.class)))
+                .thenReturn(Collections.singletonList(producto));
+
+        List<Producto> result = productoService.searchProductos("cemento", "C-1", null, null, null, null);
+
+        assertThat(result).hasSize(1);
+    }
+
+    @Test
+    void searchProductos_ByRangoDePrecioYStock_ShouldFilter() {
+        when(productoRepository.findAll(any(Specification.class)))
+                .thenReturn(Collections.singletonList(producto));
+
+        List<Producto> result = productoService.searchProductos(
+                null, null, BigDecimal.valueOf(100), BigDecimal.valueOf(10000), 5, 200);
+
+        assertThat(result).hasSize(1);
+    }
+
+    @Test
+    void searchProductos_WithBlankFilters_ShouldIgnoreBlank() {
+        when(productoRepository.findAll(any(Specification.class)))
+                .thenReturn(Collections.singletonList(producto));
+
+        List<Producto> result = productoService.searchProductos("  ", "  ", null, null, null, null);
+
+        assertThat(result).hasSize(1);
+    }
+
+    @Test
+    void handleStockUpdate_CantidadCero_ShouldNotFail() {
+        Message msg = new Message("1;0".getBytes(StandardCharsets.UTF_8));
+
+        assertThatThrownBy(() -> productoService.handleStockUpdate(msg))
+                .isInstanceOf(AmqpRejectAndDontRequeueException.class);
+    }
+
+    @Test
+    void handleStockReturn_CantidadCero_ShouldNotFail() {
+        Message msg = new Message("1;0".getBytes(StandardCharsets.UTF_8));
+
+        assertThatThrownBy(() -> productoService.handleStockReturn(msg))
+                .isInstanceOf(AmqpRejectAndDontRequeueException.class);
+    }
+
+    @Test
+    void handleStockUpdate_DbError_ShouldRethrow() {
+        Message msg = new Message("1;5".getBytes(StandardCharsets.UTF_8));
+        when(productoRepository.findByIdAndHabilitadoTrue(1L)).thenReturn(Optional.of(producto));
+        when(productoRepository.save(any(Producto.class))).thenThrow(new RuntimeException("BD caida"));
+
+        assertThatThrownBy(() -> productoService.handleStockUpdate(msg))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("BD caida");
+    }
+
+    @Test
+    void handleStockReturn_DbError_ShouldRethrow() {
+        Message msg = new Message("1;5".getBytes(StandardCharsets.UTF_8));
+        when(productoRepository.findByIdAndHabilitadoTrue(1L)).thenReturn(Optional.of(producto));
+        when(productoRepository.save(any(Producto.class))).thenThrow(new RuntimeException("BD caida"));
+
+        assertThatThrownBy(() -> productoService.handleStockReturn(msg))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("BD caida");
+    }
+
+    @Test
+    void handleStockUpdate_FormatoInvalido_ShouldNotFail() {
+        Message msg = new Message("1;2;3".getBytes(StandardCharsets.UTF_8));
+
+        assertThatThrownBy(() -> productoService.handleStockUpdate(msg))
+                .isInstanceOf(AmqpRejectAndDontRequeueException.class);
+    }
+
+    @Test
+    void handleStockReturn_ParseInvalido_ShouldNotFail() {
+        Message msg = new Message("abc;def".getBytes(StandardCharsets.UTF_8));
 
         assertThatThrownBy(() -> productoService.handleStockReturn(msg))
                 .isInstanceOf(AmqpRejectAndDontRequeueException.class);

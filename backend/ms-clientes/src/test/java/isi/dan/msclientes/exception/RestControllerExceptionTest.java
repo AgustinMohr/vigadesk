@@ -20,7 +20,7 @@ class RestControllerExceptionTest {
     void handleClienteNotFoundException_ShouldReturnNotFound() {
         ClienteNotFoundException ex = new ClienteNotFoundException("Cliente 99 no encontrado");
 
-        ResponseEntity<ErrorInfo> response = handler.handleProductNotFoundException(ex);
+        ResponseEntity<ErrorInfo> response = handler.handleClienteNotFoundException(ex);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(response.getBody()).isNotNull();
@@ -34,10 +34,47 @@ class RestControllerExceptionTest {
         ClienteNotFoundException ex = new ClienteNotFoundException("Error");
         ex.initCause(new RuntimeException("causa real"));
 
-        ResponseEntity<ErrorInfo> response = handler.handleProductNotFoundException(ex);
+        ResponseEntity<ErrorInfo> response = handler.handleClienteNotFoundException(ex);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(response.getBody().detalle()).isEqualTo("causa real");
+    }
+
+    @Test
+    void handleObraNotFoundException_ShouldReturnNotFound() {
+        ObraNotFoundException ex = new ObraNotFoundException("Obra 99 no encontrada");
+
+        ResponseEntity<ErrorInfo> response = handler.handleObraNotFoundException(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().description()).contains("Obra 99 no encontrada");
+        assertThat(response.getBody().codigo()).isEqualTo(404);
+    }
+
+    @Test
+    void handleUsuarioNotFoundException_ShouldReturnNotFound() {
+        UsuarioNotFoundException ex = new UsuarioNotFoundException("Usuario 99 no encontrado");
+
+        ResponseEntity<ErrorInfo> response = handler.handleUsuarioNotFoundException(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().description()).contains("Usuario 99 no encontrado");
+        assertThat(response.getBody().detalle()).isEqualTo("Usuario no encontrado");
+        assertThat(response.getBody().codigo()).isEqualTo(404);
+    }
+
+    @Test
+    void handleRuntimeException_ShouldReturnBadRequest() {
+        RuntimeException ex = new RuntimeException("Estado no valido");
+
+        ResponseEntity<ErrorInfo> response = handler.handleRuntimeException(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().description()).isEqualTo("Estado no valido");
+        assertThat(response.getBody().codigo()).isEqualTo(400);
     }
 
     @Test

@@ -12,6 +12,8 @@ RabbitMQ UI: http://localhost:15672
 MySQL: http://localhost:3306
 PostgreSQL: http://localhost:5432
 MongoDB: http://localhost:27017
+Prometheus: http://localhost:9090
+Grafana: http://localhost:3000 (admin/admin)
 
 Interfaz: http://localhost
 Backend Gateway: http://localhost:3080

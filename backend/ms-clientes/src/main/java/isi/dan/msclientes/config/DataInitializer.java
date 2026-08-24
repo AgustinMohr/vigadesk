@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import isi.dan.msclientes.dao.ClienteRepository;
@@ -31,13 +32,28 @@ public class DataInitializer implements CommandLineRunner {
     @Autowired
     private UsuarioRepository usuarioRepository;
 
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     @Override
     public void run(String... args) {
-        if (clienteRepository.count() > 0) {
-            log.info("La base de datos ya contiene datos. Se omite la inicializacion.");
-            return;
+        if (clienteRepository.count() == 0) {
+            inicializarClientesYObras();
+        } else {
+            log.info("La base de datos ya contiene clientes. Se omite la carga de clientes y obras.");
         }
 
+        if (usuarioRepository.count() == 0) {
+            inicializarUsuarios();
+        } else {
+            log.info("La base de datos ya contiene usuarios. Se omite la carga de usuarios.");
+        }
+
+        log.info("Datos de prueba cargados: {} clientes, {} obras, {} usuarios",
+                clienteRepository.count(), obraRepository.count(), usuarioRepository.count());
+    }
+
+    private void inicializarClientesYObras() {
         log.info("Inicializando datos de prueba...");
 
         Cliente c1 = new Cliente();
@@ -115,26 +131,31 @@ public class DataInitializer implements CommandLineRunner {
         // Obras sin cliente
         obraRepository.save(crearObra("Diagonal Norte 800", -34.608f, -58.385f, new BigDecimal("160000"), null, null));
         obraRepository.save(crearObra("Alem 500", -34.614f, -58.376f, new BigDecimal("200000"), null, null));
+    }
+
+    private void inicializarUsuarios() {
+        log.info("Inicializando usuarios de prueba...");
+
+        Cliente c1 = clienteRepository.findByCorreoElectronico("contacto@constructorasur.com").orElse(null);
+        Cliente c3 = clienteRepository.findByCorreoElectronico("admin@ghinstalaciones.com").orElse(null);
+        Cliente c6 = clienteRepository.findByCorreoElectronico("obras@ferrum.com.ar").orElse(null);
 
         // Usuarios de clientes: cada cliente puede tener uno o más usuarios que hacen pedidos en su nombre
-        usuarioRepository.save(crearUsuario("Juan Perez", "juan@constructorasur.com", "juan123", c1));
-        usuarioRepository.save(crearUsuario("Maria Lopez", "maria@constructorasur.com", "maria123", c1));
-        usuarioRepository.save(crearUsuario("Jose Gomez", "jose@ghinstalaciones.com", "jose123", c3));
-        usuarioRepository.save(crearUsuario("Ana Ruiz", "ana@ferrum.com.ar", "ana123", c6));
+        usuarioRepository.save(crearUsuario("Juan", "Perez", "juan@constructorasur.com", "30111222", "juan123", c1));
+        usuarioRepository.save(crearUsuario("Maria", "Lopez", "maria@constructorasur.com", "30222333", "maria123", c1));
+        usuarioRepository.save(crearUsuario("Jose", "Gomez", "jose@ghinstalaciones.com", "30333444", "jose123", c3));
+        usuarioRepository.save(crearUsuario("Ana", "Ruiz", "ana@ferrum.com.ar", "30444555", "ana123", c6));
 
         // Usuarios de sistema (sin cliente asociado):
         //  - ADMIN: rol con acceso total (modifica todo).
         //  - GUEST: rol de invitado (acceso completo a la UI, sin CRUD).
-        UsuarioCliente admin = crearUsuario("Administrador", "admin@example.com", "admin123", null);
+        UsuarioCliente admin = crearUsuario("Administrador", null, "admin@example.com", null, "admin123", null);
         admin.setRol("ADMIN");
         usuarioRepository.save(admin);
 
-        UsuarioCliente guest = crearUsuario("Invitado", "guest@example.com", "guest123", null);
+        UsuarioCliente guest = crearUsuario("Invitado", null, "guest@example.com", null, "guest123", null);
         guest.setRol("GUEST");
         usuarioRepository.save(guest);
-
-        log.info("Datos de prueba cargados: {} clientes, {} obras, {} usuarios",
-                clienteRepository.count(), obraRepository.count(), usuarioRepository.count());
     }
 
     private Obra crearObra(String direccion, float lat, float lng, BigDecimal presupuesto, Cliente cliente, EstadoObra estado) {
@@ -148,11 +169,13 @@ public class DataInitializer implements CommandLineRunner {
         return o;
     }
 
-    private UsuarioCliente crearUsuario(String nombre, String email, String password, Cliente cliente) {
+    private UsuarioCliente crearUsuario(String nombre, String apellido, String email, String dni, String password, Cliente cliente) {
         UsuarioCliente u = new UsuarioCliente();
         u.setNombre(nombre);
+        u.setApellido(apellido);
         u.setEmail(email);
-        u.setPassword(password);
+        u.setDni(dni);
+        u.setPassword(passwordEncoder.encode(password));
         u.setCliente(cliente);
         return u;
     }

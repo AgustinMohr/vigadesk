@@ -1,6 +1,5 @@
 package isi.dan.msclientes.dao;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,8 +15,6 @@ public interface ObraRepository extends JpaRepository<Obra, Integer> {
     List<Obra> findByHabilitadoTrue();
 
     Optional<Obra> findByIdAndHabilitadoTrue(Integer id);
-
-    List<Obra> findByPresupuestoGreaterThanEqualAndHabilitadoTrue(BigDecimal price);
 
     List<Obra> findByClienteIdAndHabilitadoTrue(Integer clienteId);
 

@@ -1,4 +1,7 @@
 package isi.dan.ms.pedidos.controller;
+
+import jakarta.validation.Valid;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -46,7 +49,7 @@ public class PedidoController {
     }
 
     @PatchMapping("/{id}/estado")
-    public ResponseEntity<Pedido> updateEstado(@PathVariable String id, @RequestBody EstadoUpdateRequest request) {
+    public ResponseEntity<Pedido> updateEstado(@PathVariable String id, @RequestBody @Valid EstadoUpdateRequest request) {
         return ResponseEntity.ok(pedidoService.updateEstado(id, request.getEstado()));
     }
 

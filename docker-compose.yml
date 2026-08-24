@@ -26,7 +26,7 @@ services:
     container_name: ms-eureka
     restart: on-failure
     build:
-      context: ./dan-eureka-srv
+      context: ./backend/dan-eureka-srv
       dockerfile: Dockerfile
     environment:
       SPRING_EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/
@@ -44,10 +44,10 @@ services:
     container_name: mysql-db
     command: --default-authentication-plugin=mysql_native_password --innodb-buffer-pool-size=128M # Limita la memoria interna de MySQL
     environment:
-      MYSQL_ROOT_PASSWORD: danrootpassword
-      MYSQL_DATABASE: dandb
-      MYSQL_USER: danuser
-      MYSQL_PASSWORD: danpassword
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-danrootpassword}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-dandb}
+      MYSQL_USER: ${MYSQL_USER:-danuser}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-danpassword}
     ports:
       - "3306:3306"
     volumes:
@@ -67,18 +67,20 @@ services:
     container_name: ms-clientes
     restart: on-failure
     build:
-      context: ./ms-clientes
+      context: ./backend/ms-clientes
       dockerfile: Dockerfile
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/dandb
-      SPRING_DATASOURCE_USERNAME: danuser
-      SPRING_DATASOURCE_PASSWORD: danpassword
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-dandb}
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-danuser}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-danpassword}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.MySQL8Dialect
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-guest}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
       SPRING_EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/
-      JWT_SECRET: dan-2024-super-secreto-jwt-para-el-tp-de-apps-en-la-nube-abc123
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me-1234567890-abcdef}
       JAVA_TOOL_OPTIONS: "-Xms128m -Xmx256m"
     ports:
       - "6080:8080"
@@ -100,9 +102,9 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: pguser
-      POSTGRES_PASSWORD: pgpassword
-      POSTGRES_DB: pg-dan
+      POSTGRES_USER: ${POSTGRES_USER:-pguser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pgpassword}
+      POSTGRES_DB: ${POSTGRES_DB:-pg-dan}
     volumes:
       - pg-data:/var/lib/postgresql/data
     networks:
@@ -120,18 +122,21 @@ services:
     container_name: ms-productos
     restart: on-failure
     build:
-      context: ./ms-productos
+      context: ./backend/ms-productos
       dockerfile: Dockerfile
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://pg-dan:5432/pg-dan
-      SPRING_DATASOURCE_USERNAME: pguser
-      SPRING_DATASOURCE_PASSWORD: pgpassword
+      SPRING_DATASOURCE_URL: jdbc:postgresql://pg-dan:5432/${POSTGRES_DB:-pg-dan}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-pguser}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-pgpassword}
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-guest}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
       SPRING_EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_JPA_DEFER_DATASOURCE_INITIALIZATION: "true"
+      SPRING_SQL_INIT_MODE: always
       SPRING_SQL_INIT_DATA_LOCATIONS: classpath:test-data-productos.sql
       JAVA_TOOL_OPTIONS: "-Xms128m -Xmx256m"
     ports:
@@ -156,10 +161,10 @@ services:
       - "27017:27017"
     volumes:
       - mongo-data:/data/db
-      - ./ms-pedidos/src/main/resources/mongo-init-pedidos.js:/docker-entrypoint-initdb.d/mongo-init-pedidos.js
+      - ./backend/ms-pedidos/src/main/resources/mongo-init-pedidos.js:/docker-entrypoint-initdb.d/mongo-init-pedidos.js
     environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: dan
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-root}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-dan}
     networks:
       - backend-net
     healthcheck:
@@ -175,17 +180,19 @@ services:
     container_name: ms-pedidos
     restart: on-failure
     build:
-      context: ./ms-pedidos
+      context: ./backend/ms-pedidos
       dockerfile: Dockerfile
     environment:
       SPRING_DATA_MONGODB_HOST: mongo-db
       SPRING_DATA_MONGODB_PORT: 27017
       SPRING_DATA_MONGODB_DATABASE: pedidosdb
-      SPRING_DATA_MONGODB_USERNAME: root
-      SPRING_DATA_MONGODB_PASSWORD: dan
-      SPRING_DATA_MONGODB_URL: mongodb://root:dan@mongo-db:27017/pedidosdb?authSource=admin
+      SPRING_DATA_MONGODB_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-root}
+      SPRING_DATA_MONGODB_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-dan}
+      SPRING_DATA_MONGODB_URL: mongodb://${MONGO_INITDB_ROOT_USERNAME:-root}:${MONGO_INITDB_ROOT_PASSWORD:-dan}@mongo-db:27017/pedidosdb?authSource=admin
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-guest}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
       SPRING_EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/
       JAVA_TOOL_OPTIONS: "-Xms128m -Xmx256m"
     ports:
@@ -206,11 +213,11 @@ services:
     container_name: ms-gateway
     restart: on-failure
     build:
-      context: ./dan-gateway
+      context: ./backend/dan-gateway
       dockerfile: Dockerfile
     environment:
       SPRING_EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/
-      JWT_SECRET: dan-2024-super-secreto-jwt-para-el-tp-de-apps-en-la-nube-abc123
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me-1234567890-abcdef}
       JAVA_TOOL_OPTIONS: "-Xms128m -Xmx256m"
     ports:
       - "3080:8080"
@@ -224,6 +231,7 @@ services:
 
   # =====================================================================
   # HERRAMIENTAS DE MONITOREO Y LOGS (OPCIONALES PARA DESARROLLO LOCAL)
+  # Prometheus y Grafana están activos; opensearch/graylog son opcionales
   # =====================================================================
 
   # opensearch:
@@ -263,23 +271,40 @@ services:
   #   networks:
   #     - backend-net
 
-  # prometheus:
-  #   image: prom/prometheus
-  #   container_name: prometheus
-  #   volumes:
-  #     - ./prometheus.yml:/etc/prometheus/prometheus.yml
-  #   ports:
-  #     - "9090:9090"
-  #   networks:
-  #     - backend-net
+  # ==== PROMETHEUS (recolección de métricas de actuator) ====
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    restart: on-failure
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - ms-clientes
+      - ms-productos
+      - ms-pedidos
+      - ms-gateway
+    networks:
+      - backend-net
 
-  # grafana:
-  #   image: grafana/grafana
-  #   container_name: grafana
-  #   ports:
-  #     - "3000:3000"
-  #   networks:
-  #     - backend-net
+  # ==== GRAFANA (visualización de métricas) ====
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    restart: on-failure
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - backend-net
 
 networks:
   backend-net:

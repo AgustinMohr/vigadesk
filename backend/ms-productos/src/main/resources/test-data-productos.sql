@@ -4,7 +4,7 @@
 --  Cubre: todas las variantes del enum Categoria, valores típicos
 -- =============================================================================
 
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (1,
         'Cemento Portland CPC 50 kg',
         'Cemento Portland normal para construcción civil',
@@ -12,9 +12,9 @@ VALUES (1,
         50,
         8500.00,
         0,
-        'CEMENTOS') ON CONFLICT (id) DO NOTHING;
+        'CEMENTOS', TRUE) ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (2,
         'Placa de Yeso 12.7 mm 1.20 x 2.40 m',
         'Placa de yeso estándar para tabiques interiores',
@@ -22,9 +22,9 @@ VALUES (2,
         30,
         4200.00,
         500.00,
-        'PLACAS') ON CONFLICT (id) DO NOTHING;
+        'PLACAS', TRUE) ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (3,
         'Perfil Metálico U 34x34x3000 mm',
         'Perfil metálico galvanizado para estructura de tabiques',
@@ -32,9 +32,9 @@ VALUES (3,
         100,
         650.00,
         0,
-        'PERFILES') ON CONFLICT (id) DO NOTHING;
+        'PERFILES', TRUE) ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (4,
         'Mortero Pegamento Cerámico 25 kg',
         'Mortero adhesivo para colocación de cerámicos',
@@ -42,9 +42,9 @@ VALUES (4,
         20,
         1800.00,
         0,
-        'MORTEROS') ON CONFLICT (id) DO NOTHING;
+        'MORTEROS', TRUE) ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (5,
         'Yeso Premium 40 kg',
         'Yeso fino para terminaciones interiores',
@@ -52,7 +52,7 @@ VALUES (5,
         15,
         2200.00,
         0,
-        'YESERIA') ON CONFLICT (id) DO NOTHING;
+        'YESERIA', TRUE) ON CONFLICT (id) DO NOTHING;
 
 -- =============================================================================
 --  SECCIÓN 2 — VALORES LÍMITE PARA PRECIO
@@ -60,7 +60,7 @@ VALUES (5,
 -- =============================================================================
 
 -- 2a. Precio mínimo positivo (0.01 → $0.01)
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (10,
         'Clavo para madera 2" x 50u',
         'Clavo de acero para madera',
@@ -68,10 +68,10 @@ VALUES (10,
         100,
         0.01,
         0,
-        'PERFILES') ON CONFLICT (id) DO NOTHING;
+        'PERFILES', TRUE) ON CONFLICT (id) DO NOTHING;
 
 -- 2b. Precio alto (≈ $10M)
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (11,
         'Viga IPN 200 x 12 m - Acero',
         'Viga de acero laminado para estructuras',
@@ -79,10 +79,10 @@ VALUES (11,
         2,
         99999999.99,
         0,
-        'PERFILES') ON CONFLICT (id) DO NOTHING;
+        'PERFILES', TRUE) ON CONFLICT (id) DO NOTHING;
 
 -- 2c. Precio con alta precisión decimal
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (12,
         'Tornillo Autoperforante 1/2" x 100u',
         'Tornillo autoperforante con punta broca',
@@ -90,10 +90,10 @@ VALUES (12,
         200,
         0.123456789,
         0,
-        'PERFILES') ON CONFLICT (id) DO NOTHING;
+        'PERFILES', TRUE) ON CONFLICT (id) DO NOTHING;
 
 -- 2d. Precio con valor peligroso: igual que el descuento (10000 - 10000 = 0)
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (13,
         'Ladrillo Hueco 18x18x33 Cerámico x 1u',
         'Ladrillo cerámico para mampostería',
@@ -101,7 +101,7 @@ VALUES (13,
         500,
         10000.00,
         10000.00,
-        'MORTEROS') ON CONFLICT (id) DO NOTHING;
+        'MORTEROS', TRUE) ON CONFLICT (id) DO NOTHING;
 
 -- =============================================================================
 --  SECCIÓN 4 — VALORES LÍMITE PARA STOCK_ACTUAL
@@ -111,7 +111,7 @@ VALUES (13,
 -- =============================================================================
 
 -- 4a. Stock actual en 0 (recién creado, sin provisionar)
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (30,
         'Pegamento Cerámico 20 kg - Sin stock',
         'Producto nuevo sin stock inicial',
@@ -119,10 +119,10 @@ VALUES (30,
         50,
         1200.00,
         0,
-        'MORTEROS') ON CONFLICT (id) DO NOTHING;
+        'MORTEROS', TRUE) ON CONFLICT (id) DO NOTHING;
 
 -- 4b. Stock actual en 1 (mínimo con unidade disponible)
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (31,
         'Cinta de Empapelar 50 m - Stock mínimo',
         'Rollo de cinta para juntas de placas de yeso',
@@ -130,10 +130,10 @@ VALUES (31,
         5,
         180.00,
         0,
-        'YESERIA') ON CONFLICT (id) DO NOTHING;
+        'YESERIA', TRUE) ON CONFLICT (id) DO NOTHING;
 
 -- 4c. Stock actual alto
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (32,
         'Arena Fina x 50 kg - Alto stock',
         'Arena fina para preparación de morteros',
@@ -141,10 +141,10 @@ VALUES (32,
         1000,
         250.00,
         0,
-        'MORTEROS') ON CONFLICT (id) DO NOTHING;
+        'MORTEROS', TRUE) ON CONFLICT (id) DO NOTHING;
 
 -- 4d. Stock actual igual a Integer.MAX_VALUE (≈ 2.1B)
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (33,
         'Agua Destilada 1L - Stock virtual infinito',
         'Agua destilada para preparación',
@@ -152,7 +152,7 @@ VALUES (33,
         10000,
         80.00,
         0,
-        'MORTEROS') ON CONFLICT (id) DO NOTHING;
+        'MORTEROS', TRUE) ON CONFLICT (id) DO NOTHING;
 
 -- =============================================================================
 --  SECCIÓN 5 — VALORES LÍMITE PARA STOCK_MINIMO
@@ -160,7 +160,7 @@ VALUES (33,
 -- =============================================================================
 
 -- 5a. Stock mínimo = 0 (sin alerta de reposición)
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (40,
         'Pintura Látex Blanco 20L - Sin mínimo',
         'Pintura al látex para interiores',
@@ -168,10 +168,10 @@ VALUES (40,
         0,
         3500.00,
         0,
-        'YESERIA') ON CONFLICT (id) DO NOTHING;
+        'YESERIA', TRUE) ON CONFLICT (id) DO NOTHING;
 
 -- 5b. Stock mínimo = 1 (mínimo positivo)
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (41,
         'Rodillo de Pete 23 cm',
         'Rodillo para pintura',
@@ -179,10 +179,10 @@ VALUES (41,
         1,
         450.00,
         0,
-        'YESERIA') ON CONFLICT (id) DO NOTHING;
+        'YESERIA', TRUE) ON CONFLICT (id) DO NOTHING;
 
 -- 5c. Stock mínimo mayor que stock actual → necesidad de reposición
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (42,
         'Disco de Corte 4 1/2" - Stock crítico',
         'Disco de corte para amoladora',
@@ -190,10 +190,10 @@ VALUES (42,
         50,
         350.00,
         0,
-        'PERFILES') ON CONFLICT (id) DO NOTHING;
+        'PERFILES', TRUE) ON CONFLICT (id) DO NOTHING;
 
 -- 5d. Stock mínimo igual a stock actual → en el límite
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (43,
         'Guantes de Trabajo Cuero - Stock exacto',
         'Guantes de cuero para construcción',
@@ -201,10 +201,10 @@ VALUES (43,
         25,
         1200.00,
         0,
-        'CEMENTOS') ON CONFLICT (id) DO NOTHING;
+        'CEMENTOS', TRUE) ON CONFLICT (id) DO NOTHING;
 
 -- 5e. Stock mínimo grande (sin riesgo práctico de caer debajo)
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (44,
         'Clavo tipo París 1" x kg - Mínimo alto',
         'Clavo tipo parís para fijación de placas',
@@ -212,7 +212,7 @@ VALUES (44,
         5000,
         600.00,
         0,
-        'PERFILES') ON CONFLICT (id) DO NOTHING;
+        'PERFILES', TRUE) ON CONFLICT (id) DO NOTHING;
 
 -- =============================================================================
 --  SECCIÓN 6 — VALORES LÍMITE PARA DESCUENTO_PROMOCIONAL
@@ -220,7 +220,7 @@ VALUES (44,
 -- =============================================================================
 
 -- 6a. Descuento = NULL (se espera que la app use ZERO por defecto)
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (50,
         'Masilla Plástica 1 kg - Sin descuento',
         'Masilla para reparación de superficies',
@@ -228,10 +228,10 @@ VALUES (50,
         20,
         900.00,
         NULL,
-        'YESERIA') ON CONFLICT (id) DO NOTHING;
+        'YESERIA', TRUE) ON CONFLICT (id) DO NOTHING;
 
 -- 6b. Descuento = 0 (explícito)
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (51,
         'Enduido Plástico 2 kg - Descuento cero',
         'Enduido para interiores',
@@ -239,10 +239,10 @@ VALUES (51,
         15,
         1100.00,
         0,
-        'YESERIA') ON CONFLICT (id) DO NOTHING;
+        'YESERIA', TRUE) ON CONFLICT (id) DO NOTHING;
 
 -- 6c. Descuento positivo menor que el precio (típico)
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (52,
         'Fieltro Asfáltico 10 m² - 15% off',
         'Fieltro asfáltico para cubiertas',
@@ -250,10 +250,10 @@ VALUES (52,
         30,
         3400.00,
         510.00,
-        'PLACAS') ON CONFLICT (id) DO NOTHING;
+        'PLACAS', TRUE) ON CONFLICT (id) DO NOTHING;
 
 -- 6d. Descuento igual al precio → precio final = 0 (caso borde)
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (53,
         'Muestra Gratis Promocional',
         'Producto promocional sin costo (descuento = precio)',
@@ -261,10 +261,10 @@ VALUES (53,
         5,
         1000.00,
         1000.00,
-        'CEMENTOS') ON CONFLICT (id) DO NOTHING;
+        'CEMENTOS', TRUE) ON CONFLICT (id) DO NOTHING;
 
 -- 6e. Descuento mayor que el precio → precio final negativo (borde)
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (54,
         'Cupón de Descuento Extra - Precio negativo',
         'Descuento mayor al precio del producto',
@@ -272,10 +272,10 @@ VALUES (54,
         1,
         500.00,
         800.00,
-        'PLACAS') ON CONFLICT (id) DO NOTHING;
+        'PLACAS', TRUE) ON CONFLICT (id) DO NOTHING;
 
 -- 6f. Descuento con valor negativo (inválido semánticamente pero permitido)
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (55,
         'Recargo por urgencia - Descuento negativo',
         'Producto con "descuento" negativo (recargo)',
@@ -283,7 +283,7 @@ VALUES (55,
         10,
         2000.00,
         -500.00,
-        'MORTEROS') ON CONFLICT (id) DO NOTHING;
+        'MORTEROS', TRUE) ON CONFLICT (id) DO NOTHING;
 
 -- =============================================================================
 --  SECCIÓN 7 — CASOS BORDE: COMBINACIONES CRÍTICAS
@@ -291,7 +291,7 @@ VALUES (55,
 -- =============================================================================
 
 -- 7a. Stock actual = 0 y stock_minimo = 0 (sin producto, sin alerta)
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (60,
         'Agotado sin alerta - Todo en 0',
         'Producto sin stock y sin mínimo definido',
@@ -299,10 +299,10 @@ VALUES (60,
         0,
         5000.00,
         0,
-        'CEMENTOS') ON CONFLICT (id) DO NOTHING;
+        'CEMENTOS', TRUE) ON CONFLICT (id) DO NOTHING;
 
 -- 7b. Precio = 0 (gratuito, borde)
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (61,
         'Muestra gratis',
         'Producto de cortesía sin costo',
@@ -310,10 +310,10 @@ VALUES (61,
         10,
         0,
         0,
-        'PLACAS') ON CONFLICT (id) DO NOTHING;
+        'PLACAS', TRUE) ON CONFLICT (id) DO NOTHING;
 
 -- 7c. Todos los campos obligatorios al mínimo no nulo
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (62,
         'Mínimo obligatorio',
         NULL,
@@ -321,10 +321,10 @@ VALUES (62,
         0,
         0.01,
         0,
-        'CEMENTOS') ON CONFLICT (id) DO NOTHING;
+        'CEMENTOS', TRUE) ON CONFLICT (id) DO NOTHING;
 
 -- 7d. Solo nombre y precio (descripcion NULL, descuento NULL, stock en 0)
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (63,
         'Codo PVC 45° 110 mm',
         NULL,
@@ -332,14 +332,14 @@ VALUES (63,
         10,
         320.00,
         NULL,
-        'PLACAS') ON CONFLICT (id) DO NOTHING;
+        'PLACAS', TRUE) ON CONFLICT (id) DO NOTHING;
 
 -- =============================================================================
 --  SECCIÓN 8 — PRODUCTOS PARA PROVISIÓN (UPDATE)
 --  Se insertan con stock en 0 y precio base para luego aplicar provisiones
 -- =============================================================================
 
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (70,
         'Provisionable - Stock cero inicial',
         'Producto listo para recibir provisiones',
@@ -347,9 +347,9 @@ VALUES (70,
         30,
         5000.00,
         0,
-        'CEMENTOS') ON CONFLICT (id) DO NOTHING;
+        'CEMENTOS', TRUE) ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (71,
         'Provisionable - Con stock previo',
         'Producto con stock existente para sumar más',
@@ -357,9 +357,9 @@ VALUES (71,
         20,
         3200.00,
         0,
-        'PLACAS') ON CONFLICT (id) DO NOTHING;
+        'PLACAS', TRUE) ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (72,
         'Tornillo para Durlock 1" x 1000u - Alta rotación',
         'Tornillo para fijación de placas de yeso',
@@ -367,14 +367,14 @@ VALUES (72,
         500,
         1500.00,
         0,
-        'PERFILES') ON CONFLICT (id) DO NOTHING;
+        'PERFILES', TRUE) ON CONFLICT (id) DO NOTHING;
 
 -- =============================================================================
 --  SECCIÓN 9 — PRODUCTOS PARA CHECK STOCK
 --  Se insertan con stocks conocidos para verificar suficiencia
 -- =============================================================================
 
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (80,
         'Check - Stock suficiente (1000 disp)',
         'Producto con alto stock para pruebas de verificación',
@@ -382,9 +382,9 @@ VALUES (80,
         50,
         100.00,
         0,
-        'CEMENTOS') ON CONFLICT (id) DO NOTHING;
+        'CEMENTOS', TRUE) ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (81,
         'Check - Stock exacto (10 disp)',
         'Producto con stock justo para pruebas',
@@ -392,9 +392,9 @@ VALUES (81,
         10,
         200.00,
         0,
-        'PLACAS') ON CONFLICT (id) DO NOTHING;
+        'PLACAS', TRUE) ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (82,
         'Check - Stock insuficiente (1 disp)',
         'Producto con stock muy bajo para pruebas',
@@ -402,9 +402,9 @@ VALUES (82,
         50,
         300.00,
         0,
-        'PERFILES') ON CONFLICT (id) DO NOTHING;
+        'PERFILES', TRUE) ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (83,
         'Check - Stock cero',
         'Producto sin stock para pruebas',
@@ -412,9 +412,9 @@ VALUES (83,
         20,
         400.00,
         0,
-        'MORTEROS') ON CONFLICT (id) DO NOTHING;
+        'MORTEROS', TRUE) ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria)
+INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (84,
         'Check - Stock negativo (-5 disp)',
         'Producto con stock negativo (posible error)',
@@ -422,7 +422,7 @@ VALUES (84,
         10,
         500.00,
         0,
-        'YESERIA') ON CONFLICT (id) DO NOTHING;
+        'YESERIA', TRUE) ON CONFLICT (id) DO NOTHING;
 
 -- =============================================================================
 --  SECCIÓN 11 — REAJUSTE DE LA SECUENCIA (para evitar conflictos de ID)

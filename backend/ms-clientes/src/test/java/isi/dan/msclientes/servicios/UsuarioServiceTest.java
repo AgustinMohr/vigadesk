@@ -16,6 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import isi.dan.msclientes.dao.UsuarioRepository;
 import isi.dan.msclientes.model.Cliente;
@@ -26,6 +27,9 @@ class UsuarioServiceTest {
 
     @Mock
     private UsuarioRepository usuarioRepository;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
 
     @InjectMocks
     private UsuarioService usuarioService;
@@ -79,6 +83,7 @@ class UsuarioServiceTest {
     @Test
     void save_WhenEmailLibre_ShouldReturnSavedUsuario() {
         when(usuarioRepository.existsByEmailAndHabilitadoTrue("juan@constructorasur.com")).thenReturn(false);
+        when(passwordEncoder.encode("juan123")).thenReturn("hashed123");
         when(usuarioRepository.save(any(UsuarioCliente.class))).thenReturn(usuario);
 
         UsuarioCliente result = usuarioService.save(usuario);
@@ -111,6 +116,33 @@ class UsuarioServiceTest {
     }
 
     @Test
+    void update_ShouldEncodeNewPasswordWhenProvided() {
+        when(usuarioRepository.save(any(UsuarioCliente.class))).thenReturn(usuario);
+        when(passwordEncoder.encode("nuevo-pass")).thenReturn("hashed-nuevo");
+
+        UsuarioCliente nuevo = new UsuarioCliente();
+        nuevo.setPassword("nuevo-pass");
+
+        UsuarioCliente result = usuarioService.update(usuario, nuevo);
+
+        assertThat(result.getPassword()).isEqualTo("hashed-nuevo");
+    }
+
+    @Test
+    void update_ShouldUpdateApellidoYDni() {
+        when(usuarioRepository.save(any(UsuarioCliente.class))).thenAnswer(i -> i.getArgument(0));
+
+        UsuarioCliente nuevo = new UsuarioCliente();
+        nuevo.setApellido("Perez");
+        nuevo.setDni("30111222");
+
+        UsuarioCliente result = usuarioService.update(usuario, nuevo);
+
+        assertThat(result.getApellido()).isEqualTo("Perez");
+        assertThat(result.getDni()).isEqualTo("30111222");
+    }
+
+    @Test
     void deleteById_ShouldSoftDeleteUsuario() {
         when(usuarioRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(usuario));
 
@@ -125,6 +157,7 @@ class UsuarioServiceTest {
     void validarLogin_WhenCredencialesCorrectas_ShouldReturnUsuario() {
         when(usuarioRepository.findByEmailAndHabilitadoTrue("juan@constructorasur.com"))
                 .thenReturn(Optional.of(usuario));
+        when(passwordEncoder.matches("juan123", "juan123")).thenReturn(true);
 
         Optional<UsuarioCliente> result = usuarioService.validarLogin("juan@constructorasur.com", "juan123");
 
