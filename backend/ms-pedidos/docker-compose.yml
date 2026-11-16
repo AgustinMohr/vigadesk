@@ -1,33 +1,17 @@
-
-
+# Compose de desarrollo para ms-pedidos.
+# Requiere variables: docker compose --env-file ../../.env up -d
 services:
-
   mongo-db:
-    image: mongo
+    image: mongo:8.3
     container_name: mongo-db
     restart: always
     ports:
-      - 27017:27017
+      - "127.0.0.1:27017:27017"
     volumes:
       - mongo-data:/data/db
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-root}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-dan}
-    networks:
-      - pedidos-net
-
-  mongo-express:
-    image: mongo-express
-    restart: always
-    ports:
-      - 8027:8081
-    environment:
-      ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGO_INITDB_ROOT_USERNAME:-root}
-      ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-dan}
-      ME_CONFIG_MONGODB_URL: mongodb://${MONGO_INITDB_ROOT_USERNAME:-root}:${MONGO_INITDB_ROOT_PASSWORD:-dan}@mongo-db:27017/
-      ME_CONFIG_BASICAUTH: false
-    depends_on:
-      - mongo-db
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:?MONGO_INITDB_ROOT_PASSWORD requerido}
     networks:
       - pedidos-net
 
@@ -42,21 +26,20 @@ services:
       SPRING_DATA_MONGODB_PORT: 27017
       SPRING_DATA_MONGODB_DATABASE: pedidosdb
       SPRING_DATA_MONGODB_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-root}
-      SPRING_DATA_MONGODB_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-dan}
-      SPRING_DATA_MONGODB_URL: mongodb://${MONGO_INITDB_ROOT_USERNAME:-root}:${MONGO_INITDB_ROOT_PASSWORD:-dan}@mongo-db:27017/pedidosdb?authSource=admin
+      SPRING_DATA_MONGODB_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:?MONGO_INITDB_ROOT_PASSWORD requerido}
+      SPRING_DATA_MONGODB_URL: mongodb://${MONGO_INITDB_ROOT_USERNAME:-root}:${MONGO_INITDB_ROOT_PASSWORD:?MONGO_INITDB_ROOT_PASSWORD requerido}@mongo-db:27017/pedidosdb?authSource=admin
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-guest}
-      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:?RABBITMQ_USERNAME requerido}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD requerido}
       SPRING_EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/
     ports:
-      - "6280:8080"
+      - "127.0.0.1:6280:8080"
     depends_on:
       - mongo-db
     networks:
       - pedidos-net
       - backend-net
-
 
 networks:
   backend-net:

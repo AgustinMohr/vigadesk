@@ -3,14 +3,15 @@ package isi.dan.ms.pedidos.servicio;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -21,13 +22,17 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Query;
 
-import isi.dan.ms.pedidos.conf.RabbitMQConfig;
 import isi.dan.ms.pedidos.dao.PedidoRepository;
+import isi.dan.ms.pedidos.dto.EntregaItemRequest;
+import isi.dan.ms.pedidos.dto.EntregaRequest;
+import isi.dan.ms.pedidos.exception.ConflictException;
+import isi.dan.ms.pedidos.exception.ExternalServiceUnavailableException;
 import isi.dan.ms.pedidos.exception.PedidoNotFoundException;
+import isi.dan.ms.pedidos.exception.UnprocessableEntityException;
 import isi.dan.ms.pedidos.modelo.Cliente;
 import isi.dan.ms.pedidos.modelo.DetallePedido;
 import isi.dan.ms.pedidos.modelo.EstadoPedido;
@@ -45,7 +50,7 @@ class PedidoServiceTest {
     private MongoTemplate mongoTemplate;
 
     @Mock
-    private RabbitTemplate rabbitTemplate;
+    private SecuenciaService secuenciaService;
 
     @Mock
     private ClienteFeignClient clienteFeignClient;
@@ -58,8 +63,7 @@ class PedidoServiceTest {
 
     private Pedido pedido;
     private Cliente cliente;
-    private Producto producto;
-    private DetallePedido detalle;
+    private Producto productoReal;
 
     @BeforeEach
     void setUp() {
@@ -67,14 +71,21 @@ class PedidoServiceTest {
         cliente.setId(1);
         cliente.setNombre("Test Cliente");
 
-        producto = new Producto();
-        producto.setId(1L);
-        producto.setNombre("Cemento");
-        producto.setPrecio(BigDecimal.valueOf(1000));
+        productoReal = new Producto();
+        productoReal.setId(1L);
+        productoReal.setNombre("Cemento");
+        productoReal.setPrecio(BigDecimal.valueOf(1000));
 
-        detalle = new DetallePedido();
-        detalle.setProducto(producto);
-        detalle.setCantidad(5);
+        Producto productoDelPayload = new Producto();
+        productoDelPayload.setId(1L);
+        productoDelPayload.setNombre("Cemento trucado");
+        productoDelPayload.setPrecio(BigDecimal.ONE);
+        productoDelPayload.setDescuentoPromocional(BigDecimal.valueOf(100));
+
+        DetallePedido detalle = new DetallePedido();
+        detalle.setLineaId("linea-1");
+        detalle.setProducto(productoDelPayload);
+        detalle.setCantidad(BigDecimal.valueOf(5));
 
         Obra obra = new Obra();
         obra.setId(1);
@@ -84,36 +95,60 @@ class PedidoServiceTest {
         pedido.setCliente(cliente);
         pedido.setObra(obra);
         pedido.setDetalle(Collections.singletonList(detalle));
-        pedido.setUsuario("testuser");
+        pedido.setUsuario("payload-hacker");
+
+        lenient().when(secuenciaService.nextNumeroPedido()).thenReturn(1000);
+        lenient().when(secuenciaService.nextNumeroRemito()).thenReturn(1);
+        lenient().when(pedidoRepository.findByIdempotencyKey(anyString())).thenReturn(Optional.empty());
+        lenient().when(productoFeignClient.getProducto(anyLong(), anyString())).thenReturn(productoReal);
+        lenient().when(pedidoRepository.save(any(Pedido.class))).thenAnswer(i -> i.getArgument(0));
     }
 
-    @Test
-    void savePedido_ShouldCalculateTotal() {
+    private void stubCreditoOk() {
         when(clienteFeignClient.getMaximoDescubierto(1)).thenReturn(BigDecimal.valueOf(100000));
         when(clienteFeignClient.checkSaldo(any(), any())).thenReturn(true);
         when(pedidoRepository.findByCliente_IdAndEstadoInActivos(any(), any()))
                 .thenReturn(Collections.emptyList());
-        when(productoFeignClient.checkStock(any())).thenReturn(true);
-        when(pedidoRepository.save(any(Pedido.class))).thenAnswer(i -> i.getArgument(0));
+    }
+
+    private void stubStockOk() {
+        when(productoFeignClient.reserveStock(any())).thenReturn(true);
+    }
+
+    private EntregaRequest entregaRequest(String cantidad) {
+        EntregaItemRequest item = new EntregaItemRequest();
+        item.setLineaId("linea-1");
+        item.setCantidad(new BigDecimal(cantidad));
+
+        EntregaRequest request = new EntregaRequest();
+        request.setReceptor("Juan Obra");
+        request.setItems(new java.util.ArrayList<>(List.of(item)));
+        return request;
+    }
+
+    @Test
+    void savePedido_ShouldIgnorePayloadPriceAndUseCatalogPrice() {
+        stubCreditoOk();
+        stubStockOk();
 
         Pedido result = pedidoService.savePedido(pedido);
 
+        assertThat(result.getDetalle().get(0).getPrecioUnitario())
+                .isEqualByComparingTo(BigDecimal.valueOf(1000));
+        assertThat(result.getDetalle().get(0).getDescuento())
+                .isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(result.getTotal()).isEqualByComparingTo(BigDecimal.valueOf(5000));
+        assertThat(result.getDetalle().get(0).getProducto().getNombre()).isEqualTo("Cemento");
     }
 
     @Test
-    void savePedido_ShouldCalculateLineAmountsWithDiscount() {
-        producto.setDescuentoPromocional(BigDecimal.valueOf(10));
-        when(clienteFeignClient.getMaximoDescubierto(1)).thenReturn(BigDecimal.valueOf(100000));
-        when(clienteFeignClient.checkSaldo(any(), any())).thenReturn(true);
-        when(pedidoRepository.findByCliente_IdAndEstadoInActivos(any(), any()))
-                .thenReturn(Collections.emptyList());
-        when(productoFeignClient.checkStock(any())).thenReturn(true);
-        when(pedidoRepository.save(any(Pedido.class))).thenAnswer(i -> i.getArgument(0));
+    void savePedido_ShouldCalculateLineAmountsWithCatalogDiscount() {
+        productoReal.setDescuentoPromocional(BigDecimal.valueOf(10));
+        stubCreditoOk();
+        stubStockOk();
 
         Pedido result = pedidoService.savePedido(pedido);
 
-        // 1000 * 5 * (1 - 0.10) = 4500 por línea y como total
         DetallePedido linea = result.getDetalle().get(0);
         assertThat(linea.getPrecioUnitario()).isEqualByComparingTo(BigDecimal.valueOf(1000));
         assertThat(linea.getDescuento()).isEqualByComparingTo(BigDecimal.valueOf(10));
@@ -122,18 +157,82 @@ class PedidoServiceTest {
     }
 
     @Test
-    void savePedido_ShouldSetFechaAndNumeroPedido() {
-        when(clienteFeignClient.getMaximoDescubierto(1)).thenReturn(BigDecimal.valueOf(100000));
-        when(clienteFeignClient.checkSaldo(any(), any())).thenReturn(true);
-        when(pedidoRepository.findByCliente_IdAndEstadoInActivos(any(), any()))
-                .thenReturn(Collections.emptyList());
-        when(productoFeignClient.checkStock(any())).thenReturn(true);
-        when(pedidoRepository.save(any(Pedido.class))).thenAnswer(i -> i.getArgument(0));
+    void savePedido_DiscountOutOfRange_ShouldClampAndNeverProduceNegativeTotal() {
+        productoReal.setDescuentoPromocional(BigDecimal.valueOf(10000));
+        stubCreditoOk();
+        stubStockOk();
+
+        Pedido result = pedidoService.savePedido(pedido);
+
+        DetallePedido linea = result.getDetalle().get(0);
+        assertThat(linea.getDescuento()).isEqualByComparingTo(BigDecimal.valueOf(100));
+        assertThat(linea.getPrecioFinal()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(result.getTotal()).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    void savePedido_DiscountNull_ShouldTreatAsNoDiscount() {
+        productoReal.setDescuentoPromocional(null);
+        stubCreditoOk();
+        stubStockOk();
+
+        Pedido result = pedidoService.savePedido(pedido);
+
+        assertThat(result.getDetalle().get(0).getDescuento()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(result.getTotal()).isEqualByComparingTo(BigDecimal.valueOf(5000));
+    }
+
+    @Test
+    void savePedido_ShouldSetFechaAndSequentialNumeroPedido() {
+        stubCreditoOk();
+        stubStockOk();
 
         Pedido result = pedidoService.savePedido(pedido);
 
         assertThat(result.getFecha()).isNotNull();
-        assertThat(result.getNumeroPedido()).isPositive();
+        assertThat(result.getNumeroPedido()).isEqualTo(1000);
+        assertThat(result.getAuditoria()).isNotEmpty();
+        verify(secuenciaService).nextNumeroPedido();
+    }
+
+    @Test
+    void savePedido_ShouldOverrideUsuarioFromAuthenticatedActor() {
+        stubCreditoOk();
+        stubStockOk();
+
+        Pedido result = pedidoService.savePedido(pedido, "CLIENTE", "key-1", "Juan Perez");
+
+        assertThat(result.getUsuario()).isEqualTo("Juan Perez");
+    }
+
+    @Test
+    void savePedido_WithExistingIdempotencyKey_ShouldReturnExistingWithoutRecalculate() {
+        Pedido existente = new Pedido();
+        existente.setId("pedido-existente");
+        existente.setTotal(BigDecimal.valueOf(123));
+        when(pedidoRepository.findByIdempotencyKey("key-1")).thenReturn(Optional.of(existente));
+
+        Pedido result = pedidoService.savePedido(pedido, "CLIENTE", "key-1", "Juan Perez");
+
+        assertThat(result.getId()).isEqualTo("pedido-existente");
+        verify(productoFeignClient, never()).getProducto(anyLong(), anyString());
+    }
+
+    @Test
+    void savePedido_ConcurrentDuplicateKey_ShouldReleaseDuplicateReservation() {
+        Pedido existente = new Pedido();
+        existente.setId("pedido-existente");
+        when(pedidoRepository.findByIdempotencyKey("key-1"))
+                .thenReturn(Optional.empty(), Optional.of(existente));
+        stubCreditoOk();
+        stubStockOk();
+        when(pedidoRepository.save(any(Pedido.class)))
+                .thenThrow(new DuplicateKeyException("idempotencyKey"));
+
+        Pedido result = pedidoService.savePedido(pedido, "CLIENTE", "key-1", "Juan Perez");
+
+        assertThat(result.getId()).isEqualTo("pedido-existente");
+        verify(productoFeignClient).releaseStock(any());
     }
 
     @Test
@@ -141,51 +240,32 @@ class PedidoServiceTest {
         when(clienteFeignClient.getMaximoDescubierto(1)).thenReturn(BigDecimal.valueOf(3000));
         when(pedidoRepository.findByCliente_IdAndEstadoInActivos(any(), any()))
                 .thenReturn(Collections.emptyList());
-        when(pedidoRepository.save(any(Pedido.class))).thenAnswer(i -> i.getArgument(0));
+        when(clienteFeignClient.checkSaldo(any(), any())).thenReturn(false);
 
         Pedido result = pedidoService.savePedido(pedido);
 
         assertThat(result.getEstado()).isEqualTo(EstadoPedido.RECHAZADO);
+        verify(productoFeignClient, never()).reserveStock(any());
     }
 
     @Test
-    void savePedido_ExistingOrdersPlusTotalExceedsCredit_ShouldReturnRECHAZADO() {
-        Pedido existingPedido = new Pedido();
-        existingPedido.setTotal(BigDecimal.valueOf(96000));
+    void savePedido_ExistingDeliveredOrderConsumesCredit_ShouldReturnRECHAZADO() {
+        Pedido entregado = new Pedido();
+        entregado.setTotal(BigDecimal.valueOf(96000));
         when(clienteFeignClient.getMaximoDescubierto(1)).thenReturn(BigDecimal.valueOf(100000));
-        when(pedidoRepository.findByCliente_IdAndEstadoInActivos(any(), any()))
-                .thenReturn(Collections.singletonList(existingPedido));
-        when(pedidoRepository.save(any(Pedido.class))).thenAnswer(i -> i.getArgument(0));
+        when(pedidoRepository.findByCliente_IdAndEstadoInActivos(eq(1), any()))
+                .thenReturn(Collections.singletonList(entregado));
+        when(clienteFeignClient.checkSaldo(1, BigDecimal.valueOf(101000))).thenReturn(false);
 
         Pedido result = pedidoService.savePedido(pedido);
 
         assertThat(result.getEstado()).isEqualTo(EstadoPedido.RECHAZADO);
-    }
-
-    @Test
-    void savePedido_ExistingOrdersPlusTotalWithinCredit_ShouldNotReject() {
-        Pedido existingPedido = new Pedido();
-        existingPedido.setTotal(BigDecimal.valueOf(30000));
-        when(clienteFeignClient.getMaximoDescubierto(1)).thenReturn(BigDecimal.valueOf(100000));
-        when(clienteFeignClient.checkSaldo(any(), any())).thenReturn(true);
-        when(pedidoRepository.findByCliente_IdAndEstadoInActivos(any(), any()))
-                .thenReturn(Collections.singletonList(existingPedido));
-        when(productoFeignClient.checkStock(any())).thenReturn(true);
-        when(pedidoRepository.save(any(Pedido.class))).thenAnswer(i -> i.getArgument(0));
-
-        Pedido result = pedidoService.savePedido(pedido);
-
-        assertThat(result.getEstado()).isNotEqualTo(EstadoPedido.RECHAZADO);
     }
 
     @Test
     void savePedido_CreditOkAndStockOk_ShouldReturnEN_PREPARACION() {
-        when(clienteFeignClient.getMaximoDescubierto(1)).thenReturn(BigDecimal.valueOf(100000));
-        when(clienteFeignClient.checkSaldo(any(), any())).thenReturn(true);
-        when(pedidoRepository.findByCliente_IdAndEstadoInActivos(any(), any()))
-                .thenReturn(Collections.emptyList());
-        when(productoFeignClient.checkStock(any())).thenReturn(true);
-        when(pedidoRepository.save(any(Pedido.class))).thenAnswer(i -> i.getArgument(0));
+        stubCreditoOk();
+        stubStockOk();
 
         Pedido result = pedidoService.savePedido(pedido);
 
@@ -193,27 +273,19 @@ class PedidoServiceTest {
     }
 
     @Test
-    void savePedido_CreditOkAndStockOk_ShouldSendRabbitMessages() {
-        when(clienteFeignClient.getMaximoDescubierto(1)).thenReturn(BigDecimal.valueOf(100000));
-        when(clienteFeignClient.checkSaldo(any(), any())).thenReturn(true);
-        when(pedidoRepository.findByCliente_IdAndEstadoInActivos(any(), any()))
-                .thenReturn(Collections.emptyList());
-        when(productoFeignClient.checkStock(any())).thenReturn(true);
-        when(pedidoRepository.save(any(Pedido.class))).thenAnswer(i -> i.getArgument(0));
+    void savePedido_CreditOkAndStockOk_ShouldReserveStock() {
+        stubCreditoOk();
+        stubStockOk();
 
         pedidoService.savePedido(pedido);
 
-        verify(rabbitTemplate).convertAndSend(RabbitMQConfig.STOCK_UPDATE_QUEUE, "1;5");
+        verify(productoFeignClient).reserveStock(any());
     }
 
     @Test
     void savePedido_CreditOkButStockInsufficient_ShouldReturnACEPTADO() {
-        when(clienteFeignClient.getMaximoDescubierto(1)).thenReturn(BigDecimal.valueOf(100000));
-        when(clienteFeignClient.checkSaldo(any(), any())).thenReturn(true);
-        when(pedidoRepository.findByCliente_IdAndEstadoInActivos(any(), any()))
-                .thenReturn(Collections.emptyList());
-        when(productoFeignClient.checkStock(any())).thenReturn(false);
-        when(pedidoRepository.save(any(Pedido.class))).thenAnswer(i -> i.getArgument(0));
+        stubCreditoOk();
+        when(productoFeignClient.reserveStock(any())).thenReturn(false);
 
         Pedido result = pedidoService.savePedido(pedido);
 
@@ -221,78 +293,167 @@ class PedidoServiceTest {
     }
 
     @Test
-    void savePedido_CreditOkButStockInsufficient_ShouldNotSendRabbitMessages() {
-        when(clienteFeignClient.getMaximoDescubierto(1)).thenReturn(BigDecimal.valueOf(100000));
-        when(clienteFeignClient.checkSaldo(any(), any())).thenReturn(true);
-        when(pedidoRepository.findByCliente_IdAndEstadoInActivos(any(), any()))
-                .thenReturn(Collections.emptyList());
-        when(productoFeignClient.checkStock(any())).thenReturn(false);
-        when(pedidoRepository.save(any(Pedido.class))).thenAnswer(i -> i.getArgument(0));
+    void savePedido_CreditOkAndStockServiceDown_ShouldReturnACEPTADO() {
+        stubCreditoOk();
+        when(productoFeignClient.reserveStock(any())).thenThrow(new RuntimeException("Timeout"));
 
-        pedidoService.savePedido(pedido);
+        Pedido result = pedidoService.savePedido(pedido);
 
-        verify(rabbitTemplate, never()).convertAndSend(anyString(), anyString());
+        assertThat(result.getEstado()).isEqualTo(EstadoPedido.ACEPTADO);
     }
 
     @Test
-    void savePedido_FeignClientFails_ShouldReturnRECIBIDO() {
+    void savePedido_CreditServiceDown_ShouldFailClosedAndNotSave() {
         when(clienteFeignClient.getMaximoDescubierto(1)).thenThrow(new RuntimeException("Connection refused"));
-        when(pedidoRepository.save(any(Pedido.class))).thenAnswer(i -> i.getArgument(0));
 
-        Pedido result = pedidoService.savePedido(pedido);
+        assertThatThrownBy(() -> pedidoService.savePedido(pedido))
+                .isInstanceOf(ExternalServiceUnavailableException.class);
 
-        assertThat(result.getEstado()).isEqualTo(EstadoPedido.RECIBIDO);
+        verify(pedidoRepository, never()).save(any(Pedido.class));
     }
 
     @Test
-    void savePedido_StockCheckFails_ShouldReturnACEPTADO() {
-        when(clienteFeignClient.getMaximoDescubierto(1)).thenReturn(BigDecimal.valueOf(100000));
-        when(clienteFeignClient.checkSaldo(any(), any())).thenReturn(true);
-        when(pedidoRepository.findByCliente_IdAndEstadoInActivos(any(), any()))
-                .thenReturn(Collections.emptyList());
-        when(productoFeignClient.checkStock(any())).thenThrow(new RuntimeException("Timeout"));
-        when(pedidoRepository.save(any(Pedido.class))).thenAnswer(i -> i.getArgument(0));
+    void savePedido_ProductServiceDown_ShouldFailClosedAndNotSave() {
+        when(productoFeignClient.getProducto(anyLong(), anyString()))
+                .thenThrow(new RuntimeException("Connection refused"));
 
-        Pedido result = pedidoService.savePedido(pedido);
+        assertThatThrownBy(() -> pedidoService.savePedido(pedido))
+                .isInstanceOf(ExternalServiceUnavailableException.class);
 
-        assertThat(result.getEstado()).isEqualTo(EstadoPedido.ACEPTADO);
+        verify(pedidoRepository, never()).save(any(Pedido.class));
     }
 
     @Test
-    void savePedido_StockCheckFails_ShouldNotSendRabbitMessages() {
-        when(clienteFeignClient.getMaximoDescubierto(1)).thenReturn(BigDecimal.valueOf(100000));
-        when(clienteFeignClient.checkSaldo(any(), any())).thenReturn(true);
-        when(pedidoRepository.findByCliente_IdAndEstadoInActivos(any(), any()))
-                .thenReturn(Collections.emptyList());
-        when(productoFeignClient.checkStock(any())).thenThrow(new RuntimeException("Timeout"));
-        when(pedidoRepository.save(any(Pedido.class))).thenAnswer(i -> i.getArgument(0));
+    void savePedido_WhenPersistenceFailsAfterReserve_ShouldCompensateStock() {
+        stubCreditoOk();
+        stubStockOk();
+        when(pedidoRepository.save(any(Pedido.class))).thenThrow(new RuntimeException("DB down"));
 
-        pedidoService.savePedido(pedido);
+        assertThatThrownBy(() -> pedidoService.savePedido(pedido))
+                .isInstanceOf(RuntimeException.class);
 
-        verify(rabbitTemplate, never()).convertAndSend(anyString(), anyString());
+        verify(productoFeignClient).releaseStock(any());
     }
 
     @Test
-    void updateEstado_ENTREGADO_ShouldUpdateAndReturn() {
+    void updateEstado_ENTREGADO_FromEN_PREPARACIONWithPending_ShouldThrowConflict() {
+        pedido.setEstado(EstadoPedido.EN_PREPARACION);
         when(pedidoRepository.findByIdActivo("1")).thenReturn(Optional.of(pedido));
-        when(pedidoRepository.save(any(Pedido.class))).thenAnswer(i -> i.getArgument(0));
+
+        assertThatThrownBy(() -> pedidoService.updateEstado("1", EstadoPedido.ENTREGADO))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("cantidades pendientes");
+    }
+
+    @Test
+    void updateEstado_ENTREGADO_WhenAllLinesDelivered_ShouldUpdate() {
+        pedido.setEstado(EstadoPedido.EN_PREPARACION);
+        pedido.getDetalle().get(0).setCantidadEntregada(BigDecimal.valueOf(5));
+        when(pedidoRepository.findByIdActivo("1")).thenReturn(Optional.of(pedido));
 
         Pedido result = pedidoService.updateEstado("1", EstadoPedido.ENTREGADO);
 
-        assertThat(result).isNotNull();
         assertThat(result.getEstado()).isEqualTo(EstadoPedido.ENTREGADO);
     }
 
     @Test
-    void updateEstado_CANCELADO_ShouldEnviarDevolucionStock() {
+    void registrarEntrega_Partial_ShouldUpdateDeliveredQuantityAndState() {
+        pedido.setEstado(EstadoPedido.EN_PREPARACION);
         when(pedidoRepository.findByIdActivo("1")).thenReturn(Optional.of(pedido));
-        when(pedidoRepository.save(any(Pedido.class))).thenAnswer(i -> i.getArgument(0));
+
+        Pedido result = pedidoService.registrarEntrega("1", entregaRequest("2"), "Deposito");
+
+        assertThat(result.getEstado()).isEqualTo(EstadoPedido.ENTREGA_PARCIAL);
+        assertThat(result.getDetalle().get(0).getCantidadEntregada())
+                .isEqualByComparingTo(BigDecimal.valueOf(2));
+        assertThat(result.getDetalle().get(0).getCantidadPendiente())
+                .isEqualByComparingTo(BigDecimal.valueOf(3));
+        assertThat(result.getEntregas()).hasSize(1);
+        assertThat(result.getEntregas().get(0).getNumeroRemito()).isEqualTo(1);
+        assertThat(result.getAuditoria()).isNotEmpty();
+    }
+
+    @Test
+    void registrarEntrega_Full_ShouldTransitionToENTREGADO() {
+        pedido.setEstado(EstadoPedido.EN_PREPARACION);
+        when(pedidoRepository.findByIdActivo("1")).thenReturn(Optional.of(pedido));
+
+        Pedido result = pedidoService.registrarEntrega("1", entregaRequest("5"), "Deposito");
+
+        assertThat(result.getEstado()).isEqualTo(EstadoPedido.ENTREGADO);
+        assertThat(result.getDetalle().get(0).getCantidadPendiente()).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    void registrarEntrega_OverDelivery_ShouldThrowUnprocessable() {
+        pedido.setEstado(EstadoPedido.EN_PREPARACION);
+        when(pedidoRepository.findByIdActivo("1")).thenReturn(Optional.of(pedido));
+
+        assertThatThrownBy(() -> pedidoService.registrarEntrega("1", entregaRequest("6"), "Deposito"))
+                .isInstanceOf(UnprocessableEntityException.class)
+                .hasMessageContaining("supera la pendiente");
+    }
+
+    @Test
+    void registrarEntrega_FromACEPTADO_ShouldThrowConflict() {
+        pedido.setEstado(EstadoPedido.ACEPTADO);
+        when(pedidoRepository.findByIdActivo("1")).thenReturn(Optional.of(pedido));
+
+        assertThatThrownBy(() -> pedidoService.registrarEntrega("1", entregaRequest("1"), "Deposito"))
+                .isInstanceOf(ConflictException.class);
+    }
+
+    @Test
+    void registrarEntrega_DuplicateLine_ShouldThrowUnprocessable() {
+        pedido.setEstado(EstadoPedido.EN_PREPARACION);
+        when(pedidoRepository.findByIdActivo("1")).thenReturn(Optional.of(pedido));
+        EntregaRequest request = entregaRequest("1");
+        request.getItems().add(request.getItems().get(0));
+
+        assertThatThrownBy(() -> pedidoService.registrarEntrega("1", request, "Deposito"))
+                .isInstanceOf(UnprocessableEntityException.class)
+                .hasMessageContaining("repetida");
+    }
+
+    @Test
+    void updateEstado_ENTREGADO_FromACEPTADO_ShouldThrowConflict() {
+        pedido.setEstado(EstadoPedido.ACEPTADO);
+        when(pedidoRepository.findByIdActivo("1")).thenReturn(Optional.of(pedido));
+
+        assertThatThrownBy(() -> pedidoService.updateEstado("1", EstadoPedido.ENTREGADO))
+                .isInstanceOf(ConflictException.class);
+    }
+
+    @Test
+    void updateEstado_CANCELADO_FromEN_PREPARACION_ShouldReleaseStock() {
+        pedido.setEstado(EstadoPedido.EN_PREPARACION);
+        when(pedidoRepository.findByIdActivo("1")).thenReturn(Optional.of(pedido));
 
         Pedido result = pedidoService.updateEstado("1", EstadoPedido.CANCELADO);
 
-        assertThat(result).isNotNull();
         assertThat(result.getEstado()).isEqualTo(EstadoPedido.CANCELADO);
-        verify(rabbitTemplate).convertAndSend(RabbitMQConfig.STOCK_RETURN_QUEUE, "1;5");
+        verify(productoFeignClient).releaseStock(any());
+    }
+
+    @Test
+    void updateEstado_CANCELADO_FromACEPTADO_ShouldNotReleaseStock() {
+        pedido.setEstado(EstadoPedido.ACEPTADO);
+        when(pedidoRepository.findByIdActivo("1")).thenReturn(Optional.of(pedido));
+
+        Pedido result = pedidoService.updateEstado("1", EstadoPedido.CANCELADO);
+
+        assertThat(result.getEstado()).isEqualTo(EstadoPedido.CANCELADO);
+        verify(productoFeignClient, never()).releaseStock(any());
+    }
+
+    @Test
+    void updateEstado_CANCELADO_WithDeliveries_ShouldThrowConflict() {
+        pedido.setEstado(EstadoPedido.ENTREGA_PARCIAL);
+        when(pedidoRepository.findByIdActivo("1")).thenReturn(Optional.of(pedido));
+
+        assertThatThrownBy(() -> pedidoService.updateEstado("1", EstadoPedido.CANCELADO))
+                .isInstanceOf(ConflictException.class);
+        verify(productoFeignClient, never()).releaseStock(any());
     }
 
     @Test
@@ -338,6 +499,18 @@ class PedidoServiceTest {
     }
 
     @Test
+    void getEntregas_WhenOrderHasDeliveries_ShouldReturnThem() {
+        pedido.setEstado(EstadoPedido.EN_PREPARACION);
+        when(pedidoRepository.findByIdActivo("1")).thenReturn(Optional.of(pedido));
+        pedidoService.registrarEntrega("1", entregaRequest("2"), "Deposito");
+
+        List<isi.dan.ms.pedidos.modelo.Entrega> result = pedidoService.getEntregas("1");
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getReceptor()).isEqualTo("Juan Obra");
+    }
+
+    @Test
     void deletePedido_ShouldSoftDelete() {
         when(pedidoRepository.findByIdActivo("1")).thenReturn(Optional.of(pedido));
 
@@ -346,6 +519,27 @@ class PedidoServiceTest {
         assertThat(pedido.isHabilitado()).isFalse();
         assertThat(pedido.getFechaBorrado()).isNotNull();
         verify(pedidoRepository).save(pedido);
+    }
+
+    @Test
+    void deletePedido_FromEN_PREPARACION_ShouldReleaseStock() {
+        pedido.setEstado(EstadoPedido.EN_PREPARACION);
+        when(pedidoRepository.findByIdActivo("1")).thenReturn(Optional.of(pedido));
+
+        pedidoService.deletePedido("1");
+
+        verify(productoFeignClient).releaseStock(any());
+        assertThat(pedido.isHabilitado()).isFalse();
+    }
+
+    @Test
+    void deletePedido_WithDeliveries_ShouldThrowConflict() {
+        pedido.setEstado(EstadoPedido.ENTREGADO);
+        when(pedidoRepository.findByIdActivo("1")).thenReturn(Optional.of(pedido));
+
+        assertThatThrownBy(() -> pedidoService.deletePedido("1"))
+                .isInstanceOf(ConflictException.class);
+        verify(pedidoRepository, never()).save(any(Pedido.class));
     }
 
     @Test

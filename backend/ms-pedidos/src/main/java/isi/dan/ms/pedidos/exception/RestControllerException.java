@@ -26,9 +26,16 @@ public class RestControllerException {
             HttpStatus.NOT_FOUND);
     }
 
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<ErrorInfo> handleForbidden(ForbiddenException ex) {
+        logger.warn("ACCESO DENEGADO: {}", ex.getMessage());
+        return new ResponseEntity<ErrorInfo>(
+            new ErrorInfo(Instant.now(), ex.getMessage(), "Acceso denegado", HttpStatus.FORBIDDEN.value()),
+            HttpStatus.FORBIDDEN);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ErrorInfo> handleIllegalArgument(IllegalArgumentException ex) {
-        logger.error("ERROR Argumento invalido", ex);
+    public ResponseEntity<ErrorInfo> handleIllegalArgument(IllegalArgumentException ex) {        logger.error("ERROR Argumento invalido", ex);
         String detalle = ex.getCause() == null ? "Solicitud invalida" : ex.getCause().getMessage();
         return new ResponseEntity<ErrorInfo>(
             new ErrorInfo(Instant.now(), ex.getMessage(), detalle, HttpStatus.BAD_REQUEST.value()),
@@ -42,6 +49,30 @@ public class RestControllerException {
         return new ResponseEntity<ErrorInfo>(
             new ErrorInfo(Instant.now(), ex.getMessage(), detalle, HttpStatus.INTERNAL_SERVER_ERROR.value()),
             HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @ExceptionHandler(ExternalServiceUnavailableException.class)
+    public ResponseEntity<ErrorInfo> handleExternalServiceUnavailable(ExternalServiceUnavailableException ex) {
+        logger.error("SERVICIO EXTERNO NO DISPONIBLE: {}", ex.getMessage(), ex);
+        return new ResponseEntity<ErrorInfo>(
+            new ErrorInfo(Instant.now(), ex.getMessage(), "Servicio temporalmente no disponible", HttpStatus.SERVICE_UNAVAILABLE.value()),
+            HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
+    @ExceptionHandler(UnprocessableEntityException.class)
+    public ResponseEntity<ErrorInfo> handleUnprocessableEntity(UnprocessableEntityException ex) {
+        logger.warn("SOLICITUD NO PROCESABLE: {}", ex.getMessage());
+        return new ResponseEntity<ErrorInfo>(
+            new ErrorInfo(Instant.now(), ex.getMessage(), "Solicitud no procesable", HttpStatus.UNPROCESSABLE_ENTITY.value()),
+            HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ErrorInfo> handleConflict(ConflictException ex) {
+        logger.warn("CONFLICTO DE ESTADO: {}", ex.getMessage());
+        return new ResponseEntity<ErrorInfo>(
+            new ErrorInfo(Instant.now(), ex.getMessage(), "Conflicto de estado", HttpStatus.CONFLICT.value()),
+            HttpStatus.CONFLICT);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

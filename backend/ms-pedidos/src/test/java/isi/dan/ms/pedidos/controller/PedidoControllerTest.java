@@ -10,10 +10,12 @@ import isi.dan.ms.pedidos.modelo.EstadoPedido;
 import isi.dan.ms.pedidos.modelo.Obra;
 import isi.dan.ms.pedidos.modelo.Pedido;
 import isi.dan.ms.pedidos.modelo.Producto;
+import isi.dan.ms.pedidos.servicio.PedidoPdfService;
 import isi.dan.ms.pedidos.servicio.PedidoService;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -36,6 +38,9 @@ class PedidoControllerTest {
     @MockBean
     private PedidoService pedidoService;
 
+    @MockBean
+    private PedidoPdfService pedidoPdfService;
+
     private Pedido pedido;
 
     @BeforeEach
@@ -55,7 +60,7 @@ class PedidoControllerTest {
 
         DetallePedido detalle = new DetallePedido();
         detalle.setProducto(prod);
-        detalle.setCantidad(2);
+        detalle.setCantidad(BigDecimal.valueOf(2));
         detalle.setPrecioUnitario(BigDecimal.valueOf(1000));
 
         pedido = new Pedido();
@@ -100,9 +105,14 @@ class PedidoControllerTest {
 
     @Test
     void testCreate() throws Exception {
-        Mockito.when(pedidoService.savePedido(Mockito.any(Pedido.class))).thenReturn(pedido);
+        Mockito.when(pedidoService.savePedido(
+                Mockito.any(Pedido.class), Mockito.any(), Mockito.any(), Mockito.anyString()))
+                .thenReturn(pedido);
 
         mockMvc.perform(post("/api/pedidos")
+                .header("X-User-Rol", "ADMIN")
+                .header("X-User-Nombre", "Admin Test")
+                .header("Idempotency-Key", "key-test")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(asJsonString(pedido)))
                 .andExpect(status().isOk())
@@ -118,6 +128,7 @@ class PedidoControllerTest {
         // numeroPedido null y detalle vacío → @NotNull / @NotEmpty
 
         mockMvc.perform(post("/api/pedidos")
+                .header("X-User-Rol", "ADMIN")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(asJsonString(invalido)))
                 .andExpect(status().isBadRequest());
@@ -144,9 +155,12 @@ class PedidoControllerTest {
         updated.setId("pedido-1");
         updated.setEstado(EstadoPedido.ENTREGADO);
 
-        Mockito.when(pedidoService.updateEstado("pedido-1", EstadoPedido.ENTREGADO)).thenReturn(updated);
+        Mockito.when(pedidoService.updateEstado(
+                Mockito.eq("pedido-1"), Mockito.eq(EstadoPedido.ENTREGADO), Mockito.anyString()))
+                .thenReturn(updated);
 
         mockMvc.perform(patch("/api/pedidos/pedido-1/estado")
+                .header("X-User-Rol", "ADMIN")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(asJsonString(request)))
                 .andExpect(status().isOk())
@@ -158,10 +172,12 @@ class PedidoControllerTest {
         EstadoUpdateRequest request = new EstadoUpdateRequest();
         request.setEstado(EstadoPedido.ENTREGADO);
 
-        Mockito.when(pedidoService.updateEstado("not-found", EstadoPedido.ENTREGADO))
+        Mockito.when(pedidoService.updateEstado(
+                Mockito.eq("not-found"), Mockito.eq(EstadoPedido.ENTREGADO), Mockito.anyString()))
                 .thenThrow(new PedidoNotFoundException("not-found"));
 
         mockMvc.perform(patch("/api/pedidos/not-found/estado")
+                .header("X-User-Rol", "ADMIN")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(asJsonString(request)))
                 .andExpect(status().isNotFound());
@@ -171,6 +187,7 @@ class PedidoControllerTest {
     void testUpdateEstado_EstadoNull_ShouldReturnBadRequest() throws Exception {
         // Body sin campo "estado" → @NotNull en EstadoUpdateRequest
         mockMvc.perform(patch("/api/pedidos/pedido-1/estado")
+                .header("X-User-Rol", "ADMIN")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{}"))
                 .andExpect(status().isBadRequest());
@@ -179,9 +196,10 @@ class PedidoControllerTest {
     @Test
     void testDelete() throws Exception {
         Mockito.when(pedidoService.getPedidoById("pedido-1")).thenReturn(pedido);
-        Mockito.doNothing().when(pedidoService).deletePedido("pedido-1");
+        Mockito.doNothing().when(pedidoService).deletePedido(Mockito.eq("pedido-1"), Mockito.anyString());
 
-        mockMvc.perform(delete("/api/pedidos/pedido-1"))
+        mockMvc.perform(delete("/api/pedidos/pedido-1")
+                .header("X-User-Rol", "ADMIN"))
                 .andExpect(status().isNoContent());
     }
 
@@ -189,8 +207,140 @@ class PedidoControllerTest {
     void testDelete_NotFound() throws Exception {
         Mockito.when(pedidoService.getPedidoById("not-found")).thenThrow(new isi.dan.ms.pedidos.exception.PedidoNotFoundException("not-found"));
 
-        mockMvc.perform(delete("/api/pedidos/not-found"))
+        mockMvc.perform(delete("/api/pedidos/not-found")
+                .header("X-User-Rol", "ADMIN"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void testGetAll_Cliente_UsesOwnClienteId() throws Exception {
+        Mockito.when(pedidoService.searchPedidos(null, null, 7))
+                .thenReturn(Collections.singletonList(pedido));
+
+        mockMvc.perform(get("/api/pedidos")
+                .header("X-User-Rol", "CLIENTE")
+                .header("X-User-ClienteId", "7"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    @Test
+    void testSearch_Cliente_ForcesOwnClienteId() throws Exception {
+        Mockito.when(pedidoService.searchPedidos(null, EstadoPedido.ENTREGADO, 7))
+                .thenReturn(Collections.singletonList(pedido));
+
+        mockMvc.perform(get("/api/pedidos/search")
+                .param("estado", "ENTREGADO")
+                .param("clienteId", "99")
+                .header("X-User-Rol", "CLIENTE")
+                .header("X-User-ClienteId", "7"))
+                .andExpect(status().isOk());
+
+        Mockito.verify(pedidoService).searchPedidos(null, EstadoPedido.ENTREGADO, 7);
+    }
+
+    @Test
+    void testGetById_ClienteOther_ShouldReturnForbidden() throws Exception {
+        Mockito.when(pedidoService.getPedidoById("pedido-1")).thenReturn(pedido);
+
+        mockMvc.perform(get("/api/pedidos/pedido-1")
+                .header("X-User-Rol", "CLIENTE")
+                .header("X-User-ClienteId", "7"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void testCreate_Cliente_OverridesClienteId() throws Exception {
+        Mockito.when(pedidoService.savePedido(
+                Mockito.any(Pedido.class), Mockito.any(), Mockito.any(), Mockito.anyString()))
+                .thenReturn(pedido);
+
+        Pedido body = new Pedido();
+        Cliente otro = new Cliente();
+        otro.setId(99);
+        body.setCliente(otro);
+        body.setNumeroPedido(1);
+        body.setTotal(BigDecimal.valueOf(100));
+        body.setEstado(EstadoPedido.RECIBIDO);
+        body.setDetalle(pedido.getDetalle());
+
+        mockMvc.perform(post("/api/pedidos")
+                .header("X-User-Rol", "CLIENTE")
+                .header("X-User-ClienteId", "7")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(asJsonString(body)))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<Pedido> captor = ArgumentCaptor.forClass(Pedido.class);
+        Mockito.verify(pedidoService).savePedido(
+                captor.capture(), Mockito.eq("CLIENTE"), Mockito.isNull(), Mockito.anyString());
+        org.junit.jupiter.api.Assertions.assertEquals(7, captor.getValue().getCliente().getId());
+    }
+
+    @Test
+    void testRegistrarEntrega_Admin_ShouldReturnUpdatedPedido() throws Exception {
+        isi.dan.ms.pedidos.dto.EntregaRequest request = new isi.dan.ms.pedidos.dto.EntregaRequest();
+        request.setReceptor("Juan Obra");
+        isi.dan.ms.pedidos.dto.EntregaItemRequest item = new isi.dan.ms.pedidos.dto.EntregaItemRequest();
+        item.setLineaId("linea-1");
+        item.setCantidad(BigDecimal.valueOf(1));
+        request.setItems(Collections.singletonList(item));
+
+        Pedido conEntrega = new Pedido();
+        conEntrega.setId("pedido-1");
+        conEntrega.setEstado(EstadoPedido.ENTREGA_PARCIAL);
+
+        Mockito.when(pedidoService.registrarEntrega(
+                Mockito.eq("pedido-1"), Mockito.any(), Mockito.anyString()))
+                .thenReturn(conEntrega);
+
+        mockMvc.perform(post("/api/pedidos/pedido-1/entregas")
+                .header("X-User-Rol", "ADMIN")
+                .header("X-User-Nombre", "Deposito")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(asJsonString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("ENTREGA_PARCIAL"));
+    }
+
+    @Test
+    void testRegistrarEntrega_Cliente_ShouldReturnForbidden() throws Exception {
+        isi.dan.ms.pedidos.dto.EntregaRequest request = new isi.dan.ms.pedidos.dto.EntregaRequest();
+        request.setReceptor("Juan Obra");
+        isi.dan.ms.pedidos.dto.EntregaItemRequest item = new isi.dan.ms.pedidos.dto.EntregaItemRequest();
+        item.setLineaId("linea-1");
+        item.setCantidad(BigDecimal.ONE);
+        request.setItems(Collections.singletonList(item));
+
+        mockMvc.perform(post("/api/pedidos/pedido-1/entregas")
+                .header("X-User-Rol", "CLIENTE")
+                .header("X-User-ClienteId", "1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(asJsonString(request)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void testGetEntregas_ClienteOther_ShouldReturnForbidden() throws Exception {
+        Mockito.when(pedidoService.getPedidoById("pedido-1")).thenReturn(pedido);
+
+        mockMvc.perform(get("/api/pedidos/pedido-1/entregas")
+                .header("X-User-Rol", "CLIENTE")
+                .header("X-User-ClienteId", "7"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void testGetPedidoPdf_Admin_ShouldReturnPdf() throws Exception {
+        Mockito.when(pedidoService.getPedidoById("pedido-1")).thenReturn(pedido);
+        Mockito.when(pedidoPdfService.generarPedido(pedido)).thenReturn("%PDF-test".getBytes());
+
+        mockMvc.perform(get("/api/pedidos/pedido-1/pdf")
+                .header("X-User-Rol", "ADMIN"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_PDF))
+                .andExpect(header().string("Content-Disposition",
+                        "attachment; filename=\"pedido-1001.pdf\""));
     }
 
     private static String asJsonString(final Object obj) {

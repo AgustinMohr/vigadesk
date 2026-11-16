@@ -13,6 +13,7 @@ public class Producto {
     private Long id;
     private String nombre;
     private String descripcion;
+    private String unidadMedida;
     private BigDecimal precio;
     private BigDecimal descuentoPromocional;
 

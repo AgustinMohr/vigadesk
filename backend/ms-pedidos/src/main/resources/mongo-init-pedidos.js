@@ -3,7 +3,7 @@ db = db.getSiblingDB('pedidosdb');
 db.pedidos.insertMany([
   // =========================================================================
   //  CLIENTE 1 — "Constructora del Sur" (maximoDescubierto ≈ 75000)
-  //  ACEPTADO + EN_PREPARACION suman ~45250 → disponible ~29750
+  //  ACEPTADO + EN_PREPARACION suman ~43990 → disponible ~31010
   // =========================================================================
 
   // --- P1: EN_PREPARACION, crédito OK + stock OK (aporta 19950 al gastado)
@@ -24,7 +24,7 @@ db.pedidos.insertMany([
     ]
   },
 
-  // --- P2: EN_PREPARACION, crédito OK + stock OK (aporta 15200 al gastado)
+  // --- P2: EN_PREPARACION, crédito OK + stock OK (aporta 13940 al gastado)
   {
     _id: "2",
     fecha: ISODate("2024-11-05T14:30:00Z"),
@@ -33,10 +33,10 @@ db.pedidos.insertMany([
     observaciones: "Placas y perfiles para tabiques interiores",
     cliente: { _id: 1, nombre: "Constructora del Sur", correoElectronico: "contacto@constsur.com", cuit: "30-12345678-9" },
     obra: { _id: 1, direccion: "Av. Siempre Viva 742" },
-    total: 15200,
+    total: 13940,
     estado: "EN_PREPARACION",
     detalle: [
-      { producto: { _id: 2, nombre: "Placa de Yeso 12.7 mm 1.20 x 2.40 m", descripcion: "Placa de yeso est\u00e1ndar para tabiques interiores", precio: 4200.00 }, cantidad: 3, precioUnitario: 4200.00, descuento: 500.00, precioFinal: 11600.00 },
+      { producto: { _id: 2, nombre: "Placa de Yeso 12.7 mm 1.20 x 2.40 m", descripcion: "Placa de yeso est\u00e1ndar para tabiques interiores", precio: 4200.00 }, cantidad: 3, precioUnitario: 4200.00, descuento: 10, precioFinal: 11340.00 },
       { producto: { _id: 3, nombre: "Perfil Met\u00e1lico U 34x34x3000 mm", descripcion: "Perfil met\u00e1lico galvanizado para estructura de tabiques", precio: 650.00 }, cantidad: 4, precioUnitario: 650.00, descuento: 0, precioFinal: 2600.00 }
     ]
   },
@@ -58,7 +58,7 @@ db.pedidos.insertMany([
     ]
   },
 
-  // --- P4: ENTREGADO (completado, NO cuenta para el gastado)
+  // --- P4: ENTREGADO (cuenta para credito hasta que se registre un pago)
   {
     _id: "4",
     fecha: ISODate("2024-10-15T09:00:00Z"),
@@ -111,10 +111,10 @@ db.pedidos.insertMany([
 
   // =========================================================================
   //  CLIENTE 999 — Inexistente en ms-clientes
-  //  Al crear pedido via API, el Feign falla → estado RECIBIDO
+  //  Dato historico del flujo anterior (fail-open). Hoy el alta falla cerrada.
   // =========================================================================
 
-  // --- P7: RECIBIDO (Feign client falló — cliente.id=999 no existe)
+  // --- P7: RECIBIDO historico (cliente.id=999 no existe en ms-clientes)
   {
     _id: "7",
     fecha: ISODate("2024-11-15T07:30:00Z"),
@@ -186,7 +186,7 @@ db.pedidos.insertMany([
     ]
   },
 
-  // --- P11: ENTREGADO (completado, NO cuenta para el gastado)
+  // --- P11: ENTREGADO (cuenta para credito hasta que se registre un pago)
   {
     _id: "11",
     fecha: ISODate("2024-09-01T08:00:00Z"),
@@ -195,11 +195,11 @@ db.pedidos.insertMany([
     observaciones: "Pedido hist\u00f3rico completado",
     cliente: { _id: 2, nombre: "Hormigones del Norte", correoElectronico: "ventas@hormigonesnorte.com", cuit: "30-87654321-0" },
     obra: { _id: 3, direccion: "Ruta 9 km 52 - Obra Norte" },
-    total: 26800,
+    total: 25780,
     estado: "ENTREGADO",
     detalle: [
-      { producto: { _id: 13, nombre: "Ladrillo Hueco 18x18x33 Cer\u00e1mico x 1u", descripcion: "Ladrillo cer\u00e1mico para mamposter\u00eda", precio: 10000.00 }, cantidad: 2, precioUnitario: 10000.00, descuento: 10000.00, precioFinal: 10000.00 },
-      { producto: { _id: 52, nombre: "Fieltro Asf\u00e1ltico 10 m\u00b2 - 15% off", descripcion: "Fieltro asf\u00e1ltico para cubiertas", precio: 3400.00 }, cantidad: 2, precioUnitario: 3400.00, descuento: 510.00, precioFinal: 6290.00 }
+      { producto: { _id: 13, nombre: "Ladrillo Hueco 18x18x33 Cer\u00e1mico x 1u", descripcion: "Ladrillo cer\u00e1mico para mamposter\u00eda", precio: 10000.00 }, cantidad: 2, precioUnitario: 10000.00, descuento: 0, precioFinal: 20000.00 },
+      { producto: { _id: 52, nombre: "Fieltro Asf\u00e1ltico 10 m\u00b2 - 15% off", descripcion: "Fieltro asf\u00e1ltico para cubiertas", precio: 3400.00 }, cantidad: 2, precioUnitario: 3400.00, descuento: 15, precioFinal: 5780.00 }
     ]
   },
 
@@ -221,11 +221,11 @@ db.pedidos.insertMany([
 
   // =========================================================================
   //  CLIENTE 3 — "Techos y Cielorrasos SRL" (maximoDescubierto ≈ 100000)
-  //  ACEPTADO + EN_PREPARACION suman ~82400 → disponible ~17600
+  //  ACEPTADO + EN_PREPARACION suman ~80300 → disponible ~19700
   //  Cliente con límite alto pero ya comprometido.
   // =========================================================================
 
-  // --- P13: EN_PREPARACION, varios productos (aporta 56250 al gastado)
+  // --- P13: EN_PREPARACION, varios productos (aporta 54150 al gastado)
   {
     _id: "13",
     fecha: ISODate("2024-11-25T11:00:00Z"),
@@ -234,11 +234,11 @@ db.pedidos.insertMany([
     observaciones: "Materiales para obra nueva - pedido grande",
     cliente: { _id: 3, nombre: "Techos y Cielorrasos SRL", correoElectronico: "obras@techoscielorrasos.com", cuit: "30-11111111-1" },
     obra: { _id: 2, direccion: "Calle Falsa 123" },
-    total: 56250,
+    total: 54150,
     estado: "EN_PREPARACION",
     detalle: [
       { producto: { _id: 1, nombre: "Cemento Portland CPC 50 kg", descripcion: "Cemento Portland normal para construcci\u00f3n civil", precio: 8500.00 }, cantidad: 3, precioUnitario: 8500.00, descuento: 0, precioFinal: 25500.00 },
-      { producto: { _id: 2, nombre: "Placa de Yeso 12.7 mm 1.20 x 2.40 m", descripcion: "Placa de yeso est\u00e1ndar para tabiques interiores", precio: 4200.00 }, cantidad: 5, precioUnitario: 4200.00, descuento: 500.00, precioFinal: 18500.00 },
+      { producto: { _id: 2, nombre: "Placa de Yeso 12.7 mm 1.20 x 2.40 m", descripcion: "Placa de yeso est\u00e1ndar para tabiques interiores", precio: 4200.00 }, cantidad: 5, precioUnitario: 4200.00, descuento: 10, precioFinal: 18900.00 },
       { producto: { _id: 3, nombre: "Perfil Met\u00e1lico U 34x34x3000 mm", descripcion: "Perfil met\u00e1lico galvanizado para estructura de tabiques", precio: 650.00 }, cantidad: 15, precioUnitario: 650.00, descuento: 0, precioFinal: 9750.00 }
     ]
   },
@@ -317,3 +317,49 @@ db.pedidos.insertMany([
     ]
   }
 ]);
+
+// Indice de idempotencia: un reintento con la misma key devuelve el pedido
+// existente en lugar de duplicarlo.
+db.pedidos.createIndex({ idempotencyKey: 1 }, { unique: true, sparse: true });
+
+// Soporte para busquedas por cliente y estado.
+db.pedidos.createIndex({ 'cliente._id': 1, estado: 1, habilitado: 1 });
+
+// Normaliza el seed historico con el modelo de entregas parciales.
+db.pedidos.find({}).forEach(function (pedido) {
+  var changed = false;
+  (pedido.detalle || []).forEach(function (linea, index) {
+    if (!linea.lineaId) {
+      linea.lineaId = String(pedido._id) + '-' + index;
+      changed = true;
+    }
+    if (linea.cantidadEntregada === undefined || linea.cantidadEntregada === null) {
+      linea.cantidadEntregada = 0;
+      changed = true;
+    }
+  });
+  if (!pedido.entregas) {
+    pedido.entregas = [];
+    changed = true;
+  }
+  if (!pedido.auditoria) {
+    pedido.auditoria = [];
+    changed = true;
+  }
+  if (changed) {
+    db.pedidos.replaceOne({ _id: pedido._id }, pedido);
+  }
+});
+
+// Correlativo unico de numero de pedido. Arranca despues del seed historico.
+db.secuencias.updateOne(
+  { _id: 'pedido' },
+  { $max: { valor: 100017 } },
+  { upsert: true }
+);
+
+db.secuencias.updateOne(
+  { _id: 'remito' },
+  { $max: { valor: 0 } },
+  { upsert: true }
+);
