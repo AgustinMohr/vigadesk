@@ -16,7 +16,7 @@ import isi.dan.msclientes.model.UsuarioCliente;
 
 class JwtServiceTest {
 
-    private static final String SECRET = "test-secret-para-tests-del-tp-dan-2024-1234567890";
+    private static final String SECRET = "test-secret-para-tests-de-vigadesk-1234567890";
 
     private JwtService jwtService;
 

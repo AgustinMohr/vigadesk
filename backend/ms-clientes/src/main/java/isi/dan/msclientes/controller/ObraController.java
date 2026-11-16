@@ -9,6 +9,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import isi.dan.msclientes.aop.LogExecutionTime;
+import isi.dan.msclientes.exception.ForbiddenException;
 import isi.dan.msclientes.exception.ObraNotFoundException;
 import isi.dan.msclientes.model.EstadoObra;
 import isi.dan.msclientes.model.Obra;
@@ -23,27 +24,54 @@ public class ObraController {
 
     @GetMapping
     @LogExecutionTime
-    public List<Obra> getAll() {
+    public List<Obra> getAll(
+            @RequestHeader(value = "X-User-Rol", required = false) String rol,
+            @RequestHeader(value = "X-User-ClienteId", required = false) Integer tokenClienteId) {
+        if (isCliente(rol)) {
+            if (tokenClienteId == null) {
+                return List.of();
+            }
+            return obraService.findByClienteId(tokenClienteId);
+        }
         return obraService.findAll();
     }
 
     @GetMapping("/sin-asignar")
     @LogExecutionTime
-    public List<Obra> getSinAsignar() {
+    public List<Obra> getSinAsignar(
+            @RequestHeader(value = "X-User-Rol", required = false) String rol) {
+        if (isCliente(rol)) {
+            throw new ForbiddenException("Solo un administrador puede ver obras sin asignar");
+        }
         return obraService.findByClienteIsNull();
     }
 
     @GetMapping("/by-cliente/{clienteId}")
     @LogExecutionTime
-    public List<Obra> getByClienteId(@PathVariable Integer clienteId) {
+    public List<Obra> getByClienteId(
+            @PathVariable Integer clienteId,
+            @RequestHeader(value = "X-User-Rol", required = false) String rol,
+            @RequestHeader(value = "X-User-ClienteId", required = false) Integer tokenClienteId) {
+        if (isCliente(rol) && (tokenClienteId == null || !clienteId.equals(tokenClienteId))) {
+            throw new ForbiddenException("No podes acceder a obras de otro cliente");
+        }
         return obraService.findByClienteId(clienteId);
     }
 
     @GetMapping("/{id}")
     @LogExecutionTime
-    public ResponseEntity<Obra> getById(@PathVariable Integer id) {
+    public ResponseEntity<Obra> getById(
+            @PathVariable Integer id,
+            @RequestHeader(value = "X-User-Rol", required = false) String rol,
+            @RequestHeader(value = "X-User-ClienteId", required = false) Integer tokenClienteId) {
         Obra obra = obraService.findById(id)
                 .orElseThrow(() -> new ObraNotFoundException("Obra " + id + " no encontrada"));
+        if (isCliente(rol)) {
+            if (obra.getCliente() == null || tokenClienteId == null
+                    || !obra.getCliente().getId().equals(tokenClienteId)) {
+                throw new ForbiddenException("No podes acceder a obras de otro cliente");
+            }
+        }
         return ResponseEntity.ok(obra);
     }
 
@@ -65,7 +93,7 @@ public class ObraController {
         return ResponseEntity.ok(obraService.asignarCliente(obraId, clienteId));
     }
 
-    @PutMapping("/{id}/estado")
+    @PatchMapping("/{id}/estado")
     public ResponseEntity<Obra> cambiarEstado(@PathVariable Integer id, @RequestBody Map<String, String> body) {
         String estado = body.get("estado");
         if (estado == null || estado.isBlank()) {
@@ -80,5 +108,9 @@ public class ObraController {
                 .orElseThrow(() -> new ObraNotFoundException("Obra " + id + " no encontrada"));
         obraService.deleteById(obra.getId());
         return ResponseEntity.noContent().build();
+    }
+
+    private boolean isCliente(String rol) {
+        return "CLIENTE".equalsIgnoreCase(rol);
     }
 }

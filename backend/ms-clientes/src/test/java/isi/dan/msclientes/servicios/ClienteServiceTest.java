@@ -3,6 +3,7 @@ package isi.dan.msclientes.servicios;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -20,13 +21,18 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import isi.dan.msclientes.dao.ClienteRepository;
+import isi.dan.msclientes.dao.PagoRepository;
 import isi.dan.msclientes.model.Cliente;
+import isi.dan.msclientes.model.Pago;
 
 @ExtendWith(MockitoExtension.class)
 class ClienteServiceTest {
 
     @Mock
     private ClienteRepository clienteRepository;
+
+    @Mock
+    private PagoRepository pagoRepository;
 
     @InjectMocks
     private ClienteService clienteService;
@@ -36,13 +42,14 @@ class ClienteServiceTest {
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(clienteService, "maximoDescubiertoDefault", BigDecimal.valueOf(10000));
+        lenient().when(pagoRepository.findByClienteIdAndHabilitadoTrueOrderByFechaDesc(any()))
+                .thenReturn(Collections.emptyList());
         cliente = new Cliente();
         cliente.setId(1);
         cliente.setNombre("Test Cliente");
         cliente.setCorreoElectronico("test@cliente.com");
         cliente.setCuit("12998887776");
         cliente.setMaximoDescubierto(BigDecimal.valueOf(100000));
-        cliente.setMaxObrasActivas(5);
     }
 
     @Test
@@ -91,7 +98,6 @@ class ClienteServiceTest {
         Cliente sinMaximo = new Cliente();
         sinMaximo.setNombre("Sin Maximo");
         sinMaximo.setCorreoElectronico("sinmaximo@cliente.com");
-        sinMaximo.setMaxObrasActivas(2);
 
         Cliente result = clienteService.save(sinMaximo);
 
@@ -115,7 +121,7 @@ class ClienteServiceTest {
     }
 
     @Test
-    void update_ShouldUpdateAllProvidedFieldsIncludingMaxObrasActivas() {
+    void update_ShouldUpdateAllProvidedFields() {
         when(clienteRepository.save(any(Cliente.class))).thenAnswer(i -> i.getArgument(0));
 
         Cliente nuevo = new Cliente();
@@ -123,7 +129,6 @@ class ClienteServiceTest {
         nuevo.setCorreoElectronico("nuevo@cliente.com");
         nuevo.setCuit("40998887776");
         nuevo.setMaximoDescubierto(BigDecimal.valueOf(999));
-        nuevo.setMaxObrasActivas(4);
 
         Cliente result = clienteService.update(cliente, nuevo);
 
@@ -131,7 +136,6 @@ class ClienteServiceTest {
         assertThat(result.getCorreoElectronico()).isEqualTo("nuevo@cliente.com");
         assertThat(result.getCuit()).isEqualTo("40998887776");
         assertThat(result.getMaximoDescubierto()).isEqualByComparingTo(BigDecimal.valueOf(999));
-        assertThat(result.getMaxObrasActivas()).isEqualTo(4);
     }
 
     @Test
@@ -177,6 +181,29 @@ class ClienteServiceTest {
         when(clienteRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(cliente));
 
         boolean result = clienteService.checkSaldo(1, BigDecimal.valueOf(100000));
+
+        assertThat(result).isTrue();
+    }
+
+    @Test
+    void checkSaldo_WhenSaldoInicialConsumeCredito_ShouldReturnFalse() {
+        cliente.setSaldoInicial(BigDecimal.valueOf(80000));
+        when(clienteRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(cliente));
+
+        boolean result = clienteService.checkSaldo(1, BigDecimal.valueOf(30000));
+
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    void checkSaldo_WhenPagosAmplianCredito_ShouldReturnTrue() {
+        Pago pago = new Pago();
+        pago.setMonto(BigDecimal.valueOf(60000));
+        when(clienteRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(cliente));
+        when(pagoRepository.findByClienteIdAndHabilitadoTrueOrderByFechaDesc(1))
+                .thenReturn(Collections.singletonList(pago));
+
+        boolean result = clienteService.checkSaldo(1, BigDecimal.valueOf(150000));
 
         assertThat(result).isTrue();
     }

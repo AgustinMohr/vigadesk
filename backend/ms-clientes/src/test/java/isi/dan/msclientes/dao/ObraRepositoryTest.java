@@ -49,7 +49,6 @@ class ObraRepositoryTest {
         c.setCorreoElectronico("obra-test@mail.com");
         c.setCuit("30222333444");
         c.setMaximoDescubierto(BigDecimal.valueOf(1000000));
-        c.setMaxObrasActivas(5);
         return clienteRepository.save(c);
     }
 

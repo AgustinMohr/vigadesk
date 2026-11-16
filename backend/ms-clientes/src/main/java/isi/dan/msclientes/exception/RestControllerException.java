@@ -41,6 +41,14 @@ public class RestControllerException {
         return new ResponseEntity<ErrorInfo>(new ErrorInfo(Instant.now(), ex.getMessage(), detalle, HttpStatus.NOT_FOUND.value()), HttpStatus.NOT_FOUND);
     }
 
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<ErrorInfo> handleForbiddenException(ForbiddenException ex) {
+        logger.warn("ACCESO DENEGADO: {}", ex.getMessage());
+        return new ResponseEntity<ErrorInfo>(
+                new ErrorInfo(Instant.now(), ex.getMessage(), "Acceso denegado", HttpStatus.FORBIDDEN.value()),
+                HttpStatus.FORBIDDEN);
+    }
+
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ErrorInfo> handleRuntimeException(RuntimeException ex) {
         logger.error("ERROR de negocio en MS CLIENTES", ex);

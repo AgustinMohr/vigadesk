@@ -44,7 +44,7 @@ class ObraServiceTest {
         cliente = new Cliente();
         cliente.setId(1);
         cliente.setNombre("Test Cliente");
-        cliente.setMaxObrasActivas(2);
+        cliente.setMaximoDescubierto(BigDecimal.valueOf(100000));
 
         obra = new Obra();
         obra.setId(1);
@@ -96,9 +96,8 @@ class ObraServiceTest {
     }
 
     @Test
-    void save_WithClienteAndCupo_ShouldSetHabilitada() {
+    void save_WithCliente_ShouldSetHabilitada() {
         when(clienteRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(cliente));
-        when(obraRepository.countByClienteIdAndEstadoAndHabilitadoTrue(1, EstadoObra.HABILITADA)).thenReturn(0L);
         when(obraRepository.save(any(Obra.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Obra result = obraService.save(obra);
@@ -107,14 +106,14 @@ class ObraServiceTest {
     }
 
     @Test
-    void save_WithClienteSinCupo_ShouldSetPendiente() {
-        when(clienteRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(cliente));
-        when(obraRepository.countByClienteIdAndEstadoAndHabilitadoTrue(1, EstadoObra.HABILITADA)).thenReturn(2L);
-        when(obraRepository.save(any(Obra.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    void save_WithClienteInexistente_ShouldThrow() {
+        obra.setCliente(new Cliente());
+        obra.getCliente().setId(99);
+        when(clienteRepository.findByIdAndHabilitadoTrue(99)).thenReturn(Optional.empty());
 
-        Obra result = obraService.save(obra);
-
-        assertThat(result.getEstado()).isEqualTo(EstadoObra.PENDIENTE);
+        assertThatThrownBy(() -> obraService.save(obra))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Cliente no encontrado: 99");
     }
 
     @Test
@@ -144,7 +143,7 @@ class ObraServiceTest {
 
         obraService.deleteById(1);
 
-        verify(obraRepository, org.mockito.Mockito.never()).save(org.mockito.ArgumentMatchers.any(Obra.class));
+        verify(obraRepository, org.mockito.Mockito.never()).save(any(Obra.class));
     }
 
     @Test
@@ -171,10 +170,9 @@ class ObraServiceTest {
     }
 
     @Test
-    void asignarCliente_WhenBothExistAndCupo_ShouldSetHabilitada() {
+    void asignarCliente_WhenBothExist_ShouldSetHabilitada() {
         when(obraRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(obra));
         when(clienteRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(cliente));
-        when(obraRepository.countByClienteIdAndEstadoAndHabilitadoTrue(1, EstadoObra.HABILITADA)).thenReturn(0L);
         when(obraRepository.save(any(Obra.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Obra result = obraService.asignarCliente(1, 1);
@@ -182,19 +180,6 @@ class ObraServiceTest {
         assertThat(result).isNotNull();
         assertThat(result.getCliente().getId()).isEqualTo(1);
         assertThat(result.getEstado()).isEqualTo(EstadoObra.HABILITADA);
-    }
-
-    @Test
-    void asignarCliente_WhenBothExistSinCupo_ShouldSetPendiente() {
-        when(obraRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(obra));
-        when(clienteRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(cliente));
-        when(obraRepository.countByClienteIdAndEstadoAndHabilitadoTrue(1, EstadoObra.HABILITADA)).thenReturn(2L);
-        when(obraRepository.save(any(Obra.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        Obra result = obraService.asignarCliente(1, 1);
-
-        assertThat(result).isNotNull();
-        assertThat(result.getEstado()).isEqualTo(EstadoObra.PENDIENTE);
     }
 
     @Test
@@ -217,37 +202,9 @@ class ObraServiceTest {
     }
 
     @Test
-    void cambiarEstado_ToFinalizada_ShouldSetFinalizadaAndHabilitarPendiente() {
+    void cambiarEstado_ToFinalizada_ShouldSetFinalizada() {
         obra.setEstado(EstadoObra.HABILITADA);
-        Obra pendiente = new Obra();
-        pendiente.setId(2);
-        pendiente.setDireccion("Obra Pendiente");
-        pendiente.setCliente(cliente);
-        pendiente.setEstado(EstadoObra.PENDIENTE);
-
         when(obraRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(obra));
-        when(clienteRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(cliente));
-        when(obraRepository.countByClienteIdAndEstadoAndHabilitadoTrue(1, EstadoObra.HABILITADA)).thenReturn(0L);
-        when(obraRepository.findByClienteIdAndEstadoAndHabilitadoTrueOrderByIdAsc(1, EstadoObra.PENDIENTE))
-                .thenReturn(Collections.singletonList(pendiente));
-        when(obraRepository.save(any(Obra.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        Obra result = obraService.cambiarEstado(1, EstadoObra.FINALIZADA);
-
-        assertThat(result.getEstado()).isEqualTo(EstadoObra.FINALIZADA);
-        verify(obraRepository).save(pendiente);
-        assertThat(pendiente.getEstado()).isEqualTo(EstadoObra.HABILITADA);
-    }
-
-    @Test
-    void cambiarEstado_ToFinalizadaSinPendientes_ShouldSetFinalizada() {
-        obra.setEstado(EstadoObra.HABILITADA);
-
-        when(obraRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(obra));
-        when(clienteRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(cliente));
-        when(obraRepository.countByClienteIdAndEstadoAndHabilitadoTrue(1, EstadoObra.HABILITADA)).thenReturn(0L);
-        when(obraRepository.findByClienteIdAndEstadoAndHabilitadoTrueOrderByIdAsc(1, EstadoObra.PENDIENTE))
-                .thenReturn(Collections.emptyList());
         when(obraRepository.save(any(Obra.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Obra result = obraService.cambiarEstado(1, EstadoObra.FINALIZADA);
@@ -258,7 +215,6 @@ class ObraServiceTest {
     @Test
     void cambiarEstado_ToPendiente_ShouldSetPendiente() {
         obra.setEstado(EstadoObra.HABILITADA);
-
         when(obraRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(obra));
         when(obraRepository.save(any(Obra.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -268,198 +224,25 @@ class ObraServiceTest {
     }
 
     @Test
-    void cambiarEstado_ToHabilitadaConCupo_ShouldSetHabilitada() {
+    void cambiarEstado_ToHabilitada_ShouldSetHabilitada() {
         obra.setEstado(EstadoObra.PENDIENTE);
-
         when(obraRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(obra));
-        when(clienteRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(cliente));
-        when(obraRepository.countByClienteIdAndEstadoAndHabilitadoTrue(1, EstadoObra.HABILITADA)).thenReturn(0L);
         when(obraRepository.save(any(Obra.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Obra result = obraService.cambiarEstado(1, EstadoObra.HABILITADA);
 
         assertThat(result.getEstado()).isEqualTo(EstadoObra.HABILITADA);
-    }
-
-    @Test
-    void cambiarEstado_ToHabilitadaSinCupo_ShouldThrow() {
-        obra.setEstado(EstadoObra.PENDIENTE);
-
-        when(obraRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(obra));
-        when(clienteRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(cliente));
-        when(obraRepository.countByClienteIdAndEstadoAndHabilitadoTrue(1, EstadoObra.HABILITADA)).thenReturn(2L);
-
-        assertThatThrownBy(() -> obraService.cambiarEstado(1, EstadoObra.HABILITADA))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("No se puede habilitar");
     }
 
     @Test
     void cambiarEstado_SinCliente_ShouldThrow() {
         obra.setCliente(null);
         obra.setEstado(EstadoObra.PENDIENTE);
-
         when(obraRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(obra));
 
         assertThatThrownBy(() -> obraService.cambiarEstado(1, EstadoObra.FINALIZADA))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("La obra debe tener un cliente asignado");
-    }
-
-    @Test
-    void save_WithClienteInexistente_ShouldThrow() {
-        obra.setEstado(null);
-        when(clienteRepository.findByIdAndHabilitadoTrue(99)).thenReturn(Optional.empty());
-
-        obra.setCliente(new Cliente());
-        obra.getCliente().setId(99);
-
-        assertThatThrownBy(() -> obraService.save(obra))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("Cliente no encontrado: 99");
-    }
-
-    @Test
-    void asignarCliente_ConCupoDisponible_ShouldSetHabilitada() {
-        cliente.setMaxObrasActivas(5);
-
-        when(obraRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(obra));
-        when(clienteRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(cliente));
-        when(obraRepository.countByClienteIdAndEstadoAndHabilitadoTrue(1, EstadoObra.HABILITADA)).thenReturn(0L);
-        when(obraRepository.save(any(Obra.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        Obra result = obraService.asignarCliente(1, 1);
-
-        assertThat(result.getEstado()).isEqualTo(EstadoObra.HABILITADA);
-    }
-
-    @Test
-    void asignarCliente_ObraYaAsignada_ShouldReevaluate() {
-        Cliente cliente2 = new Cliente();
-        cliente2.setId(2);
-        cliente2.setNombre("Otro Cliente");
-        cliente2.setMaxObrasActivas(2);
-        obra.setCliente(cliente2);
-        obra.setEstado(EstadoObra.PENDIENTE);
-
-        when(obraRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(obra));
-        when(clienteRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(cliente));
-        when(obraRepository.countByClienteIdAndEstadoAndHabilitadoTrue(1, EstadoObra.HABILITADA)).thenReturn(0L);
-        when(obraRepository.save(any(Obra.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        Obra result = obraService.asignarCliente(1, 1);
-
-        assertThat(result.getCliente().getId()).isEqualTo(1);
-        assertThat(result.getEstado()).isEqualTo(EstadoObra.HABILITADA);
-    }
-
-    @Test
-    void cambiarEstado_ToFinalizada_SinPendientes_ShouldSetFinalizada() {
-        cliente.setMaxObrasActivas(3);
-        obra.setEstado(EstadoObra.HABILITADA);
-
-        when(obraRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(obra));
-        when(clienteRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(cliente));
-        when(obraRepository.countByClienteIdAndEstadoAndHabilitadoTrue(1, EstadoObra.HABILITADA)).thenReturn(1L);
-        when(obraRepository.findByClienteIdAndEstadoAndHabilitadoTrueOrderByIdAsc(1, EstadoObra.PENDIENTE))
-                .thenReturn(Collections.emptyList());
-        when(obraRepository.save(any(Obra.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        Obra result = obraService.cambiarEstado(1, EstadoObra.FINALIZADA);
-
-        assertThat(result.getEstado()).isEqualTo(EstadoObra.FINALIZADA);
-    }
-
-    @Test
-    void cambiarEstado_ToFinalizada_ConMultiplesPendientes_ShouldHabilitarSoloPrimero() {
-        obra.setEstado(EstadoObra.HABILITADA);
-        Obra pendiente1 = new Obra();
-        pendiente1.setId(2);
-        pendiente1.setDireccion("Pendiente 1");
-        pendiente1.setCliente(cliente);
-        pendiente1.setEstado(EstadoObra.PENDIENTE);
-        Obra pendiente2 = new Obra();
-        pendiente2.setId(3);
-        pendiente2.setDireccion("Pendiente 2");
-        pendiente2.setCliente(cliente);
-        pendiente2.setEstado(EstadoObra.PENDIENTE);
-
-        when(obraRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(obra));
-        when(clienteRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(cliente));
-        when(obraRepository.countByClienteIdAndEstadoAndHabilitadoTrue(1, EstadoObra.HABILITADA)).thenReturn(0L);
-        when(obraRepository.findByClienteIdAndEstadoAndHabilitadoTrueOrderByIdAsc(1, EstadoObra.PENDIENTE))
-                .thenReturn(List.of(pendiente1, pendiente2));
-        when(obraRepository.save(any(Obra.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        Obra result = obraService.cambiarEstado(1, EstadoObra.FINALIZADA);
-
-        assertThat(result.getEstado()).isEqualTo(EstadoObra.FINALIZADA);
-        assertThat(pendiente1.getEstado()).isEqualTo(EstadoObra.HABILITADA);
-        assertThat(pendiente2.getEstado()).isEqualTo(EstadoObra.PENDIENTE);
-    }
-
-    @Test
-    void cambiarEstado_ToHabilitada_ConCupoDisponible_ShouldSetHabilitada() {
-        cliente.setMaxObrasActivas(3);
-        obra.setEstado(EstadoObra.PENDIENTE);
-
-        when(obraRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(obra));
-        when(clienteRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(cliente));
-        when(obraRepository.countByClienteIdAndEstadoAndHabilitadoTrue(1, EstadoObra.HABILITADA)).thenReturn(0L);
-        when(obraRepository.save(any(Obra.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        Obra result = obraService.cambiarEstado(1, EstadoObra.HABILITADA);
-
-        assertThat(result.getEstado()).isEqualTo(EstadoObra.HABILITADA);
-    }
-
-    @Test
-    void cambiarEstado_ToHabilitada_DesdeFinalizada_ShouldWork() {
-        obra.setEstado(EstadoObra.FINALIZADA);
-
-        when(obraRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(obra));
-        when(clienteRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(cliente));
-        when(obraRepository.countByClienteIdAndEstadoAndHabilitadoTrue(1, EstadoObra.HABILITADA)).thenReturn(0L);
-        when(obraRepository.save(any(Obra.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        Obra result = obraService.cambiarEstado(1, EstadoObra.HABILITADA);
-
-        assertThat(result.getEstado()).isEqualTo(EstadoObra.HABILITADA);
-    }
-
-    @Test
-    void cambiarEstado_ToPendiente_DesdeFinalizada_ShouldWork() {
-        obra.setEstado(EstadoObra.FINALIZADA);
-
-        when(obraRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(obra));
-        when(obraRepository.save(any(Obra.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        Obra result = obraService.cambiarEstado(1, EstadoObra.PENDIENTE);
-
-        assertThat(result.getEstado()).isEqualTo(EstadoObra.PENDIENTE);
-    }
-
-    @Test
-    void cambiarEstado_ToFinalizada_ConPendienteEnBorde_ShouldHabilitar() {
-        cliente.setMaxObrasActivas(3);
-        obra.setEstado(EstadoObra.HABILITADA);
-        Obra pendiente = new Obra();
-        pendiente.setId(2);
-        pendiente.setDireccion("Pendiente en borde");
-        pendiente.setCliente(cliente);
-        pendiente.setEstado(EstadoObra.PENDIENTE);
-
-        when(obraRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(obra));
-        when(clienteRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(cliente));
-        when(obraRepository.countByClienteIdAndEstadoAndHabilitadoTrue(1, EstadoObra.HABILITADA)).thenReturn(2L);
-        when(obraRepository.findByClienteIdAndEstadoAndHabilitadoTrueOrderByIdAsc(1, EstadoObra.PENDIENTE))
-                .thenReturn(Collections.singletonList(pendiente));
-        when(obraRepository.save(any(Obra.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        Obra result = obraService.cambiarEstado(1, EstadoObra.FINALIZADA);
-
-        assertThat(result.getEstado()).isEqualTo(EstadoObra.FINALIZADA);
-        assertThat(pendiente.getEstado()).isEqualTo(EstadoObra.HABILITADA);
     }
 
     @Test
@@ -469,19 +252,5 @@ class ObraServiceTest {
         assertThatThrownBy(() -> obraService.cambiarEstado(99, EstadoObra.FINALIZADA))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("Obra no encontrada: 99");
-    }
-
-    @Test
-    void cambiarEstado_MaxCero_ShouldThrow() {
-        cliente.setMaxObrasActivas(0);
-        obra.setEstado(EstadoObra.PENDIENTE);
-
-        when(obraRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(obra));
-        when(clienteRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(cliente));
-        when(obraRepository.countByClienteIdAndEstadoAndHabilitadoTrue(1, EstadoObra.HABILITADA)).thenReturn(0L);
-
-        assertThatThrownBy(() -> obraService.cambiarEstado(1, EstadoObra.HABILITADA))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("No se puede habilitar");
     }
 }

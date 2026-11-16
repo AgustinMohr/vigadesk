@@ -135,7 +135,7 @@ public class ObraControllerTest {
         obra.setEstado(EstadoObra.FINALIZADA);
         Mockito.when(obraService.cambiarEstado(1, EstadoObra.FINALIZADA)).thenReturn(obra);
 
-        mockMvc.perform(put("/api/obras/1/estado")
+        mockMvc.perform(patch("/api/obras/1/estado")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"estado\": \"FINALIZADA\"}"))
                 .andExpect(status().isOk())
@@ -144,7 +144,7 @@ public class ObraControllerTest {
 
     @Test
     void testCambiarEstado_InvalidEstado() throws Exception {
-        mockMvc.perform(put("/api/obras/1/estado")
+        mockMvc.perform(patch("/api/obras/1/estado")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"estado\": \"INEXISTENTE\"}"))
                 .andExpect(status().isBadRequest());
@@ -155,7 +155,7 @@ public class ObraControllerTest {
         Mockito.when(obraService.cambiarEstado(1, EstadoObra.HABILITADA))
                 .thenThrow(new RuntimeException("No se puede habilitar"));
 
-        mockMvc.perform(put("/api/obras/1/estado")
+        mockMvc.perform(patch("/api/obras/1/estado")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"estado\": \"HABILITADA\"}"))
                 .andExpect(status().isBadRequest());
@@ -219,7 +219,7 @@ public class ObraControllerTest {
         obra.setEstado(EstadoObra.PENDIENTE);
         Mockito.when(obraService.cambiarEstado(1, EstadoObra.PENDIENTE)).thenReturn(obra);
 
-        mockMvc.perform(put("/api/obras/1/estado")
+        mockMvc.perform(patch("/api/obras/1/estado")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"estado\": \"PENDIENTE\"}"))
                 .andExpect(status().isOk())
@@ -231,7 +231,7 @@ public class ObraControllerTest {
         obra.setEstado(EstadoObra.HABILITADA);
         Mockito.when(obraService.cambiarEstado(1, EstadoObra.HABILITADA)).thenReturn(obra);
 
-        mockMvc.perform(put("/api/obras/1/estado")
+        mockMvc.perform(patch("/api/obras/1/estado")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"estado\": \"HABILITADA\"}"))
                 .andExpect(status().isOk())
@@ -240,7 +240,7 @@ public class ObraControllerTest {
 
     @Test
     void testCambiarEstado_EmptyBody() throws Exception {
-        mockMvc.perform(put("/api/obras/1/estado")
+        mockMvc.perform(patch("/api/obras/1/estado")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{}"))
                 .andExpect(status().isBadRequest());
@@ -252,6 +252,43 @@ public class ObraControllerTest {
 
         mockMvc.perform(delete("/api/obras/99"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void testGetAll_Cliente_FiltersByOwnClienteId() throws Exception {
+        Mockito.when(obraService.findByClienteId(7)).thenReturn(Collections.singletonList(obra));
+
+        mockMvc.perform(get("/api/obras")
+                .header("X-User-Rol", "CLIENTE")
+                .header("X-User-ClienteId", "7"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    @Test
+    void testGetByClienteId_ClienteOther_ShouldReturnForbidden() throws Exception {
+        mockMvc.perform(get("/api/obras/by-cliente/8")
+                .header("X-User-Rol", "CLIENTE")
+                .header("X-User-ClienteId", "7"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void testGetSinAsignar_Cliente_ShouldReturnForbidden() throws Exception {
+        mockMvc.perform(get("/api/obras/sin-asignar")
+                .header("X-User-Rol", "CLIENTE")
+                .header("X-User-ClienteId", "7"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void testGetById_ClienteUnassigned_ShouldReturnForbidden() throws Exception {
+        Mockito.when(obraService.findById(1)).thenReturn(Optional.of(obra));
+
+        mockMvc.perform(get("/api/obras/1")
+                .header("X-User-Rol", "CLIENTE")
+                .header("X-User-ClienteId", "7"))
+                .andExpect(status().isForbidden());
     }
 
     private static String asJsonString(final Object obj) {

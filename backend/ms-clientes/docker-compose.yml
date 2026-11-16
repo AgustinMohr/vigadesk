@@ -1,14 +1,16 @@
+# Compose de desarrollo para ms-clientes.
+# Requiere variables: docker compose --env-file ../../.env up -d
 services:
   mysql:
     image: mysql:8.0
     container_name: mysql-db
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-danrootpassword}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD requerido}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-dandb}
       MYSQL_USER: ${MYSQL_USER:-danuser}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-danpassword}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD requerido}
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     volumes:
       - mysql-data:/var/lib/mysql
 
@@ -20,26 +22,24 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-dandb}
       SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-danuser}
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-danpassword}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD requerido}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.MySQL8Dialect
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-guest}
-      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:?RABBITMQ_USERNAME requerido}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD requerido}
       SPRING_EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/
-      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me-1234567890-abcdef}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET requerido}
     ports:
-      - "6080:8080"
+      - "127.0.0.1:6080:8080"
     depends_on:
       - mysql
     networks:
       - backend-net
 
-# Redes: backend-net es compartida con el stack completo
 networks:
   backend-net:
     external: true
 volumes:
   mysql-data:
-

@@ -85,9 +85,6 @@ public class ObraService {
 
         switch (nuevoEstado) {
             case HABILITADA:
-                if (!puedeHabilitar(obra.getCliente().getId())) {
-                    throw new RuntimeException("No se puede habilitar la obra: se alcanzo el maximo de obras activas para el cliente");
-                }
                 obra.setEstado(EstadoObra.HABILITADA);
                 break;
 
@@ -97,9 +94,7 @@ public class ObraService {
 
             case FINALIZADA:
                 obra.setEstado(EstadoObra.FINALIZADA);
-                obraRepository.save(obra);
-                habilitarProximaPendiente(obra.getCliente().getId());
-                return obra;
+                break;
 
             default:
                 throw new RuntimeException("Estado no valido: " + nuevoEstado);
@@ -109,33 +104,7 @@ public class ObraService {
     }
 
     private EstadoObra resolverEstadoInicial(Cliente cliente) {
-        if (puedeHabilitar(cliente.getId())) {
-            return EstadoObra.HABILITADA;
-        }
-        return EstadoObra.PENDIENTE;
-    }
-
-    private boolean puedeHabilitar(Integer clienteId) {
-        Cliente cliente = clienteRepository.findByIdAndHabilitadoTrue(clienteId)
-                .orElseThrow(() -> new RuntimeException("Cliente no encontrado: " + clienteId));
-        Integer max = cliente.getMaxObrasActivas();
-        if (max == null) {
-            return true;
-        }
-        long habilitadas = obraRepository.countByClienteIdAndEstadoAndHabilitadoTrue(clienteId, EstadoObra.HABILITADA);
-        return habilitadas < max;
-    }
-
-    private void habilitarProximaPendiente(Integer clienteId) {
-        if (!puedeHabilitar(clienteId)) {
-            return;
-        }
-        List<Obra> pendientes = obraRepository.findByClienteIdAndEstadoAndHabilitadoTrueOrderByIdAsc(clienteId, EstadoObra.PENDIENTE);
-        if (!pendientes.isEmpty()) {
-            Obra proxima = pendientes.get(0);
-            proxima.setEstado(EstadoObra.HABILITADA);
-            obraRepository.save(proxima);
-        }
+        return EstadoObra.HABILITADA;
     }
 }
 

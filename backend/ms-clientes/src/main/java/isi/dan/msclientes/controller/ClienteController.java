@@ -6,12 +6,18 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import isi.dan.msclientes.aop.LogExecutionTime;
+import isi.dan.msclientes.dto.ImportResult;
 import isi.dan.msclientes.exception.ClienteNotFoundException;
+import isi.dan.msclientes.exception.ForbiddenException;
 import isi.dan.msclientes.model.Cliente;
+import isi.dan.msclientes.servicios.ClienteImportService;
 import isi.dan.msclientes.servicios.ClienteService;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.List;
+
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/clientes")
@@ -20,17 +26,34 @@ public class ClienteController {
     @Autowired
     private ClienteService clienteService;
 
+    @Autowired
+    private ClienteImportService clienteImportService;
+
     @GetMapping
     @LogExecutionTime
-    public List<Cliente> getAll() {
+    public List<Cliente> getAll(
+            @RequestHeader(value = "X-User-Rol", required = false) String rol,
+            @RequestHeader(value = "X-User-ClienteId", required = false) Integer clienteId) {
+        if (isCliente(rol)) {
+            if (clienteId == null) {
+                return List.of();
+            }
+            return clienteService.findById(clienteId)
+                    .map(cliente -> List.of(cliente))
+                    .orElseGet(List::of);
+        }
         return clienteService.findAll();
     }
 
     @GetMapping("/{id}")
     @LogExecutionTime
-    public ResponseEntity<Cliente> getById(@PathVariable Integer id) throws ClienteNotFoundException {
+    public ResponseEntity<Cliente> getById(
+            @PathVariable Integer id,
+            @RequestHeader(value = "X-User-Rol", required = false) String rol,
+            @RequestHeader(value = "X-User-ClienteId", required = false) Integer clienteId) throws ClienteNotFoundException {
         Cliente cliente = clienteService.findById(id)
                 .orElseThrow(() -> new ClienteNotFoundException("Cliente " + id + " no encontrado"));
+        ensureOwnership(id, rol, clienteId);
         return ResponseEntity.ok(cliente);
     }
 
@@ -38,6 +61,16 @@ public class ClienteController {
     @LogExecutionTime
     public Cliente create(@RequestBody @Validated Cliente cliente) {
         return clienteService.save(cliente);
+    }
+
+    @PostMapping("/import")
+    @LogExecutionTime
+    public ResponseEntity<ImportResult> importarCsv(@RequestParam("file") MultipartFile file)
+            throws IOException {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("El archivo CSV es obligatorio");
+        }
+        return ResponseEntity.ok(clienteImportService.importar(file.getInputStream()));
     }
 
     @PutMapping("/{id}")
@@ -59,17 +92,36 @@ public class ClienteController {
 
     @GetMapping("/{id}/saldo")
     @LogExecutionTime
-    public ResponseEntity<Boolean> checkSaldo(@PathVariable Integer id, @RequestParam BigDecimal monto) throws ClienteNotFoundException {
+    public ResponseEntity<Boolean> checkSaldo(
+            @PathVariable Integer id,
+            @RequestParam BigDecimal monto,
+            @RequestHeader(value = "X-User-Rol", required = false) String rol,
+            @RequestHeader(value = "X-User-ClienteId", required = false) Integer clienteId) throws ClienteNotFoundException {
         Cliente cliente = clienteService.findById(id)
                 .orElseThrow(() -> new ClienteNotFoundException("Cliente " + id + " no encontrado"));
+        ensureOwnership(id, rol, clienteId);
         return ResponseEntity.ok(clienteService.checkSaldo(cliente.getId(), monto));
     }
 
     @GetMapping("/{id}/maximo-descubierto")
     @LogExecutionTime
-    public ResponseEntity<BigDecimal> getMaximoDescubierto(@PathVariable Integer id) throws ClienteNotFoundException {
+    public ResponseEntity<BigDecimal> getMaximoDescubierto(
+            @PathVariable Integer id,
+            @RequestHeader(value = "X-User-Rol", required = false) String rol,
+            @RequestHeader(value = "X-User-ClienteId", required = false) Integer clienteId) throws ClienteNotFoundException {
         Cliente cliente = clienteService.findById(id)
                 .orElseThrow(() -> new ClienteNotFoundException("Cliente " + id + " no encontrado"));
+        ensureOwnership(id, rol, clienteId);
         return ResponseEntity.ok(clienteService.getMaximoDescubierto(cliente.getId()));
+    }
+
+    private boolean isCliente(String rol) {
+        return "CLIENTE".equalsIgnoreCase(rol);
+    }
+
+    private void ensureOwnership(Integer resourceId, String rol, Integer tokenClienteId) {
+        if (isCliente(rol) && (tokenClienteId == null || !resourceId.equals(tokenClienteId))) {
+            throw new ForbiddenException("No podes acceder a datos de otro cliente");
+        }
     }
 }

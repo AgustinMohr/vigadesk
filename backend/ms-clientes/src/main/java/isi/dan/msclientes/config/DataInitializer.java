@@ -61,7 +61,6 @@ public class DataInitializer implements CommandLineRunner {
         c1.setCorreoElectronico("contacto@constructorasur.com");
         c1.setCuit("30-12345678-9");
         c1.setMaximoDescubierto(new BigDecimal("500000"));
-        c1.setMaxObrasActivas(3);
         c1 = clienteRepository.save(c1);
 
         Cliente c2 = new Cliente();
@@ -69,7 +68,6 @@ public class DataInitializer implements CommandLineRunner {
         c2.setCorreoElectronico("pablo.martinez@gmail.com");
         c2.setCuit("20-23456789-0");
         c2.setMaximoDescubierto(new BigDecimal("150000"));
-        c2.setMaxObrasActivas(1);
         c2 = clienteRepository.save(c2);
 
         Cliente c3 = new Cliente();
@@ -77,7 +75,6 @@ public class DataInitializer implements CommandLineRunner {
         c3.setCorreoElectronico("admin@ghinstalaciones.com");
         c3.setCuit("30-34567890-1");
         c3.setMaximoDescubierto(new BigDecimal("300000"));
-        c3.setMaxObrasActivas(2);
         c3 = clienteRepository.save(c3);
 
         Cliente c4 = new Cliente();
@@ -85,7 +82,6 @@ public class DataInitializer implements CommandLineRunner {
         c4.setCorreoElectronico("mariaperez@yahoo.com");
         c4.setCuit("27-45678901-2");
         c4.setMaximoDescubierto(new BigDecimal("80000"));
-        c4.setMaxObrasActivas(1);
         c4 = clienteRepository.save(c4);
 
         Cliente c5 = new Cliente();
@@ -93,7 +89,6 @@ public class DataInitializer implements CommandLineRunner {
         c5.setCorreoElectronico("info@techbuild.com.ar");
         c5.setCuit("30-56789012-3");
         c5.setMaximoDescubierto(new BigDecimal("1000000"));
-        c5.setMaxObrasActivas(0);
         c5 = clienteRepository.save(c5);
 
         Cliente c6 = new Cliente();
@@ -101,7 +96,6 @@ public class DataInitializer implements CommandLineRunner {
         c6.setCorreoElectronico("obras@ferrum.com.ar");
         c6.setCuit("30-67890123-4");
         c6.setMaximoDescubierto(new BigDecimal("750000"));
-        c6.setMaxObrasActivas(2);
         c6 = clienteRepository.save(c6);
 
         // c1: sin limite → 2 habilitadas + 1 finalizada
@@ -146,16 +140,10 @@ public class DataInitializer implements CommandLineRunner {
         usuarioRepository.save(crearUsuario("Jose", "Gomez", "jose@ghinstalaciones.com", "30333444", "jose123", c3));
         usuarioRepository.save(crearUsuario("Ana", "Ruiz", "ana@ferrum.com.ar", "30444555", "ana123", c6));
 
-        // Usuarios de sistema (sin cliente asociado):
-        //  - ADMIN: rol con acceso total (modifica todo).
-        //  - GUEST: rol de invitado (acceso completo a la UI, sin CRUD).
+        // Usuario de sistema con acceso total.
         UsuarioCliente admin = crearUsuario("Administrador", null, "admin@example.com", null, "admin123", null);
         admin.setRol("ADMIN");
         usuarioRepository.save(admin);
-
-        UsuarioCliente guest = crearUsuario("Invitado", null, "guest@example.com", null, "guest123", null);
-        guest.setRol("GUEST");
-        usuarioRepository.save(guest);
     }
 
     private Obra crearObra(String direccion, float lat, float lng, BigDecimal presupuesto, Cliente cliente, EstadoObra estado) {

@@ -3,6 +3,7 @@ package isi.dan.msclientes.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import isi.dan.msclientes.model.Cliente;
+import isi.dan.msclientes.servicios.ClienteImportService;
 import isi.dan.msclientes.servicios.ClienteService;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -30,6 +31,9 @@ public class ClienteControllerTest {
     @MockBean
     private ClienteService clienteService;
 
+    @MockBean
+    private ClienteImportService clienteImportService;
+
     private Cliente cliente;
 
     @BeforeEach
@@ -39,7 +43,7 @@ public class ClienteControllerTest {
         cliente.setNombre("Test Cliente");
         cliente.setCorreoElectronico("test@cliente.com");
         cliente.setCuit("12998887776");
-        cliente.setMaxObrasActivas(5);
+        cliente.setMaximoDescubierto(BigDecimal.valueOf(100000));
     }
 
     @Test
@@ -86,20 +90,6 @@ public class ClienteControllerTest {
         Cliente invalido = new Cliente();
         invalido.setNombre("Email Invalido");
         invalido.setCorreoElectronico("no-es-un-email");
-        invalido.setMaxObrasActivas(2);
-
-        mockMvc.perform(post("/api/clientes")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(asJsonString(invalido)))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void testCreate_SinMaxObrasActivas_ShouldReturnBadRequest() throws Exception {
-        Cliente invalido = new Cliente();
-        invalido.setNombre("Sin Max Obras");
-        invalido.setCorreoElectronico("valido@cliente.com");
-        // maxObrasActivas null → @NotNull
 
         mockMvc.perform(post("/api/clientes")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -112,7 +102,6 @@ public class ClienteControllerTest {
         Cliente invalido = new Cliente();
         invalido.setNombre("Maximo Negativo");
         invalido.setCorreoElectronico("valido@cliente.com");
-        invalido.setMaxObrasActivas(2);
         invalido.setMaximoDescubierto(BigDecimal.valueOf(-100));
 
         mockMvc.perform(post("/api/clientes")
@@ -194,6 +183,43 @@ public class ClienteControllerTest {
 
         mockMvc.perform(delete("/api/clientes/99"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void testGetAll_Cliente_ReturnsOnlyOwn() throws Exception {
+        Mockito.when(clienteService.findById(1)).thenReturn(Optional.of(cliente));
+
+        mockMvc.perform(get("/api/clientes")
+                .header("X-User-Rol", "CLIENTE")
+                .header("X-User-ClienteId", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(1));
+    }
+
+    @Test
+    void testGetById_ClienteOther_ShouldReturnForbidden() throws Exception {
+        Cliente otro = new Cliente();
+        otro.setId(2);
+        otro.setNombre("Otro Cliente");
+        Mockito.when(clienteService.findById(2)).thenReturn(Optional.of(otro));
+
+        mockMvc.perform(get("/api/clientes/2")
+                .header("X-User-Rol", "CLIENTE")
+                .header("X-User-ClienteId", "1"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void testCheckSaldo_ClienteOther_ShouldReturnForbidden() throws Exception {
+        Cliente otro = new Cliente();
+        otro.setId(2);
+        Mockito.when(clienteService.findById(2)).thenReturn(Optional.of(otro));
+
+        mockMvc.perform(get("/api/clientes/2/saldo?monto=100")
+                .header("X-User-Rol", "CLIENTE")
+                .header("X-User-ClienteId", "1"))
+                .andExpect(status().isForbidden());
     }
 
     private static String asJsonString(final Object obj) {

@@ -36,7 +36,6 @@ class ClienteRepositoryTest {
         c.setCorreoElectronico(email);
         c.setCuit("30111222333");
         c.setMaximoDescubierto(BigDecimal.valueOf(500000));
-        c.setMaxObrasActivas(3);
         return c;
     }
 

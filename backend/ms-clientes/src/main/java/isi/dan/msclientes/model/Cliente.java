@@ -11,7 +11,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import lombok.Data;
 
@@ -38,9 +37,9 @@ public class Cliente {
     @Positive(message = "El descubierto maximo debe ser un valor mayor que cero")
     private BigDecimal maximoDescubierto;
 
-    @NotNull(message = "El maximo de obras activas es obligatorio")
-    @Column(name="MAX_OBRAS_ACTIVAS")
-    private Integer maxObrasActivas;
+    // Deuda inicial importada desde el sistema anterior.
+    @Column(name = "SALDO_INICIAL", precision = 38, scale = 2)
+    private BigDecimal saldoInicial = BigDecimal.ZERO;
 
     @Column(name = "HABILITADO")
     private boolean habilitado = true;
