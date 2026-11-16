@@ -3,6 +3,8 @@ package isi.dan.ms_productos.servicio;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -26,9 +28,11 @@ import isi.dan.ms_productos.dao.ProductoRepository;
 import isi.dan.ms_productos.dto.DescuentoDTO;
 import isi.dan.ms_productos.dto.ProvisionDTO;
 import isi.dan.ms_productos.dto.StockUpdateDTO;
+import isi.dan.ms_productos.exception.InsufficientStockException;
 import isi.dan.ms_productos.exception.ProductoNotFoundException;
 import isi.dan.ms_productos.modelo.Categoria;
 import isi.dan.ms_productos.modelo.Producto;
+import isi.dan.ms_productos.modelo.UnidadMedida;
 
 @ExtendWith(MockitoExtension.class)
 class ProductoServiceTest {
@@ -47,8 +51,8 @@ class ProductoServiceTest {
         producto.setId(1L);
         producto.setNombre("Cemento Portland");
         producto.setDescripcion("Cemento para construccion");
-        producto.setStockActual(100);
-        producto.setStockMinimo(10);
+        producto.setStockActual(BigDecimal.valueOf(100));
+        producto.setStockMinimo(BigDecimal.valueOf(10));
         producto.setPrecio(BigDecimal.valueOf(5000));
         producto.setDescuentoPromocional(BigDecimal.ZERO);
         producto.setCategoria(Categoria.CEMENTOS);
@@ -61,6 +65,52 @@ class ProductoServiceTest {
         Producto result = productoService.saveProducto(producto);
 
         assertThat(result.getStockActual()).isZero();
+    }
+
+    @Test
+    void saveProducto_ShouldApplyDefaultsAndAuditActor() {
+        when(productoRepository.save(any(Producto.class))).thenAnswer(i -> i.getArgument(0));
+
+        Producto result = productoService.saveProducto(producto, "Admin");
+
+        assertThat(result.getStockActual()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(result.getUnidadMedida()).isEqualTo(UnidadMedida.UNIDAD);
+        assertThat(result.getActualizadoPor()).isEqualTo("Admin");
+        assertThat(result.getFechaActualizacion()).isNotNull();
+    }
+
+    @Test
+    void updateProducto_ShouldPersistUnitCostAndDecimalStockMinimum() {
+        when(productoRepository.findByIdAndHabilitadoTrue(1L)).thenReturn(Optional.of(producto));
+        when(productoRepository.save(any(Producto.class))).thenAnswer(i -> i.getArgument(0));
+
+        Producto cambios = new Producto();
+        cambios.setNombre("Cemento");
+        cambios.setPrecio(BigDecimal.valueOf(9000));
+        cambios.setStockMinimo(new BigDecimal("12.500"));
+        cambios.setUnidadMedida(UnidadMedida.KG);
+        cambios.setCosto(BigDecimal.valueOf(7000));
+        cambios.setCategoria(Categoria.CEMENTOS);
+
+        Producto result = productoService.updateProducto(1L, cambios, "Admin");
+
+        assertThat(result.getUnidadMedida()).isEqualTo(UnidadMedida.KG);
+        assertThat(result.getCosto()).isEqualByComparingTo(BigDecimal.valueOf(7000));
+        assertThat(result.getStockMinimo()).isEqualByComparingTo(new BigDecimal("12.500"));
+    }
+
+    @Test
+    void procesarProvision_ShouldSupportDecimalQuantity() {
+        when(productoRepository.findByIdAndHabilitadoTrue(1L)).thenReturn(Optional.of(producto));
+        when(productoRepository.save(any(Producto.class))).thenAnswer(i -> i.getArgument(0));
+
+        ProvisionDTO provision = new ProvisionDTO();
+        provision.setIdProducto(1L);
+        provision.setCantidad(new BigDecimal("2.500"));
+
+        Producto result = productoService.procesarProvision(provision, "Deposito");
+
+        assertThat(result.getStockActual()).isEqualByComparingTo(new BigDecimal("102.500"));
     }
 
     @Test
@@ -113,10 +163,74 @@ class ProductoServiceTest {
     }
 
     @Test
+    void reserveStock_WhenAtomicUpdateSucceeds_ShouldReturnTrue() {
+        StockUpdateDTO item = new StockUpdateDTO();
+        item.setIdProducto(1L);
+        item.setCantidad(BigDecimal.valueOf(50));
+        when(productoRepository.descontarStock(
+                eq(1L), eq(BigDecimal.valueOf(50)), anyString(), any())).thenReturn(1);
+
+        boolean result = productoService.reserveStock(Collections.singletonList(item));
+
+        assertThat(result).isTrue();
+        verify(productoRepository).descontarStock(
+                eq(1L), eq(BigDecimal.valueOf(50)), anyString(), any());
+    }
+
+    @Test
+    void reserveStock_WhenStockInsufficient_ShouldThrowAndNotContinue() {
+        StockUpdateDTO item = new StockUpdateDTO();
+        item.setIdProducto(1L);
+        item.setCantidad(BigDecimal.valueOf(50));
+        when(productoRepository.descontarStock(
+                eq(1L), eq(BigDecimal.valueOf(50)), anyString(), any())).thenReturn(0);
+
+        assertThatThrownBy(() -> productoService.reserveStock(Collections.singletonList(item)))
+                .isInstanceOf(InsufficientStockException.class)
+                .hasMessageContaining("Stock insuficiente");
+    }
+
+    @Test
+    void reserveStock_WhenQuantityIsInvalid_ShouldThrow() {
+        StockUpdateDTO item = new StockUpdateDTO();
+        item.setIdProducto(1L);
+        item.setCantidad(BigDecimal.ZERO);
+
+        assertThatThrownBy(() -> productoService.reserveStock(Collections.singletonList(item)))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void releaseStock_WhenProductExists_ShouldIncreaseStock() {
+        StockUpdateDTO item = new StockUpdateDTO();
+        item.setIdProducto(1L);
+        item.setCantidad(BigDecimal.valueOf(5));
+        when(productoRepository.reponerStock(
+                eq(1L), eq(BigDecimal.valueOf(5)), anyString(), any())).thenReturn(1);
+
+        productoService.releaseStock(Collections.singletonList(item));
+
+        verify(productoRepository).reponerStock(
+                eq(1L), eq(BigDecimal.valueOf(5)), anyString(), any());
+    }
+
+    @Test
+    void releaseStock_WhenProductDoesNotExist_ShouldThrow() {
+        StockUpdateDTO item = new StockUpdateDTO();
+        item.setIdProducto(99L);
+        item.setCantidad(BigDecimal.valueOf(5));
+        when(productoRepository.reponerStock(
+                eq(99L), eq(BigDecimal.valueOf(5)), anyString(), any())).thenReturn(0);
+
+        assertThatThrownBy(() -> productoService.releaseStock(Collections.singletonList(item)))
+                .isInstanceOf(ProductoNotFoundException.class);
+    }
+
+    @Test
     void checkStock_WhenAllHaveStock_ShouldReturnTrue() {
         StockUpdateDTO item = new StockUpdateDTO();
         item.setIdProducto(1L);
-        item.setCantidad(50);
+        item.setCantidad(BigDecimal.valueOf(50));
         when(productoRepository.findByIdAndHabilitadoTrue(1L)).thenReturn(Optional.of(producto));
 
         boolean result = productoService.checkStock(Collections.singletonList(item));
@@ -128,7 +242,7 @@ class ProductoServiceTest {
     void checkStock_WhenStockInsuficiente_ShouldReturnFalse() {
         StockUpdateDTO item = new StockUpdateDTO();
         item.setIdProducto(1L);
-        item.setCantidad(200);
+        item.setCantidad(BigDecimal.valueOf(200));
         when(productoRepository.findByIdAndHabilitadoTrue(1L)).thenReturn(Optional.of(producto));
 
         boolean result = productoService.checkStock(Collections.singletonList(item));
@@ -140,7 +254,7 @@ class ProductoServiceTest {
     void checkStock_WhenProductoNoExiste_ShouldThrowRuntimeException() {
         StockUpdateDTO item = new StockUpdateDTO();
         item.setIdProducto(99L);
-        item.setCantidad(10);
+        item.setCantidad(BigDecimal.valueOf(10));
         when(productoRepository.findByIdAndHabilitadoTrue(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> productoService.checkStock(Collections.singletonList(item)))
@@ -152,16 +266,16 @@ class ProductoServiceTest {
     void checkStock_MultipleItems_AllHaveStock_ShouldReturnTrue() {
         StockUpdateDTO item1 = new StockUpdateDTO();
         item1.setIdProducto(1L);
-        item1.setCantidad(30);
+        item1.setCantidad(BigDecimal.valueOf(30));
 
         Producto producto2 = new Producto();
         producto2.setId(2L);
-        producto2.setStockActual(50);
+        producto2.setStockActual(BigDecimal.valueOf(50));
         producto2.setPrecio(BigDecimal.valueOf(3000));
 
         StockUpdateDTO item2 = new StockUpdateDTO();
         item2.setIdProducto(2L);
-        item2.setCantidad(20);
+        item2.setCantidad(BigDecimal.valueOf(20));
 
         when(productoRepository.findByIdAndHabilitadoTrue(1L)).thenReturn(Optional.of(producto));
         when(productoRepository.findByIdAndHabilitadoTrue(2L)).thenReturn(Optional.of(producto2));
@@ -175,7 +289,7 @@ class ProductoServiceTest {
     void procesarProvision_ShouldUpdateStockAndPrice() {
         ProvisionDTO provision = new ProvisionDTO();
         provision.setIdProducto(1L);
-        provision.setCantidad(50);
+        provision.setCantidad(BigDecimal.valueOf(50));
         provision.setPrecio(BigDecimal.valueOf(5500));
 
         when(productoRepository.findByIdAndHabilitadoTrue(1L)).thenReturn(Optional.of(producto));
@@ -183,7 +297,7 @@ class ProductoServiceTest {
 
         Producto result = productoService.procesarProvision(provision);
 
-        assertThat(result.getStockActual()).isEqualTo(150);
+        assertThat(result.getStockActual()).isEqualByComparingTo(BigDecimal.valueOf(150));
         assertThat(result.getPrecio()).isEqualByComparingTo(BigDecimal.valueOf(5500));
     }
 
@@ -191,11 +305,45 @@ class ProductoServiceTest {
     void procesarProvision_WhenProductoNoExiste_ShouldThrowRuntimeException() {
         ProvisionDTO provision = new ProvisionDTO();
         provision.setIdProducto(99L);
+        provision.setCantidad(BigDecimal.valueOf(10));
         when(productoRepository.findByIdAndHabilitadoTrue(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> productoService.procesarProvision(provision))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("Producto 99 no encontrado");
+    }
+
+    @Test
+    void procesarProvision_CantidadInvalida_ShouldThrowIllegalArgumentException() {
+        ProvisionDTO provision = new ProvisionDTO();
+        provision.setIdProducto(1L);
+        provision.setCantidad(BigDecimal.ZERO);
+
+        assertThatThrownBy(() -> productoService.procesarProvision(provision))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("La cantidad a reponer debe ser mayor a cero");
+    }
+
+    @Test
+    void procesarProvision_CantidadNull_ShouldThrowIllegalArgumentException() {
+        ProvisionDTO provision = new ProvisionDTO();
+        provision.setIdProducto(1L);
+
+        assertThatThrownBy(() -> productoService.procesarProvision(provision))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("La cantidad a reponer debe ser mayor a cero");
+    }
+
+    @Test
+    void procesarProvision_PrecioNegativo_ShouldThrowIllegalArgumentException() {
+        ProvisionDTO provision = new ProvisionDTO();
+        provision.setIdProducto(1L);
+        provision.setCantidad(BigDecimal.valueOf(10));
+        provision.setPrecio(BigDecimal.valueOf(-5));
+
+        assertThatThrownBy(() -> productoService.procesarProvision(provision))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("El precio debe ser mayor o igual a 0");
     }
 
     @Test
@@ -223,6 +371,77 @@ class ProductoServiceTest {
     }
 
     @Test
+    void actualizarDescuento_DiscountAbove100_ShouldThrow() {
+        DescuentoDTO descuento = new DescuentoDTO();
+        descuento.setDescuentoPromocional(BigDecimal.valueOf(150));
+
+        assertThatThrownBy(() -> productoService.actualizarDescuento(1L, descuento))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("menor o igual a 100");
+    }
+
+    @Test
+    void actualizarDescuento_DiscountNegative_ShouldThrow() {
+        DescuentoDTO descuento = new DescuentoDTO();
+        descuento.setDescuentoPromocional(BigDecimal.valueOf(-5));
+
+        assertThatThrownBy(() -> productoService.actualizarDescuento(1L, descuento))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("mayor o igual a 0");
+    }
+
+    @Test
+    void actualizarDescuento_DiscountNull_ShouldThrow() {
+        DescuentoDTO descuento = new DescuentoDTO();
+
+        assertThatThrownBy(() -> productoService.actualizarDescuento(1L, descuento))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("obligatorio");
+    }
+
+    @Test
+    void saveProducto_NullDiscount_ShouldDefaultToZero() {
+        producto.setDescuentoPromocional(null);
+        when(productoRepository.save(any(Producto.class))).thenAnswer(i -> i.getArgument(0));
+
+        Producto result = productoService.saveProducto(producto);
+
+        assertThat(result.getDescuentoPromocional()).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    void updateProducto_NullDiscount_ShouldPreserveExistingDiscount() {
+        producto.setDescuentoPromocional(BigDecimal.valueOf(15));
+        Producto body = new Producto();
+        body.setNombre("Cemento Premium");
+        body.setPrecio(BigDecimal.valueOf(6000));
+        body.setStockMinimo(BigDecimal.valueOf(5));
+        body.setDescuentoPromocional(null);
+
+        when(productoRepository.findByIdAndHabilitadoTrue(1L)).thenReturn(Optional.of(producto));
+        when(productoRepository.save(any(Producto.class))).thenAnswer(i -> i.getArgument(0));
+
+        Producto result = productoService.updateProducto(1L, body);
+
+        assertThat(result.getDescuentoPromocional()).isEqualByComparingTo(BigDecimal.valueOf(15));
+    }
+
+    @Test
+    void updateProducto_DiscountAbove100_ShouldThrow() {
+        producto.setDescuentoPromocional(BigDecimal.ZERO);
+        Producto body = new Producto();
+        body.setNombre("Cemento Premium");
+        body.setPrecio(BigDecimal.valueOf(6000));
+        body.setDescuentoPromocional(BigDecimal.valueOf(150));
+
+        when(productoRepository.findByIdAndHabilitadoTrue(1L)).thenReturn(Optional.of(producto));
+
+        assertThatThrownBy(() -> productoService.updateProducto(1L, body))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("menor o igual a 100");
+    }
+
+    @Test
     void handleStockUpdate_ValidMessage_ShouldDecreaseStock() {
         Message msg = new Message("1;30".getBytes(StandardCharsets.UTF_8));
         when(productoRepository.findByIdAndHabilitadoTrue(1L)).thenReturn(Optional.of(producto));
@@ -230,7 +449,7 @@ class ProductoServiceTest {
 
         productoService.handleStockUpdate(msg);
 
-        assertThat(producto.getStockActual()).isEqualTo(70);
+        assertThat(producto.getStockActual()).isEqualByComparingTo(BigDecimal.valueOf(70));
         verify(productoRepository).save(producto);
     }
 
@@ -259,7 +478,7 @@ class ProductoServiceTest {
 
         productoService.handleStockReturn(msg);
 
-        assertThat(producto.getStockActual()).isEqualTo(120);
+        assertThat(producto.getStockActual()).isEqualByComparingTo(BigDecimal.valueOf(120));
         verify(productoRepository).save(producto);
     }
 
@@ -306,7 +525,8 @@ class ProductoServiceTest {
                 .thenReturn(Collections.singletonList(producto));
 
         List<Producto> result = productoService.searchProductos(
-                null, null, BigDecimal.valueOf(100), BigDecimal.valueOf(10000), 5, 200);
+                null, null, BigDecimal.valueOf(100), BigDecimal.valueOf(10000),
+                BigDecimal.valueOf(5), BigDecimal.valueOf(200));
 
         assertThat(result).hasSize(1);
     }

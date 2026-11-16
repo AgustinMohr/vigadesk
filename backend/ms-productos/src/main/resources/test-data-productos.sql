@@ -21,7 +21,7 @@ VALUES (2,
         0,
         30,
         4200.00,
-        500.00,
+        10,
         'PLACAS', TRUE) ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
@@ -92,7 +92,8 @@ VALUES (12,
         0,
         'PERFILES', TRUE) ON CONFLICT (id) DO NOTHING;
 
--- 2d. Precio con valor peligroso: igual que el descuento (10000 - 10000 = 0)
+-- 2d. Precio típico para la demo de pedidos (sin descuento; el "Ladrillo"
+--     con descuento == precio en pesos era un borde de la semántica vieja)
 INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (13,
         'Ladrillo Hueco 18x18x33 Cerámico x 1u',
@@ -100,7 +101,7 @@ VALUES (13,
         0,
         500,
         10000.00,
-        10000.00,
+        0,
         'MORTEROS', TRUE) ON CONFLICT (id) DO NOTHING;
 
 -- =============================================================================
@@ -216,7 +217,10 @@ VALUES (44,
 
 -- =============================================================================
 --  SECCIÓN 6 — VALORES LÍMITE PARA DESCUENTO_PROMOCIONAL
---  Cubre: NULL, 0, positivo < precio, igual a precio, mayor a precio, negativo
+--  Semántica: PORCENTAJE entre 0 y 100 (ej: 15 = 15% de descuento).
+--  Cubre: NULL (la app lo trata como 0), 0, un % típico y 100% (gratis).
+--  NOTA: valores > 100 o negativos YA NO se siembran: antes representaban
+--  bordes de la semántica en pesos y hoy la API los rechaza con 400.
 -- =============================================================================
 
 -- 6a. Descuento = NULL (se espera que la app use ZERO por defecto)
@@ -230,7 +234,7 @@ VALUES (50,
         NULL,
         'YESERIA', TRUE) ON CONFLICT (id) DO NOTHING;
 
--- 6b. Descuento = 0 (explícito)
+-- 6b. Descuento = 0 (explícito: sin promoción)
 INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (51,
         'Enduido Plástico 2 kg - Descuento cero',
@@ -241,7 +245,7 @@ VALUES (51,
         0,
         'YESERIA', TRUE) ON CONFLICT (id) DO NOTHING;
 
--- 6c. Descuento positivo menor que el precio (típico)
+-- 6c. Descuento porcentual típico: 15% (coincide con el nombre del producto)
 INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (52,
         'Fieltro Asfáltico 10 m² - 15% off',
@@ -249,41 +253,19 @@ VALUES (52,
         0,
         30,
         3400.00,
-        510.00,
+        15,
         'PLACAS', TRUE) ON CONFLICT (id) DO NOTHING;
 
--- 6d. Descuento igual al precio → precio final = 0 (caso borde)
+-- 6d. Descuento del 100% → producto gratis (caso borde)
 INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
 VALUES (53,
         'Muestra Gratis Promocional',
-        'Producto promocional sin costo (descuento = precio)',
+        'Producto promocional sin costo (100% de descuento)',
         0,
         5,
         1000.00,
-        1000.00,
+        100,
         'CEMENTOS', TRUE) ON CONFLICT (id) DO NOTHING;
-
--- 6e. Descuento mayor que el precio → precio final negativo (borde)
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
-VALUES (54,
-        'Cupón de Descuento Extra - Precio negativo',
-        'Descuento mayor al precio del producto',
-        0,
-        1,
-        500.00,
-        800.00,
-        'PLACAS', TRUE) ON CONFLICT (id) DO NOTHING;
-
--- 6f. Descuento con valor negativo (inválido semánticamente pero permitido)
-INSERT INTO ms_prd_producto (id, nombre, descripcion, stock_actual, stock_minimo, precio, descuento_promocional, categoria, habilitado)
-VALUES (55,
-        'Recargo por urgencia - Descuento negativo',
-        'Producto con "descuento" negativo (recargo)',
-        0,
-        10,
-        2000.00,
-        -500.00,
-        'MORTEROS', TRUE) ON CONFLICT (id) DO NOTHING;
 
 -- =============================================================================
 --  SECCIÓN 7 — CASOS BORDE: COMBINACIONES CRÍTICAS
@@ -450,8 +432,9 @@ SELECT setval('ms_prd_producto_id_seq', COALESCE((SELECT MAX(id) FROM ms_prd_pro
 -- -- Productos con precio gratuito (precio = 0)
 -- SELECT id, nombre, precio FROM ms_prd_producto WHERE precio = 0;
 --
--- -- Productos con descuento mayor o igual al precio
--- SELECT id, nombre, precio, descuento_promocional FROM ms_prd_producto WHERE descuento_promocional >= precio;
+-- -- Productos con descuento fuera del rango de porcentaje válido (0-100)
+-- SELECT id, nombre, precio, descuento_promocional FROM ms_prd_producto
+-- WHERE descuento_promocional < 0 OR descuento_promocional > 100;
 --
 -- -- Productos sin descripción
 -- SELECT id, nombre FROM ms_prd_producto WHERE descripcion IS NULL;
@@ -474,9 +457,9 @@ SELECT setval('ms_prd_producto_id_seq', COALESCE((SELECT MAX(id) FROM ms_prd_pro
 --     precio = 4800.00
 -- WHERE id = 70;
 --
--- ---- DESCUENTO: Asignar descuento promocional ----
+-- ---- DESCUENTO: Asignar descuento promocional (10%) ----
 -- UPDATE ms_prd_producto
--- SET descuento_promocional = 1000.00
+-- SET descuento_promocional = 10
 -- WHERE id = 3;
 --
 -- ---- DESCUENTO: Quitar descuento (set a 0) ----
@@ -491,3 +474,11 @@ SELECT setval('ms_prd_producto_id_seq', COALESCE((SELECT MAX(id) FROM ms_prd_pro
 --     ELSE false
 -- END AS stock_suficiente
 -- FROM ms_prd_producto WHERE id = 80;
+
+-- =============================================================================
+--  NORMALIZACION DEL MVP COMERCIAL
+-- =============================================================================
+UPDATE ms_prd_producto SET version = 0 WHERE version IS NULL;
+UPDATE ms_prd_producto SET unidad_medida = 'UNIDAD' WHERE unidad_medida IS NULL;
+UPDATE ms_prd_producto SET stock_actual = 0 WHERE stock_actual IS NULL;
+UPDATE ms_prd_producto SET stock_minimo = 0 WHERE stock_minimo IS NULL;

@@ -1,17 +1,18 @@
+# Compose de desarrollo para ms-productos.
+# Requiere variables: docker compose --env-file ../../.env up -d
 services:
   pg-dan:
-    image: postgres
+    image: postgres:17
     container_name: pg-dan-db
     restart: always
     ports:
-      - 5432:5432
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-pguser}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pgpassword}
-      POSTGRES_DB: ${POSTGRES_DB:-pg-dan}      
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requerido}
+      POSTGRES_DB: ${POSTGRES_DB:-pg-dan}
     volumes:
       - pg-data:/var/lib/postgresql/data
-
 
   ms-productos:
     image: ms-productos:latest
@@ -21,23 +22,22 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://pg-dan:5432/${POSTGRES_DB:-pg-dan}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-pguser}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-pgpassword}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requerido}
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_SQL_INIT_MODE: always
       SPRING_SQL_INIT_DATA_LOCATIONS: classpath:test-data-productos.sql
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-guest}
-      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:?RABBITMQ_USERNAME requerido}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD requerido}
       SPRING_EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/
     ports:
-      - "6180:8080"
+      - "127.0.0.1:6180:8080"
     depends_on:
       - pg-dan
     networks:
       - backend-net
-
 
 networks:
   backend-net:

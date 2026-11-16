@@ -36,11 +36,22 @@ public class RestControllerException {
     }
 	@ExceptionHandler(InsufficientStockException.class)
 	public ResponseEntity<Map<String, Object>> handleInsufficientStock(InsufficientStockException ex) {
+		return badRequest(ex.getMessage());
+	}
+
+	// Reglas de negocio inválidas lanzadas desde ProductoService
+	// (ej: descuento promocional fuera del rango 0-100).
+	@ExceptionHandler(IllegalArgumentException.class)
+	public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
+		return badRequest(ex.getMessage());
+	}
+
+	private ResponseEntity<Map<String, Object>> badRequest(String mensaje) {
 		Map<String, Object> respuesta = new HashMap<>();
 		respuesta.put("timestamp", LocalDateTime.now());
 		respuesta.put("status", HttpStatus.BAD_REQUEST.value());
 		respuesta.put("error", "Bad Request");
-		respuesta.put("mensaje", ex.getMessage());
+		respuesta.put("mensaje", mensaje);
 
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(respuesta);
 	}

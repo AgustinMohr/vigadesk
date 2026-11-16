@@ -8,6 +8,7 @@ import isi.dan.ms_productos.dto.StockUpdateDTO;
 import isi.dan.ms_productos.exception.ProductoNotFoundException;
 import isi.dan.ms_productos.modelo.Categoria;
 import isi.dan.ms_productos.modelo.Producto;
+import isi.dan.ms_productos.servicio.ProductoImportService;
 import isi.dan.ms_productos.servicio.ProductoService;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -35,6 +36,9 @@ class ProductoControllerTest {
     @MockBean
     private ProductoService productoService;
 
+    @MockBean
+    private ProductoImportService productoImportService;
+
     private Producto producto;
 
     @BeforeEach
@@ -43,8 +47,8 @@ class ProductoControllerTest {
         producto.setId(1L);
         producto.setNombre("Cemento Portland");
         producto.setDescripcion("Cemento para construccion");
-        producto.setStockActual(100);
-        producto.setStockMinimo(10);
+        producto.setStockActual(BigDecimal.valueOf(100));
+        producto.setStockMinimo(BigDecimal.valueOf(10));
         producto.setPrecio(BigDecimal.valueOf(5000));
         producto.setDescuentoPromocional(BigDecimal.ZERO);
         producto.setCategoria(Categoria.CEMENTOS);
@@ -81,7 +85,8 @@ class ProductoControllerTest {
 
     @Test
     void testCreate() throws Exception {
-        Mockito.when(productoService.saveProducto(Mockito.any(Producto.class))).thenReturn(producto);
+        Mockito.when(productoService.saveProducto(Mockito.any(Producto.class), Mockito.anyString()))
+                .thenReturn(producto);
 
         mockMvc.perform(post("/api/productos")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -108,9 +113,10 @@ class ProductoControllerTest {
         actualizado.setId(1L);
         actualizado.setNombre("Cemento Premium");
         actualizado.setPrecio(BigDecimal.valueOf(6000));
-        actualizado.setStockMinimo(5);
+        actualizado.setStockMinimo(BigDecimal.valueOf(5));
 
-        Mockito.when(productoService.updateProducto(Mockito.eq(1L), Mockito.any(Producto.class))).thenReturn(actualizado);
+        Mockito.when(productoService.updateProducto(
+                Mockito.eq(1L), Mockito.any(Producto.class), Mockito.anyString())).thenReturn(actualizado);
 
         mockMvc.perform(put("/api/productos/1")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -156,7 +162,7 @@ class ProductoControllerTest {
     void testCheckStock_Ok() throws Exception {
         StockUpdateDTO item = new StockUpdateDTO();
         item.setIdProducto(1L);
-        item.setCantidad(50);
+        item.setCantidad(BigDecimal.valueOf(50));
         List<StockUpdateDTO> items = Collections.singletonList(item);
 
         Mockito.when(productoService.checkStock(Mockito.anyList())).thenReturn(true);
@@ -172,7 +178,7 @@ class ProductoControllerTest {
     void testCheckStock_Insuficiente() throws Exception {
         StockUpdateDTO item = new StockUpdateDTO();
         item.setIdProducto(1L);
-        item.setCantidad(200);
+        item.setCantidad(BigDecimal.valueOf(200));
         List<StockUpdateDTO> items = Collections.singletonList(item);
 
         Mockito.when(productoService.checkStock(Mockito.anyList())).thenReturn(false);
@@ -188,15 +194,16 @@ class ProductoControllerTest {
     void testProcesarProvision() throws Exception {
         ProvisionDTO provision = new ProvisionDTO();
         provision.setIdProducto(1L);
-        provision.setCantidad(50);
+        provision.setCantidad(BigDecimal.valueOf(50));
         provision.setPrecio(BigDecimal.valueOf(5500));
 
         Producto updated = new Producto();
         updated.setId(1L);
-        updated.setStockActual(150);
+        updated.setStockActual(BigDecimal.valueOf(150));
         updated.setPrecio(BigDecimal.valueOf(5500));
 
-        Mockito.when(productoService.procesarProvision(Mockito.any(ProvisionDTO.class))).thenReturn(updated);
+        Mockito.when(productoService.procesarProvision(Mockito.any(ProvisionDTO.class), Mockito.anyString()))
+                .thenReturn(updated);
 
         mockMvc.perform(put("/api/productos/provision")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -204,6 +211,19 @@ class ProductoControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.stockActual").value(150))
                 .andExpect(jsonPath("$.precio").value(5500));
+    }
+
+    @Test
+    void testProcesarProvision_CantidadInvalida_ShouldReturnBadRequest() throws Exception {
+        ProvisionDTO provision = new ProvisionDTO();
+        provision.setIdProducto(1L);
+        provision.setCantidad(BigDecimal.ZERO); // @DecimalMin debe rechazarla con 400
+
+        mockMvc.perform(put("/api/productos/provision")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(asJsonString(provision)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.cantidad").exists());
     }
 
     @Test
@@ -215,13 +235,39 @@ class ProductoControllerTest {
         updated.setId(1L);
         updated.setDescuentoPromocional(BigDecimal.valueOf(10));
 
-        Mockito.when(productoService.actualizarDescuento(Mockito.eq(1L), Mockito.any(DescuentoDTO.class))).thenReturn(updated);
+        Mockito.when(productoService.actualizarDescuento(
+                Mockito.eq(1L), Mockito.any(DescuentoDTO.class), Mockito.anyString())).thenReturn(updated);
 
         mockMvc.perform(put("/api/productos/1/descuento")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(asJsonString(descuento)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.descuentoPromocional").value(10));
+    }
+
+    @Test
+    void testActualizarDescuento_FueraDeRango_ShouldReturnBadRequest() throws Exception {
+        // descuento 150 (> 100) debe rechazarse en la frontera HTTP con 400
+        DescuentoDTO descuento = new DescuentoDTO();
+        descuento.setDescuentoPromocional(BigDecimal.valueOf(150));
+
+        mockMvc.perform(put("/api/productos/1/descuento")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(asJsonString(descuento)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.descuentoPromocional").exists());
+    }
+
+    @Test
+    void testActualizarDescuento_Null_ShouldReturnBadRequest() throws Exception {
+        // descuento ausente debe rechazarse (@NotNull)
+        DescuentoDTO descuento = new DescuentoDTO();
+
+        mockMvc.perform(put("/api/productos/1/descuento")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(asJsonString(descuento)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.descuentoPromocional").exists());
     }
 
     private static String asJsonString(final Object obj) {

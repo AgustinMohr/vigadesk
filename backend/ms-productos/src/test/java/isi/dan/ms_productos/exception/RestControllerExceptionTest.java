@@ -87,7 +87,8 @@ class RestControllerExceptionTest {
 
     @Test
     void handleValidationExceptions_ShouldReturnBadRequestWithFieldErrors() throws Exception {
-        Method method = ProductoController.class.getMethod("createProducto", Producto.class);
+        Method method = ProductoController.class.getMethod(
+                "createProducto", Producto.class, String.class, String.class);
         MethodParameter parameter = new MethodParameter(method, 0);
         BeanPropertyBindingResult bindingResult = new BeanPropertyBindingResult(new Producto(), "producto");
         bindingResult.addError(new FieldError("producto", "nombre", "El nombre es obligatorio"));
