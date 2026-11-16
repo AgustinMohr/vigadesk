@@ -25,7 +25,14 @@ public class RoleAuthorizationFilter extends OncePerRequestFilter {
             write(response, HttpStatus.UNAUTHORIZED, "Autenticacion requerida");
             return;
         }
-        if (!isAuthorized(request.getMethod(), request.getRequestURI(), rol)) {
+        // La decision se toma sobre el path canonico: el controlador interpreta el path
+        // decodificado, asi que una variante codificada no puede saltear una regla.
+        String path = PathNormalizer.normalize(request.getRequestURI());
+        if (path == null) {
+            write(response, HttpStatus.BAD_REQUEST, "Ruta invalida");
+            return;
+        }
+        if (!isAuthorized(request.getMethod(), path, rol)) {
             write(response, HttpStatus.FORBIDDEN, "No tenes permisos para esta operacion");
             return;
         }
@@ -46,6 +53,9 @@ public class RoleAuthorizationFilter extends OncePerRequestFilter {
             return true;
         }
         if ("GUEST".equalsIgnoreCase(rol)) {
+            return false;
+        }
+        if (path.startsWith("/actuator")) {
             return false;
         }
         if ("GET".equals(method) || "HEAD".equals(method)) {
