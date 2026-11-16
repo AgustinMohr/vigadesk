@@ -6,6 +6,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -17,8 +19,12 @@ import isi.dan.msclientes.model.EstadoObra;
 import isi.dan.msclientes.model.Obra;
 import isi.dan.msclientes.model.UsuarioCliente;
 
-// Inicializa datos de prueba al arrancar si la BD está vacía
+// Inicializa datos de prueba al arrancar si la BD está vacía.
+// Solo se activa con app.seed.enabled=true (desarrollo). Por defecto está
+// apagado: en producción nunca crea clientes, obras ni usuarios de ejemplo.
 @Component
+@Order(1)
+@ConditionalOnProperty(prefix = "app.seed", name = "enabled", havingValue = "true")
 public class DataInitializer implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(DataInitializer.class);

@@ -39,6 +39,9 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:?MONGO_INITDB_ROOT_USERNAME es obligatorio}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:?MONGO_INITDB_ROOT_PASSWORD es obligatorio}
+    # Solo el volumen de datos: no se monta mongo-init-pedidos.js (pedidos de ejemplo).
+    volumes: !override
+      - mongo-data:/data/db
 
   ms-eureka:
     ports: !reset []
@@ -51,6 +54,13 @@ services:
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:?RABBITMQ_USERNAME es obligatorio}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD es obligatorio}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET es obligatorio}
+      # Sin datos de ejemplo. El primer administrador se crea solo si la base no tiene
+      # usuarios, con BOOTSTRAP_ADMIN_EMAIL y BOOTSTRAP_ADMIN_PASSWORD (minimo 12 caracteres).
+      # Si la base esta vacia y faltan, el arranque falla. Con usuarios existentes se ignoran.
+      APP_SEED_ENABLED: "false"
+      BOOTSTRAP_ADMIN_REQUIRED: "true"
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
 
   ms-productos:
     ports: !reset []
@@ -59,6 +69,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD es obligatorio}
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:?RABBITMQ_USERNAME es obligatorio}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD es obligatorio}
+      # Sin test-data-productos.sql: el catalogo real se carga por importacion.
+      SPRING_SQL_INIT_MODE: never
 
   ms-pedidos:
     ports: !reset []
