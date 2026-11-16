@@ -15,6 +15,7 @@
 import { useState } from 'react';
 import type { Cliente } from '@/services/clienteService';
 import Button from './Button';
+import { getErrorMessage } from '@/lib/http/api-error';
 
 /**
  * Forma de datos que el form devuelve al padre al guardar.
@@ -59,9 +60,6 @@ export default function ClienteForm ({
   const [maximoDescubierto, setMaximoDescubierto] = useState(
     cliente?.maximoDescubierto?.toString() ?? ''
   );
-  const [maxObrasActivas, setMaxObrasActivas] = useState(
-    cliente?.maxObrasActivas?.toString() ?? ''
-  );
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -84,12 +82,6 @@ export default function ClienteForm ({
       setError('Nombre y correo electrónico son obligatorios.');
       return;
     }
-    // Regla de negocio: mínimo 1 obra activa por cliente.
-    if (!maxObrasActivas.trim() || Number(maxObrasActivas) < 1) {
-      setError('Las obras activas máximas deben ser al menos 1.');
-      return;
-    }
-
     setSubmitting(true); // deshabilita botones mientras guarda (evita doble submit)
     try {
       await onSubmit({
@@ -103,10 +95,9 @@ export default function ClienteForm ({
         maximoDescubierto: maximoDescubierto
           ? Number(maximoDescubierto)
           : undefined,
-        maxObrasActivas: Number(maxObrasActivas),
       });
-    } catch {
-      setError('Ocurrió un error al guardar el cliente.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Ocurrió un error al guardar el cliente.'));
     } finally {
       // `finally` SIEMPRE se ejecuta (con éxito o error) → el botón se
       // rehabilita en cualquier caso, sin bloquear el modal.
@@ -166,7 +157,7 @@ export default function ClienteForm ({
 
           <div>
             <label className='block text-sm font-medium text-slate-700'>
-              Descubierto máximo
+              Límite de crédito
             </label>
             <input
               type='number'
@@ -176,19 +167,6 @@ export default function ClienteForm ({
               // solo bloquea el submit si el form es nativo (acá la
               // validación real corre en handleSubmit).
               min={10000}
-              className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
-            />
-          </div>
-
-          <div>
-            <label className='block text-sm font-medium text-slate-700'>
-              Obras activas máximas <span className='text-red-500'>*</span>
-            </label>
-            <input
-              type='number'
-              value={maxObrasActivas}
-              onChange={(e) => setMaxObrasActivas(e.target.value)}
-              min={1}
               className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
             />
           </div>

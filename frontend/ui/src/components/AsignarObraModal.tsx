@@ -18,6 +18,7 @@ import type { Cliente } from '@/services/clienteService';
 import type { Obra } from '@/services/obraService';
 import { obraService } from '@/services/obraService';
 import Button from './Button';
+import { getErrorMessage } from '@/lib/http/api-error';
 
 /**
  * PROPS del modal de asignación de obra a cliente.
@@ -63,8 +64,8 @@ export default function AsignarObraModal ({
       try {
         const data = await obraService.getSinAsignar();
         setObras(data);
-      } catch {
-        setError('No se pudieron cargar las obras disponibles.');
+      } catch (err) {
+        setError(getErrorMessage(err, 'No se pudieron cargar las obras disponibles.'));
       } finally {
         setLoading(false);
       }
@@ -85,8 +86,8 @@ export default function AsignarObraModal ({
       await obraService.asignarCliente(selectedObraId, cliente.id!);
       onAssign(); // el padre refresca las obras del cliente
       onClose();  // y cierra este modal
-    } catch {
-      setError('No se pudo asignar la obra.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'No se pudo asignar la obra.'));
     } finally {
       setSubmitting(false);
     }

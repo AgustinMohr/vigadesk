@@ -35,6 +35,7 @@ import Button from '@/components/Button';
 import UsuarioTable from '@/components/UsuarioTable';
 import UsuarioForm from '@/components/UsuarioForm';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { getErrorMessage } from '@/lib/http/api-error';
 
 /**
  * Componente "cerebro" de la página /usuarios: maneja el estado de los
@@ -160,8 +161,8 @@ export default function UsuariosPageClient ({
     try {
       const data = await usuarioService.getAll();
       setUsuarios(data);
-    } catch {
-      setFetchError('No se pudieron cargar los usuarios.');
+    } catch (err) {
+      setFetchError(getErrorMessage(err, 'No se pudieron cargar los usuarios.'));
     }
   };
 
@@ -174,8 +175,8 @@ export default function UsuariosPageClient ({
       // API rechazaría la petición y caería en el catch.
       await usuarioService.delete(usuario.id!);
       await refreshUsuarios();
-    } catch {
-      alert('No se pudo eliminar el usuario.');
+    } catch (err) {
+      alert(getErrorMessage(err, 'No se pudo eliminar el usuario.'));
     }
   };
 

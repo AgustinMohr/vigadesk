@@ -89,7 +89,7 @@ export const obraService = {
   asignarCliente: (obraId: number, clienteId: number) =>
     http.put<Obra>(`${basePath}/${obraId}/asignar-cliente/${clienteId}`, {}),
 
-  // PUT /api/obras/:id/estado → cambia el ciclo de vida (ej: a FINALIZADA).
+  // PATCH /api/obras/:id/estado → cambia el ciclo de vida (ej: a FINALIZADA).
   cambiarEstado: (obraId: number, estado: EstadoObra) =>
-    http.put<Obra>(`${basePath}/${obraId}/estado`, { estado }),
+    http.patch<Obra>(`${basePath}/${obraId}/estado`, { estado }),
 };

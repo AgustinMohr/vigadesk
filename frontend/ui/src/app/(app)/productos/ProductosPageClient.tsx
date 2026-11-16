@@ -4,7 +4,7 @@
 // Este archivo concentra TODA la lógica interactiva de la página de
 // productos: traerlos de la API, filtrarlos por múltiples criterios
 // (nombre, código, precio y stock en rangos min/max), y abrir modales
-// para crear/editar o aplicar un descuento promocional.
+// para crear/editar, aplicar un descuento promocional o REPONER stock.
 // Por eso es un Client Component ("use client").
 //
 // RECORRIDO DE UNA PANTALLA CON DATOS (patrón compartido con obras,
@@ -19,7 +19,8 @@
 //
 // PARTICULARIDAD: esta pantalla usa 6 filtros de búsqueda combinables
 // (a diferencia de obras/clientes que filtran por un único texto).
-// Además incluye el flujo de descuento promocional vía DescuentoModal.
+// Además incluye el flujo de descuento promocional vía DescuentoModal y
+// la reposición de stock vía ProvisionModal (solo admin).
 //
 // CONCEPTOS CLAVE: Client Component, useState, useEffect con retries,
 // useMemo para filtrado derivado, handlers como props, render
@@ -35,7 +36,9 @@ import Button from '@/components/Button';
 import ProductoTable from '@/components/ProductoTable';
 import ProductoForm from '@/components/ProductoForm';
 import DescuentoModal from '@/components/DescuentoModal';
+import ProvisionModal from '@/components/ProvisionModal';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { getErrorMessage } from '@/lib/http/api-error';
 
 /**
  * Componente "cerebro" de la página /productos: maneja el estado de los
@@ -102,6 +105,9 @@ export default function ProductosPageClient ({
   // `productoDescuento` guarda el producto sobre el que se abrirá el
   // DescuentoModal. Es `null` → modal cerrado.
   const [productoDescuento, setProductoDescuento] = useState<Producto | null>(null);
+  // `productoProvision` guarda el producto sobre el que se abrirá el
+  // ProvisionModal (reposición de stock). `null` → modal cerrado.
+  const [productoProvision, setProductoProvision] = useState<Producto | null>(null);
   const [searchNombre, setSearchNombre] = useState('');
   const [searchCodigo, setSearchCodigo] = useState('');
   const [searchPrecioMin, setSearchPrecioMin] = useState('');
@@ -159,8 +165,8 @@ export default function ProductosPageClient ({
     try {
       const data = await productoService.getAll();
       setProductos(data);
-    } catch {
-      setFetchError('No se pudieron cargar los productos.');
+    } catch (err) {
+      setFetchError(getErrorMessage(err, 'No se pudieron cargar los productos.'));
     }
   };
 
@@ -170,8 +176,8 @@ export default function ProductosPageClient ({
     try {
       await productoService.delete(producto.id!);
       await refreshProductos();
-    } catch {
-      alert('No se pudo eliminar el producto.');
+    } catch (err) {
+      alert(getErrorMessage(err, 'No se pudo eliminar el producto.'));
     }
   };
 
@@ -209,6 +215,24 @@ export default function ProductosPageClient ({
   // Cierra el DescuentoModal sin aplicar cambios.
   const handleDescuentoCancel = () => {
     setProductoDescuento(null);
+  };
+
+  // Abre el ProvisionModal guardando el producto elegido en estado.
+  const handleReponerStock = (producto: Producto) => {
+    setProductoProvision(producto);
+  };
+
+  // Envía la cantidad a reponer al backend, cierra el modal y refresca la
+  // lista para ver el stock actualizado (el precio no se modifica).
+  const handleProvisionSubmit = async (id: number, cantidad: number) => {
+    await productoService.provision(id, cantidad);
+    setProductoProvision(null);
+    await refreshProductos();
+  };
+
+  // Cierra el ProvisionModal sin reponer.
+  const handleProvisionCancel = () => {
+    setProductoProvision(null);
   };
 
   return (
@@ -251,6 +275,7 @@ export default function ProductosPageClient ({
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 onAplicarDescuento={handleAplicarDescuento}
+                onReponerStock={handleReponerStock}
               />
               )}
       </div>
@@ -269,6 +294,14 @@ export default function ProductosPageClient ({
           producto={productoDescuento}
           onSubmit={handleDescuentoSubmit}
           onCancel={handleDescuentoCancel}
+        />
+      )}
+
+      {productoProvision && (
+        <ProvisionModal
+          producto={productoProvision}
+          onSubmit={handleProvisionSubmit}
+          onCancel={handleProvisionCancel}
         />
       )}
     </section>

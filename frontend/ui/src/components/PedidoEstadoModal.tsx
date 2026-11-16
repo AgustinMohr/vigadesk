@@ -1,22 +1,19 @@
 // ==============================================================
 // MODAL DE ESTADO DE PEDIDO
 // --------------------------------------------------------------
-// Ventana pequeña con un <select> (solo ENTREGADO/CANCELADO) que
-// confirma el nuevo estado. Patrón típico de los modales de este
-// proyecto: `onSubmit(valor)` avisa al padre y `onCancel` cierra.
+// Ventana pequeña con un <select> (CANCELADO) que confirma el nuevo
+// estado. La entrega se registra desde el modal de remitos, no acá.
 //
-// LÓGICA DE NEGOCIO: este modal solo se abre para pedidos que están en
-// ACEPTADO o EN_PREPARACION (lo decide PedidoTable). Por eso acá solo se
-// ofrecen los DOS estados "finales" que completan el flujo:
-//   ENTREGADO  → el pedido llegó al cliente.
-//   CANCELADO  → el pedido se anuló antes de entregarse.
-// (RECHAZADO ya fue una decisión previa del admin; no se re-decide acá.)
+// LÓGICA DE NEGOCIO: este modal se abre para pedidos en ACEPTADO o
+// EN_PREPARACION (lo decide PedidoTable). Acá solo se cancela; las
+// cantidades entregadas se registran con EntregaModal.
 // ==============================================================
 
 'use client';
 
 import { useState } from 'react';
 import Button from './Button';
+import { getErrorMessage } from '@/lib/http/api-error';
 
 /**
  * PROPS del modal de estado de pedido.
@@ -35,10 +32,10 @@ type PedidoEstadoModalProps = {
 };
 
 // Estados de cierre permitidos desde el modal de un pedido en curso.
-const estadosPermitidos = ['ENTREGADO', 'CANCELADO'];
+const estadosPermitidos = ['CANCELADO'];
 
 /**
- * Modal para cambiar el estado final de un pedido (ENTREGADO o CANCELADO).
+ * Modal para cancelar un pedido en curso.
  *
  * Componente "dumb": valida la selección y delega el valor al padre.
  *
@@ -71,8 +68,8 @@ export default function PedidoEstadoModal ({
     setSubmitting(true);
     try {
       await onSubmit(estado);
-    } catch {
-      setError('Ocurrió un error al actualizar el estado.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Ocurrió un error al actualizar el estado.'));
     } finally {
       setSubmitting(false);
     }

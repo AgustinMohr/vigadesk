@@ -12,15 +12,22 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { pedidoService, type Pedido, type SearchParams } from '@/services/pedidoService';
+import {
+  pedidoService,
+  type EntregaInput,
+  type Pedido,
+  type SearchParams,
+} from '@/services/pedidoService';
 import Button from '@/components/Button';
 import PedidoTable from '@/components/PedidoTable';
 import PedidoForm from '@/components/PedidoForm';
 import PedidoEstadoModal from '@/components/PedidoEstadoModal';
 import PedidoDetalleModal from '@/components/PedidoDetalleModal';
+import EntregaModal from '@/components/EntregaModal';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { getErrorMessage } from '@/lib/http/api-error';
 
-const ESTADOS_PEDIDO = ['RECIBIDO', 'ACEPTADO', 'EN_PREPARACION', 'ENTREGADO', 'CANCELADO', 'RECHAZADO'];
+const ESTADOS_PEDIDO = ['RECIBIDO', 'ACEPTADO', 'EN_PREPARACION', 'ENTREGA_PARCIAL', 'ENTREGADO', 'CANCELADO', 'RECHAZADO'];
 
 /**
  * Componente "cerebro" de la página /pedidos.
@@ -85,6 +92,7 @@ export default function PedidosPageClient ({
   const [showForm, setShowForm] = useState(false);
   const [estadoPedido, setEstadoPedido] = useState<Pedido | null>(null);
   const [pedidoDetalle, setPedidoDetalle] = useState<Pedido | null>(null);
+  const [pedidoEntrega, setPedidoEntrega] = useState<Pedido | null>(null);
   const [searchCliente, setSearchCliente] = useState('');
   const [searchEstado, setSearchEstado] = useState('');
 
@@ -101,13 +109,24 @@ export default function PedidosPageClient ({
     setPedidoDetalle(pedido);
   };
 
+  const handleEntregar = (pedido: Pedido) => {
+    setPedidoEntrega(pedido);
+  };
+
+  const handleEntregaSubmit = async (entrega: EntregaInput) => {
+    if (!pedidoEntrega) return;
+    await pedidoService.createEntrega(pedidoEntrega.id!, entrega);
+    setPedidoEntrega(null);
+    await refreshPedidos();
+  };
+
   // Refresca la lista completa desde la API (aplica filtros si existen)
   const refreshPedidos = async () => {
     try {
       const data = await pedidoService.search(buildParams());
       setPedidos(data);
-    } catch {
-      setFetchError('No se pudieron cargar los pedidos.');
+    } catch (err) {
+      setFetchError(getErrorMessage(err, 'No se pudieron cargar los pedidos.'));
     }
   };
 
@@ -118,8 +137,8 @@ export default function PedidosPageClient ({
     try {
       const data = await pedidoService.search(buildParams());
       setPedidos(data);
-    } catch {
-      setFetchError('No se pudieron cargar los pedidos.');
+    } catch (err) {
+      setFetchError(getErrorMessage(err, 'No se pudieron cargar los pedidos.'));
     } finally {
       setLoading(false);
     }
@@ -131,14 +150,14 @@ export default function PedidosPageClient ({
     try {
       await pedidoService.delete(pedido.id!);
       await refreshPedidos();
-    } catch {
-      alert('No se pudo eliminar el pedido.');
+    } catch (err) {
+      alert(getErrorMessage(err, 'No se pudo eliminar el pedido.'));
     }
   };
 
   // Crea un pedido nuevo y refresca la lista
-  const handleFormSubmit = async (data: Partial<Pedido>) => {
-    await pedidoService.create(data);
+  const handleFormSubmit = async (data: Partial<Pedido>, idempotencyKey: string) => {
+    await pedidoService.create(data, idempotencyKey);
     setShowForm(false);
     await refreshPedidos();
   };
@@ -166,8 +185,8 @@ export default function PedidosPageClient ({
       if (clienteId != null) params.clienteId = clienteId;
       const data = await pedidoService.search(params);
       setPedidos(data);
-    } catch {
-      setFetchError('No se pudieron cargar los pedidos.');
+    } catch (err) {
+      setFetchError(getErrorMessage(err, 'No se pudieron cargar los pedidos.'));
     } finally {
       setLoading(false);
     }
@@ -235,6 +254,7 @@ export default function PedidosPageClient ({
                 onDelete={handleDelete}
                 onUpdateEstado={handleChangeEstado}
                 onVer={handleVer}
+                onEntregar={handleEntregar}
               />
               )}
       </div>
@@ -259,6 +279,14 @@ export default function PedidosPageClient ({
         <PedidoDetalleModal
           pedido={pedidoDetalle}
           onClose={() => setPedidoDetalle(null)}
+        />
+      )}
+
+      {pedidoEntrega && (
+        <EntregaModal
+          pedido={pedidoEntrega}
+          onSubmit={handleEntregaSubmit}
+          onCancel={() => setPedidoEntrega(null)}
         />
       )}
     </section>

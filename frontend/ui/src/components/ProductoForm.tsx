@@ -21,6 +21,7 @@ import { useEffect, useState } from 'react';
 import type { Producto } from '@/services/productoService';
 import { productoService } from '@/services/productoService';
 import Button from './Button';
+import { getErrorMessage } from '@/lib/http/api-error';
 
 /**
  * PROPS del modal de producto.
@@ -58,7 +59,9 @@ export default function ProductoForm ({
   const [nombre, setNombre] = useState(producto?.nombre ?? '');
   const [descripcion, setDescripcion] = useState(producto?.descripcion ?? '');
   const [precio, setPrecio] = useState(producto?.precio?.toString() ?? '');
+  const [costo, setCosto] = useState(producto?.costo?.toString() ?? '');
   const [stockMinimo, setStockMinimo] = useState(producto?.stockMinimo?.toString() ?? '');
+  const [unidadMedida, setUnidadMedida] = useState(producto?.unidadMedida ?? 'UNIDAD');
   const [categoria, setCategoria] = useState(producto?.categoria ?? '');
   // Lista de categorías que llega de la API (se puebla en useEffect).
   const [categorias, setCategorias] = useState<string[]>([]);
@@ -99,6 +102,10 @@ export default function ProductoForm ({
       setError('El stock mínimo debe ser un valor válido.');
       return;
     }
+    if (costo.trim() && Number(costo) < 0) {
+      setError('El costo no puede ser negativo.');
+      return;
+    }
     if (!categoria) {
       setError('La categoría es obligatoria.');
       return;
@@ -113,11 +120,13 @@ export default function ProductoForm ({
         nombre: nombre.trim(),
         descripcion: descripcion.trim() || undefined,
         precio: Number(precio), // string → número recién acá
+        costo: costo.trim() ? Number(costo) : undefined,
         stockMinimo: Number(stockMinimo),
+        unidadMedida,
         categoria,
       });
-    } catch {
-      setError('Ocurrió un error al guardar el producto.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Ocurrió un error al guardar el producto.'));
     } finally {
       setSubmitting(false); // siempre rehabilita el botón
     }
@@ -188,8 +197,40 @@ export default function ProductoForm ({
               </label>
               <input
                 type='number'
+                step='0.001'
+                min='0'
                 value={stockMinimo}
                 onChange={(e) => setStockMinimo(e.target.value)}
+                className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
+              />
+            </div>
+          </div>
+
+          <div className='grid grid-cols-2 gap-4'>
+            <div>
+              <label className='block text-sm font-medium text-slate-700'>
+                Unidad de medida
+              </label>
+              <select
+                value={unidadMedida}
+                onChange={(e) => setUnidadMedida(e.target.value)}
+                className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
+              >
+                {['UNIDAD', 'BOLSA', 'M3', 'KG', 'METRO', 'LITRO', 'TONELADA'].map((unidad) => (
+                  <option key={unidad} value={unidad}>{unidad}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className='block text-sm font-medium text-slate-700'>
+                Costo unitario
+              </label>
+              <input
+                type='number'
+                step='0.01'
+                min='0'
+                value={costo}
+                onChange={(e) => setCosto(e.target.value)}
                 className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
               />
             </div>

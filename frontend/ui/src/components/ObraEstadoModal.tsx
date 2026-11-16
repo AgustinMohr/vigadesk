@@ -17,6 +17,7 @@
 import { useState } from 'react';
 import type { EstadoObra } from '@/services/obraService';
 import Button from './Button';
+import { getErrorMessage } from '@/lib/http/api-error';
 
 /**
  * PROPS del modal de estado de obra.
@@ -77,8 +78,8 @@ export default function ObraEstadoModal ({
     setSubmitting(true);
     try {
       await onSubmit(estado);
-    } catch {
-      setError('Ocurrió un error al actualizar el estado.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Ocurrió un error al actualizar el estado.'));
     } finally {
       setSubmitting(false);
     }

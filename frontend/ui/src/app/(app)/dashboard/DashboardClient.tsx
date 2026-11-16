@@ -5,6 +5,12 @@
 // obras, productos y pedidos, distribución de pedidos por estado,
 // total acumulado en pesos y productos con stock bajo.
 //
+// ALCANCE POR ROL: si la sesión es CLIENTE, las estadísticas de pedidos
+// (tarjeta "Pedidos" + panel "Pedidos por estado") se acotan a SU empresa
+// vía search({ clienteId }), igual que en PedidosPageClient. El resto de
+// las tarjetas (clientes/obras/productos y stock bajo) sigue siendo el
+// resumen global, igual para todos los roles.
+//
 // PARTICULARIDAD CLAVE: a diferencia de ObrasPageClient (que hace un
 // fetch por entidad de forma secuencial), acá se usa `Promise.all`
 // para lanzar los 4 fetches A LA VEZ en paralelo y esperar a que TODOS
@@ -33,6 +39,7 @@ import {
 } from '@/services/productoService';
 import { pedidoService, type Pedido } from '@/services/pedidoService';
 import StockBajoModal from '@/components/StockBajoModal';
+import { useAuth } from '@/lib/auth/AuthContext';
 
 // Mapa de clases de estilo para la "pill" (etiqueta redondeada) de cada
 // estado de pedido. La clave es el estado y el valor son clases Tailwind
@@ -42,6 +49,7 @@ const estadoColors: Record<string, string> = {
   RECIBIDO: 'text-yellow-700 bg-yellow-100',
   ACEPTADO: 'text-blue-700 bg-blue-100',
   EN_PREPARACION: 'text-indigo-700 bg-indigo-100',
+  ENTREGA_PARCIAL: 'text-purple-700 bg-purple-100',
   ENTREGADO: 'text-green-700 bg-green-100',
   CANCELADO: 'text-red-700 bg-red-100',
   RECHAZADO: 'text-gray-700 bg-gray-100',
@@ -69,6 +77,13 @@ function formatCurrency (n: number) {
  *   pedidos por estado, panel de stock bajo y el modal opcional.
  */
 export default function DashboardClient () {
+  // Sesión: el rol decide el alcance de los datos. Si es CLIENTE, las
+// estadísticas de pedidos se acotan a SU empresa (clienteId); ADMIN ve el
+// resumen global. GUEST no accede a datos operativos.
+  const { user } = useAuth();
+  const clienteId = user?.rol === 'CLIENTE' ? user.clienteId : undefined;
+  const isGuest = user?.rol === 'GUEST';
+
   // --------------------------------------------------------------
   // useState: una lista de estado por entidad + flags de UI.
   // Cuando cada setter actualiza su lista, React re-renderiza y los
@@ -91,16 +106,24 @@ export default function DashboardClient () {
   // El array `[]` = "ejecutar solo una vez al montar".
   // --------------------------------------------------------------
   useEffect(() => {
+    if (isGuest) {
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     const fetchAll = async () => {
       try {
         // Desestructuración del array resultante en 4 variables. Los 4
-        // `getAll()` se lanzan al mismo tiempo (paralelo), no en serie.
+        // fetches se lanzan al mismo tiempo (paralelo), no en serie. El de
+        // pedidos se filtra por clienteId si hay sesión CLIENTE (solo su
+        // empresa); si no, trae todos (admin/guest).
         const [c, o, p, pe] = await Promise.all([
           clienteService.getAll(),
           obraService.getAll(),
           productoService.getAll(),
-          pedidoService.getAll(),
+          clienteId != null
+            ? pedidoService.search({ clienteId })
+            : pedidoService.getAll(),
         ]);
         if (!cancelled) {
           setClientes(c);
@@ -118,7 +141,7 @@ export default function DashboardClient () {
     // Cleanup al desmontar: marca la bandera para que el fetch pendiente
     // no intente actualizar un componente que ya no existe.
     return () => { cancelled = true; };
-  }, []);
+  }, [isGuest]);
 
   // --------------------------------------------------------------
   // Cálculos "derivados": se recomputan en CADA render (son baratos).
@@ -129,7 +152,7 @@ export default function DashboardClient () {
   //  3. `totalPedidos`: suma acumulada de todos los totales de pedidos.
   //  4. `productosStockBajo`: productos cuyo stock actual es menor al mínimo.
   // --------------------------------------------------------------
-  const estadosPedido = ['RECIBIDO', 'ACEPTADO', 'EN_PREPARACION', 'ENTREGADO', 'CANCELADO', 'RECHAZADO'];
+  const estadosPedido = ['RECIBIDO', 'ACEPTADO', 'EN_PREPARACION', 'ENTREGA_PARCIAL', 'ENTREGADO', 'CANCELADO', 'RECHAZADO'];
   // `Object.fromEntries` convierte un array de pares [clave, valor] en un
   // objeto: [[est, count], ...] → { est: count }. Es el patrón ideal para
   // armar un "diccionario" de conteos por estado.
@@ -157,6 +180,17 @@ export default function DashboardClient () {
         <h2 className='text-2xl font-semibold'>Dashboard</h2>
         <p className='mt-2 text-slate-600'>Resumen general del sistema.</p>
         <p className='mt-8 text-slate-400'>Cargando información…</p>
+      </section>
+    );
+  }
+
+  if (isGuest) {
+    return (
+      <section>
+        <h2 className='text-2xl font-semibold'>Dashboard</h2>
+        <p className='mt-2 text-slate-600'>
+          Tu usuario invitado solo tiene acceso al catálogo de productos.
+        </p>
       </section>
     );
   }

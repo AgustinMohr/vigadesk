@@ -1,4 +1,4 @@
-# Frontend — Sistema de Gestión de Pedidos
+# VigaDesk — Frontend
 
 Aplicación frontend del sistema de gestión de pedidos, construida con **Next.js 16** (App Router), **React 19**, **TypeScript** y **Tailwind CSS 4**.
 
@@ -7,7 +7,7 @@ Aplicación frontend del sistema de gestión de pedidos, construida con **Next.j
 - **App Router** de Next.js con separación Server/Client Components.
 - **BFF (Backend-For-Frontend):** el route handler `app/api/[...path]/route.ts` actúa de proxy hacia el backend, eliminando problemas de CORS y centralizando el acceso a los microservicios.
 - **Autenticación JWT** con sesión persistida (contexto React + `localStorage`).
-- **Roles:** `ADMIN`, `GUEST` y `CLIENTE` (el cliente solo ve sus propios pedidos).
+- **Roles:** `ADMIN` y `CLIENTE` (el cliente solo ve sus propios pedidos). `GUEST` queda restringido al catálogo si existe un token legado.
 - Módulos: dashboard, clientes, obras, productos, pedidos y usuarios.
 - **Seguridad:** headers de seguridad y CSP en `next.config.ts`, sin credenciales en el bundle.
 

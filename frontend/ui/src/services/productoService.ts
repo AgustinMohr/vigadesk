@@ -5,6 +5,8 @@
 // completa del patrón de Services). Particularidades de productos:
 //  - getCategorias() para poblar el dropdown del formulario.
 //  - aplicarDescuento() para promociones (baja el precio del producto).
+//  - provision() para REPONER stock de un producto existente (el backend
+//    suma la cantidad y deja el precio intacto si no se manda).
 //
 // NOTA: las rutas son RELATIVAS → pasan por el proxy de Next.js que las
 // traduce al microservicio "productos".
@@ -24,8 +26,10 @@ import { http } from './http';
  * @property {string} nombre - Nombre visible del producto (obligatorio).
  * @property {string} [descripcion] - Detalle/descripción opcional.
  * @property {number} precio - Precio de venta unitario (obligatorio).
- * @property {number} stockActual - Unidades disponibles hoy (obligatorio).
+ * @property {number} stockActual - Cantidad disponible hoy (admite decimales).
  * @property {number} stockMinimo - Umbral bajo el cual se alerta por stock bajo.
+ * @property {string} [unidadMedida] - UNIDAD, BOLSA, M3, KG, METRO, LITRO o TONELADA.
+ * @property {number} [costo] - Costo unitario para calcular margen.
  * @property {number} [descuentoPromocional] - % de promoción activa (0-100).
  * @property {string} [categoria] - Categoría textual (ej: "Materiales").
  */
@@ -37,6 +41,8 @@ export type Producto = {
   precio: number;
   stockActual: number;
   stockMinimo: number;
+  unidadMedida?: string;
+  costo?: number;
   descuentoPromocional?: number;
   categoria?: string;
 };
@@ -67,4 +73,9 @@ export const productoService = {
   // PUT /api/productos/:id/descuento → aplica el % promocional al producto
   aplicarDescuento: (id: number, descuentoPromocional: number) =>
     http.put<Producto>(`${basePath}/${id}/descuento`, { descuentoPromocional }),
+
+  // PUT /api/productos/provision → repone stock: suma `cantidad` al stock
+  // actual del producto. El precio NO se toca (se edita con el formulario).
+  provision: (id: number, cantidad: number) =>
+    http.put<Producto>(`${basePath}/provision`, { idProducto: id, cantidad }),
 };

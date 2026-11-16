@@ -25,6 +25,7 @@ import ObraForm from '@/components/ObraForm';
 import ObraEstadoModal from '@/components/ObraEstadoModal';
 import AsignarClienteModal from '@/components/AsignarClienteModal';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { getErrorMessage } from '@/lib/http/api-error';
 
 /**
  * Componente "cerebro" de la página /obras: concentra todo el flujo de
@@ -134,8 +135,8 @@ export default function ObrasPageClient ({
     try {
       const data = await obraService.getAll();
       setObras(data);
-    } catch {
-      setFetchError('No se pudieron cargar las obras.');
+    } catch (err) {
+      setFetchError(getErrorMessage(err, 'No se pudieron cargar las obras.'));
     }
   };
 
@@ -144,8 +145,8 @@ export default function ObrasPageClient ({
     try {
       await obraService.delete(obra.id!);
       await refreshObras();
-    } catch {
-      alert('No se pudo eliminar la obra.');
+    } catch (err) {
+      alert(getErrorMessage(err, 'No se pudo eliminar la obra.'));
     }
   };
 

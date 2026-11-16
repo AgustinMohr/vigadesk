@@ -1,3 +1,5 @@
+import { ApiError } from '@/lib/http/api-error';
+
 // ==============================================================
 // CLIENTE HTTP GENÉRICO (la base de todos los services)
 // --------------------------------------------------------------
@@ -53,6 +55,60 @@ function handleUnauthorized (): void {
 }
 
 /**
+ * Devuelve un mensaje amigable y descriptivo según el status HTTP.
+ * Es el texto que verá el usuario cuando un request falla.
+ *
+ * @param {number} status - Código HTTP de la respuesta.
+ * @param {string} path - Ruta que falló (para el mensaje genérico).
+ * @returns {string} Mensaje pensado para mostrar en la UI.
+ */
+function describeStatus (status: number, path: string): string {
+  switch (status) {
+    case 400:
+      return 'La solicitud no es válida. Revisá los datos enviados.';
+    case 401:
+      return 'Tu sesión expiró o las credenciales no son válidas.';
+    case 403:
+      return 'No tenés permisos para realizar esta acción.';
+    case 404:
+      return 'El recurso solicitado no existe o fue eliminado.';
+    case 409:
+      return 'El recurso ya existe o hay un conflicto de datos.';
+    case 413:
+      return 'El archivo o los datos enviados son demasiado grandes.';
+    case 422:
+      return 'No se pudo procesar la solicitud. Revisá los campos.';
+    case 502:
+      return 'El servidor no está disponible en este momento.';
+    case 503:
+      return 'El servicio está temporalmente fuera de servicio.';
+    case 504:
+      return 'El servidor tardó demasiado en responder. Intentá de nuevo.';
+    default:
+      if (status >= 500) {
+        return 'Ocurrió un error en el servidor. Intentá de nuevo más tarde.';
+      }
+      return `Error HTTP ${status} al llamar ${path}`;
+  }
+}
+
+/**
+ * Intenta leer el payload JSON de una respuesta de error. El backend
+ * puede responder con `{ message: "..." }` (RestControllerException);
+ * ese dato viaja como `details` del ApiError para debug y trazabilidad.
+ *
+ * @param {Response} response - La respuesta HTTP que no fue OK.
+ * @returns {Promise<unknown>} El JSON parseado, o undefined si no es JSON.
+ */
+async function parseErrorDetails (response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    return undefined; // sin body o no era JSON
+  }
+}
+
+/**
  * Función central asíncrona que realiza las peticiones HTTP mediante `fetch`.
  * Utiliza Genéricos `<T>` para tipar automáticamente el JSON que devuelve el servidor.
  *
@@ -66,22 +122,34 @@ async function request<T> (path: string, options?: RequestInit): Promise<T> {
 
   // 2. Ejecuta la petición HTTP hacia el Proxy de Next.js (o el Backend)
   // `await` detiene la ejecución hasta que la red devuelve las cabeceras de respuesta.
-  const response = await fetch(path, {
-    headers: {
-      // Garantiza que el backend interprete que le estamos enviando un cuerpo JSON.
-      'Content-Type': 'application/json',
+  // Si `fetch` rechaza (sin respuesta HTTP), es un problema de red: lo
+  // convertimos en un ApiError con status 0 y mensaje descriptivo.
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      // Desempaqueta method, body, signal y demás opciones recibidas.
+      ...options,
+      headers: {
+        // Garantiza que el backend interprete que le estamos enviando un cuerpo JSON.
+        'Content-Type': 'application/json',
 
-      // Mezcla de objetos mediante el operador Spread (`...`):
-      // Si `token` existe, fusiona `{ Authorization: 'Bearer <token>' }`.
-      // Si es `null`, fusiona un objeto vacío `{}` (para rutas públicas como /login).
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        // Mezcla de objetos mediante el operador Spread (`...`):
+        // Si `token` existe, fusiona `{ Authorization: 'Bearer <token>' }`.
+        // Si es `null`, fusiona un objeto vacío `{}` (para rutas públicas como /login).
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
 
-      // Permite sobreescribir o agregar headers adicionales desde las `options` si se requiere.
-      ...options?.headers,
-    },
-    // Desempaqueta el resto de opciones recibidas (method, body, signal, etc.).
-    ...options,
-  });
+        // Permite sobreescribir o agregar headers adicionales desde las `options` si se requiere.
+        ...options?.headers,
+      },
+    });
+  } catch (err) {
+    throw new ApiError(
+      0,
+      'No se pudo conectar con el servidor. Intentá de nuevo en unos segundos.',
+      err,
+      path
+    );
+  }
 
   // 3. Manejo de Sesión Expirada (HTTP 401 Unauthorized):
   // Solo se activa si la respuesta es 401 Y además teníamos un token enviado previamente.
@@ -90,18 +158,21 @@ async function request<T> (path: string, options?: RequestInit): Promise<T> {
     handleUnauthorized();
   }
 
-  // 4. Manejo de Errores HTTP (Códigos 4xx o 5xx):
-  // `response.ok` es un booleano de la Fetch API nativa que es `true` solo si el código es 200-299.
-  if (!response.ok) {
-    // Lanza una excepción que interrumpe la función y podrá ser capturada por un try/catch en el service o componente.
-    throw new Error(`Error HTTP ${response.status} al llamar ${path}`);
-  }
-
-  // 5. Manejo especial de HTTP 204 (No Content):
+  // 4. Manejo especial de HTTP 204 (No Content):
   // Ocurre frecuentemente en peticiones `DELETE` o `PUT` que fueron exitosas pero no devuelven un cuerpo JSON.
   // Si intentáramos ejecutar `response.json()` sobre una respuesta 204, JS lanzaría un error de sintaxis ("Unexpected end of JSON input").
   if (response.status === 204) {
     return undefined as T;
+  }
+
+  // 5. Manejo de Errores HTTP (Códigos 4xx o 5xx):
+  // `response.ok` es un booleano de la Fetch API nativa que es `true` solo si el código es 200-299.
+  // Lanzamos un ApiError estructurado: el componente captura con try/catch y
+  // puede discriminar la causa (401 vs 403 vs 404...) con los getters, o
+  // mostrar el mensaje amigable con getErrorMessage.
+  if (!response.ok) {
+    const details = await parseErrorDetails(response);
+    throw new ApiError(response.status, describeStatus(response.status, path), details, path);
   }
 
   // 6. Deserialización del cuerpo de la respuesta:
@@ -118,9 +189,10 @@ export const http = {
   get: <T>(path: string) => request<T>(path),
 
   // Petición POST: Creación de un nuevo recurso
-  post: <T>(path: string, body: unknown) =>
+  post: <T>(path: string, body: unknown, headers?: Record<string, string>) =>
     request<T>(path, {
       method: 'POST',
+      headers,
       body: JSON.stringify(body), // Convierte el objeto JavaScript recibido a texto plano en formato JSON
     }),
 
@@ -143,4 +215,57 @@ export const http = {
     request<T>(path, {
       method: 'DELETE',
     }),
+
+  // Descarga binaria (PDF) y dispara el guardado en el navegador.
+  download: async (path: string, filename: string): Promise<void> => {
+    const token = getToken();
+    let response: Response;
+    try {
+      response = await fetch(path, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+    } catch (err) {
+      throw new ApiError(0, 'No se pudo conectar con el servidor.', err, path);
+    }
+    if (response.status === 401 && token) {
+      handleUnauthorized();
+    }
+    if (!response.ok) {
+      const details = await parseErrorDetails(response);
+      throw new ApiError(response.status, describeStatus(response.status, path), details, path);
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  },
+
+  // Upload multipart: no fija Content-Type para que el navegador agregue el boundary.
+  upload: async <T>(path: string, formData: FormData): Promise<T> => {
+    const token = getToken();
+    let response: Response;
+    try {
+      response = await fetch(path, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        body: formData,
+      });
+    } catch (err) {
+      throw new ApiError(0, 'No se pudo conectar con el servidor.', err, path);
+    }
+
+    if (response.status === 401 && token) {
+      handleUnauthorized();
+    }
+    if (!response.ok) {
+      const details = await parseErrorDetails(response);
+      throw new ApiError(response.status, describeStatus(response.status, path), details, path);
+    }
+    return response.json() as Promise<T>;
+  },
 };

@@ -2,10 +2,9 @@
 // TABLA DE PRODUCTOS (componente "tonto" / de presentación)
 // --------------------------------------------------------------
 // Mismo patrón que ObraTable.tsx. Particularidades:
-//  - Columna "Desc. Promocional" para el descuento vigente.
-//  - Botón "Descuento" (abre DescuentoModal) solo para admin.
-//  - El descuento se muestra como MONTO ($), no como porcentaje,
-//    porque el backend lo guarda como valor monetario.
+//  - Columna "Desc. Promocional": el descuento vigente en PORCENTAJE.
+//  - Botones de admin: "Reponer" (provisión de stock), "Descuento",
+//    "Editar" y "Eliminar". Ocultos para roles no-admin.
 // ==============================================================
 
 'use client';
@@ -29,12 +28,14 @@ const thClassRight =
  * @property {(producto: Producto) => void} onEdit - Abre el form en modo edición.
  * @property {(producto: Producto) => void} onDelete - Confirma y elimina.
  * @property {(producto: Producto) => void} onAplicarDescuento - Abre el modal de descuento.
+ * @property {(producto: Producto) => void} onReponerStock - Abre el modal de provisión.
  */
 type ProductoTableProps = {
   productos: Producto[];
   onEdit: (producto: Producto) => void;
   onDelete: (producto: Producto) => void;
   onAplicarDescuento: (producto: Producto) => void;
+  onReponerStock: (producto: Producto) => void;
 };
 
 /**
@@ -48,6 +49,7 @@ export default function ProductoTable ({
   onEdit,
   onDelete,
   onAplicarDescuento,
+  onReponerStock,
 }: ProductoTableProps) {
   const { isAdmin } = useAuth();
   // useSort con columna inicial "nombre"; acceso directo a propiedades.
@@ -106,19 +108,26 @@ export default function ProductoTable ({
                     <td className='px-4 py-3 text-slate-600'>
                       ${Number(producto.precio).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                     </td>
-                    <td className='px-4 py-3 text-slate-600'>{producto.stockActual}</td>
+                    <td className='px-4 py-3 text-slate-600'>
+                      {producto.stockActual} {producto.unidadMedida ?? 'UNIDAD'}
+                    </td>
                     <td className='px-4 py-3 text-slate-600'>{producto.stockMinimo}</td>
                     <td className='px-4 py-3 text-slate-600'>{producto.categoria ?? '—'}</td>
                     <td className='px-4 py-3 text-right text-slate-600'>
-                      {/* Solo muestra el monto si existe y es > 0 (si un producto
-                          tiene descuento $0 o undefined → "—"). */}
+                      {/* Porcentaje: solo se muestra si existe y es > 0 (si
+                          un producto tiene descuento 0 o undefined → "—"). */}
                       {producto.descuentoPromocional && producto.descuentoPromocional > 0
-                        ? `$${Number(producto.descuentoPromocional).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
+                        ? `${Number(producto.descuentoPromocional).toLocaleString('es-AR')}%`
                         : '—'}
                     </td>
                     <td className='px-4 py-3 text-right'>
                       <div className='flex justify-end gap-2'>
                         {/* Acciones de administración: ocultas para roles no-admin */}
+                        {isAdmin && (
+                          <Button variant='secondary' onClick={() => onReponerStock(producto)}>
+                            Reponer
+                          </Button>
+                        )}
                         {isAdmin && (
                           <Button variant='secondary' onClick={() => onAplicarDescuento(producto)}>
                             Descuento

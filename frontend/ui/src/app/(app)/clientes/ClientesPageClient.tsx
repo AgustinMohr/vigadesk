@@ -17,6 +17,7 @@ import ClienteForm from '@/components/ClienteForm';
 import ClienteDetailModal from '@/components/ClienteDetailModal';
 import AsignarObraModal from '@/components/AsignarObraModal';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { getErrorMessage } from '@/lib/http/api-error';
 
 // Modos de búsqueda disponibles: por nombre, CUIT o email
 type SearchMode = 'nombre' | 'cuit' | 'email';
@@ -114,8 +115,8 @@ export default function ClientesPageClient ({
     try {
       const data = await clienteService.getAll();
       setClientes(data);
-    } catch {
-      setFetchError('No se pudieron cargar los clientes.');
+    } catch (err) {
+      setFetchError(getErrorMessage(err, 'No se pudieron cargar los clientes.'));
     }
   };
 
@@ -125,8 +126,8 @@ export default function ClientesPageClient ({
     try {
       await clienteService.delete(cliente.id!);
       await refreshClientes();
-    } catch {
-      alert('No se pudo eliminar el cliente.');
+    } catch (err) {
+      alert(getErrorMessage(err, 'No se pudo eliminar el cliente.'));
     }
   };
 

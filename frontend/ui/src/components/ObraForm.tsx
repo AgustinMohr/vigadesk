@@ -25,6 +25,7 @@
 import { useState } from 'react';
 import type { Obra, EstadoObra } from '@/services/obraService';
 import Button from './Button';
+import { getErrorMessage } from '@/lib/http/api-error';
 
 /**
  * PROPS que recibe del padre (ObrasPageClient).
@@ -106,8 +107,8 @@ export default function ObraForm ({ obra, onSubmit, onCancel }: ObraFormProps) {
         presupuesto: Number(presupuesto),
         estado: estado || undefined, // '' → undefined (si el user no eligió)
       });
-    } catch {
-      setError('Ocurrió un error al guardar la obra.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Ocurrió un error al guardar la obra.'));
     } finally {
       setSubmitting(false); // siempre se rehabilita el botón
     }

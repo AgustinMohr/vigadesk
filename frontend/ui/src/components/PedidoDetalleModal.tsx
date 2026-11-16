@@ -15,6 +15,7 @@
 'use client';
 
 import type { Pedido } from '@/services/pedidoService';
+import { http } from '@/services/http';
 import Button from './Button';
 
 /**
@@ -34,6 +35,7 @@ const estadoColors: Record<string, string> = {
   RECIBIDO: 'text-yellow-700 bg-yellow-100',
   ACEPTADO: 'text-blue-700 bg-blue-100',
   EN_PREPARACION: 'text-indigo-700 bg-indigo-100',
+  ENTREGA_PARCIAL: 'text-purple-700 bg-purple-100',
   ENTREGADO: 'text-green-700 bg-green-100',
   CANCELADO: 'text-red-700 bg-red-100',
   RECHAZADO: 'text-gray-700 bg-gray-100',
@@ -70,10 +72,11 @@ function formatCurrency (n?: number) {
 /**
  * Modal de solo lectura con el detalle completo de un pedido.
  *
- * Nota sobre los subtotales: usa `(precioUnitario ?? producto.precio ?? 0)`
- * — el `??` (nullish) encadena fallbacks: si el backend trajo precioUnitario
- * (después de aplicar descuento), lo usa; si no, el precio base del
- * producto; si no hay nada, 0. El modal SOLO muestra: no recalcula.
+ * Nota sobre los totales: el modal SOLO muestra, no recalcula. El backend
+ * (ms-pedidos) guarda por línea `precioUnitario` (precio de lista), el
+ * `descuento` (porcentaje aplicado) y `precioFinal` (el neto ya con el
+ * descuento). El "Subtotal" de cada fila es ese neto, y `pedido.total` es
+ * la suma de los netos → la tabla y el total siempre cierran.
  *
  * @param {PedidoDetalleModalProps} props - Ver PedidoDetalleModalProps.
  * @returns {JSX.Element} El modal de detalle del pedido.
@@ -150,7 +153,9 @@ export default function PedidoDetalleModal ({
             <thead className='bg-slate-50'>
               <tr>
                 <th className='px-3 py-2 text-left font-medium text-slate-600'>Producto</th>
-                <th className='px-3 py-2 text-right font-medium text-slate-600'>Cantidad</th>
+                <th className='px-3 py-2 text-right font-medium text-slate-600'>Pedida</th>
+                <th className='px-3 py-2 text-right font-medium text-slate-600'>Entregada</th>
+                <th className='px-3 py-2 text-right font-medium text-slate-600'>Pendiente</th>
                 <th className='px-3 py-2 text-right font-medium text-slate-600'>P. Unitario</th>
                 <th className='px-3 py-2 text-right font-medium text-slate-600'>Descuento</th>
                 <th className='px-3 py-2 text-right font-medium text-slate-600'>Subtotal</th>
@@ -160,7 +165,7 @@ export default function PedidoDetalleModal ({
               {pedido.detalle.length === 0
                 ? (
                   <tr>
-                    <td colSpan={5} className='px-3 py-6 text-center text-slate-400'>
+                    <td colSpan={7} className='px-3 py-6 text-center text-slate-400'>
                       El pedido no tiene productos.
                     </td>
                   </tr>
@@ -174,21 +179,36 @@ export default function PedidoDetalleModal ({
                           {/* El nombre del producto puede faltar en la info
                               mínima → fallback "Producto #id" */}
                           {item.producto.nombre ?? `Producto #${item.producto.id}`}
+                          <span className='ml-1 text-xs text-slate-400'>
+                            ({item.producto.unidadMedida ?? 'UNIDAD'})
+                          </span>
                         </td>
                         <td className='px-3 py-2 text-right text-slate-600'>{item.cantidad}</td>
+                        <td className='px-3 py-2 text-right text-slate-600'>
+                          {item.cantidadEntregada ?? 0}
+                        </td>
+                        <td className='px-3 py-2 text-right text-slate-600'>
+                          {item.cantidadPendiente ?? item.cantidad}
+                        </td>
                         {/* Cadena de fallbacks con ?? para el precio unitario */}
                         <td className='px-3 py-2 text-right text-slate-600'>
                           {formatCurrency(item.precioUnitario ?? item.producto.precio ?? 0)}
                         </td>
-                        {/* Descuento: solo se pinta si existe y es > 0 */}
+                        {/* Descuento: PORCENTAJE aplicado a la línea (lo que
+                            guardó el backend como `descuento`). Solo se pinta
+                            si existe y es > 0. */}
                         <td className='px-3 py-2 text-right text-slate-600'>
                           {item.descuento && item.descuento > 0
-                            ? formatCurrency(item.descuento)
+                            ? `${Number(item.descuento).toLocaleString('es-AR')}%`
                             : '—'}
                         </td>
-                        {/* Subtotal mostrado: precio unitario × cantidad */}
+                        {/* Subtotal mostrado: el NETO de la línea (precioFinal
+                            que calculó el backend con el descuento). Si el
+                            backend no lo trajo, cae al bruto precio × cantidad. */}
                         <td className='px-3 py-2 text-right font-medium text-slate-900'>
-                          {formatCurrency((item.precioUnitario ?? item.producto.precio ?? 0) * item.cantidad)}
+                          {item.precioFinal != null
+                            ? formatCurrency(item.precioFinal)
+                            : formatCurrency((item.precioUnitario ?? item.producto.precio ?? 0) * item.cantidad)}
                         </td>
                       </tr>
                     ))
@@ -197,7 +217,54 @@ export default function PedidoDetalleModal ({
           </table>
         </div>
 
-        <div className='mt-6 flex justify-end'>
+        {pedido.entregas && pedido.entregas.length > 0 && (
+          <div className='mt-6'>
+            <h4 className='mb-2 text-sm font-semibold text-slate-700'>
+              Remitos registrados
+            </h4>
+            <div className='space-y-2'>
+              {pedido.entregas.map((entrega) => (
+                <div key={entrega.id} className='rounded-md bg-slate-50 px-3 py-2 text-sm'>
+                  <div className='flex justify-between gap-2'>
+                    <span className='font-medium text-slate-900'>
+                      Remito #{entrega.numeroRemito}
+                    </span>
+                    <span className='text-slate-500'>{formatDate(entrega.fecha)}</span>
+                  </div>
+                  <p className='text-slate-600'>Receptor: {entrega.receptor}</p>
+                  <p className='text-xs text-slate-500'>
+                    {entrega.items.map((item) => `${item.productoNombre}: ${item.cantidad}`).join(' · ')}
+                  </p>
+                  <button
+                    type='button'
+                    onClick={() => {
+                      http.download(
+                        `/api/pedidos/${pedido.id}/entregas/${entrega.id}/pdf`,
+                        `remito-${entrega.numeroRemito}.pdf`
+                      ).catch(() => window.alert('No se pudo descargar el remito.'));
+                    }}
+                    className='mt-1 text-xs font-medium text-slate-600 underline underline-offset-2 hover:text-slate-900'
+                  >
+                    Descargar remito PDF
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className='mt-6 flex justify-end gap-2'>
+          <Button
+            variant='secondary'
+            onClick={() => {
+              http.download(
+                `/api/pedidos/${pedido.id}/pdf`,
+                `pedido-${pedido.numeroPedido}.pdf`
+              ).catch(() => window.alert('No se pudo descargar el pedido.'));
+            }}
+          >
+            PDF pedido
+          </Button>
           <Button variant='secondary' onClick={onClose}>
             Cerrar
           </Button>

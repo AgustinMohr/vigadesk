@@ -25,6 +25,7 @@ import { clienteService } from '@/services/clienteService';
 import type { Obra } from '@/services/obraService';
 import { obraService } from '@/services/obraService';
 import Button from './Button';
+import { getErrorMessage } from '@/lib/http/api-error';
 
 /**
  * PROPS del modal de asignación de cliente a obra.
@@ -70,8 +71,8 @@ export default function AsignarClienteModal ({
         // `await` pausa la IIFE hasta que la promesa del service resuelva.
         const data = await clienteService.getAll();
         setClientes(data);
-      } catch {
-        setError('No se pudieron cargar los clientes.');
+      } catch (err) {
+        setError(getErrorMessage(err, 'No se pudieron cargar los clientes.'));
       } finally {
         // `finally` corre SIEMPRE: con éxito, el loading termina igual.
         setLoading(false);
@@ -93,8 +94,8 @@ export default function AsignarClienteModal ({
       await obraService.asignarCliente(obra.id!, selectedClienteId);
       onAssign(); // el padre refresca la lista de obras
       onClose();  // y cierra este modal
-    } catch {
-      setError('No se pudo asignar el cliente a la obra.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'No se pudo asignar el cliente a la obra.'));
     } finally {
       setSubmitting(false);
     }

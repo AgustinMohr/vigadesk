@@ -4,8 +4,10 @@
 // Mismo patrón que ObraForm.tsx (inputs controlados + onSubmit) con
 // varias particularidades complejas:
 //
-// 1. DATOS EXTERNOS: carga clientes y productos desde la API al montarse
-//    (useEffect de montaje, seguido de clienteService/productoService).
+// 1. DATOS EXTERNOS: carga clientes, productos y OBRAS del cliente desde
+//    la API (useEffect de montaje, seguido de clienteService/productoService
+//    y obraService.getByClienteId). Para el pedido solo se ofrecen las
+//    obras HABILITADAS del cliente (no se crean pedidos a obras viejas).
 //
 // 2. LÍNEAS DINÁMICAS: un pedido tiene N productos. Cada línea vive en
 //    `lineItems` (array de objetos LineItem) y se agrega/quita en vivo.
@@ -33,8 +35,10 @@ import type { Pedido, ClienteInfo, DetallePedido } from '@/services/pedidoServic
 import type { Producto } from '@/services/productoService';
 import { clienteService } from '@/services/clienteService';
 import { productoService } from '@/services/productoService';
+import { obraService, type Obra } from '@/services/obraService';
 import { useAuth } from '@/lib/auth/AuthContext';
 import Button from './Button';
+import { getErrorMessage } from '@/lib/http/api-error';
 
 /**
  * Una línea del pedido: producto + cantidad, con datos desnormalizados
@@ -45,12 +49,15 @@ import Button from './Button';
  * @property {number} productoId - Id del producto (0 = ninguno elegido aún).
  * @property {string} productoNombre - Nombre copiado del producto (display).
  * @property {number} precio - Precio unitario copiado del producto.
+ * @property {number} descuento - Descuento promocional (%) del producto.
  * @property {number} cantidad - Cantidad de unidades de esta línea.
  */
 type LineItem = {
   productoId: number;
   productoNombre: string;
+  unidadMedida: string;
   precio: number;
+  descuento: number;
   cantidad: number;
 };
 
@@ -63,7 +70,7 @@ type LineItem = {
  * @property {() => void} onCancel - Cierra el modal sin guardar.
  */
 type PedidoFormProps = {
-  onSubmit: (data: Partial<Pedido>) => Promise<void>;
+  onSubmit: (data: Partial<Pedido>, idempotencyKey: string) => Promise<void>;
   onCancel: () => void;
 };
 
@@ -95,10 +102,14 @@ export default function PedidoForm ({ onSubmit, onCancel }: PedidoFormProps) {
     isCliente ? String(user?.clienteId ?? '') : ''
   );
 
-  // Mismo criterio para el usuario del pedido.
-  const [usuario, setUsuario] = useState(isCliente ? user?.nombre ?? '' : '');
+  // Clave estable para que un reintento del mismo formulario no duplique el pedido.
+  const [idempotencyKey] = useState(() => crypto.randomUUID());
 
   const [observaciones, setObservaciones] = useState('');
+  // Obras del cliente seleccionado (solo HABILITADAS) y la elegida en el
+  // form. `obraId` vacío = pedido sin obra (el modelo lo permite).
+  const [obras, setObras] = useState<Obra[]>([]);
+  const [obraId, setObraId] = useState('');
   // Las líneas del pedido: el corazón de este componente.
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [error, setError] = useState('');
@@ -116,14 +127,78 @@ export default function PedidoForm ({ onSubmit, onCancel }: PedidoFormProps) {
         setClientes(data.map((c) => ({ id: c.id!, nombre: c.nombre })));
       }).catch(() => {});
     }
-    // Los productos los necesitan todos los roles.
-    productoService.getAll().then(setProductos).catch(() => {});
+    // Los productos los necesitan todos los roles. Se ordenan ALFABÉTICAMENTE
+    // por nombre para que el select del pedido sea fácil de recorrer; el spread
+    // `[...]` copia el array antes de ordenar (no mutar la respuesta).
+    productoService.getAll()
+      .then((data) =>
+        setProductos([...data].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')))
+      )
+      .catch(() => {});
   }, []);
 
-  // TOTAL EN VIVO: `reduce` acumula la suma precio × cantidad línea por
-  // línea. Empieza en 0 y, para cada item, suma su subtotal. Se recalcula
-  // en cada render (siempre refleja el estado actual de lineItems).
-  const total = lineItems.reduce((sum, item) => sum + item.precio * item.cantidad, 0);
+  // Id del cliente "efectivo" del pedido:
+  //  - CLIENTE → el de su sesión (fijo).
+  //  - Admin → el elegido en el <select> de cliente ('' → null).
+  const selectedClienteNumeric =
+    isCliente && user?.clienteId != null
+      ? user.clienteId
+      : clienteId
+        ? Number(clienteId)
+        : null;
+
+  // Cuando cambia el cliente, carga sus obras HABILITADAS y resetea la obra
+  // elegida (una obra de otra empresa no debe quedar seleccionada).
+  useEffect(() => {
+    setObraId('');
+    setObras([]);
+    if (selectedClienteNumeric == null) return;
+
+    obraService.getByClienteId(selectedClienteNumeric)
+      .then((data) => setObras(data.filter((o) => o.estado === 'HABILITADA')))
+      .catch(() => setObras([]));
+  }, [selectedClienteNumeric]);
+
+  // TOTAL EN VIVO: `reduce` acumula el subtotal NETO línea por línea, con
+  // el mismo criterio que el backend: bruto = precio × cantidad, y si la
+  // línea trae descuento válido (0 < % ≤ 100) se aplica (1 − descuento/100).
+  // Se recalcula en cada render (siempre refleja el estado actual).
+  const total = lineItems.reduce((sum, item) => {
+    const bruto = item.precio * item.cantidad;
+    const conDescuento =
+      item.descuento > 0 && item.descuento <= 100
+        ? bruto * (1 - item.descuento / 100)
+        : bruto;
+    return sum + conDescuento;
+  }, 0);
+
+  /**
+   * Descuento de una línea en PESOS: bruto × (descuento% / 100).
+   * Solo se considera si el % es válido (0 < % ≤ 100); si el dato viene
+   * sucio (> 100), se ignora y el descuento es $0.
+   */
+  const lineDescuentoPesos = (item: LineItem): number => {
+    const bruto = item.precio * item.cantidad;
+    return item.descuento > 0 && item.descuento <= 100
+      ? bruto * (item.descuento / 100)
+      : 0;
+  };
+
+  /**
+   * Subtotal neto de una línea = bruto − descuento en pesos.
+   * Replica la fórmula del backend ms-pedidos (precio × cantidad × (1 − %/100)).
+   */
+  const lineSubtotal = (item: LineItem): number => {
+    const bruto = item.precio * item.cantidad;
+    return bruto - lineDescuentoPesos(item);
+  };
+
+  /**
+   * Formatea un número como pesos argentinos con 2 decimales
+   * (mismo criterio que el "Total" del pie del modal).
+   */
+  const formatPesos = (n: number): string =>
+    `$${n.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
 
   /**
    * Agrega una línea vacía al final. `[...lineItems, nuevo]`:
@@ -132,7 +207,14 @@ export default function PedidoForm ({ onSubmit, onCancel }: PedidoFormProps) {
    * referencia distinta para re-renderizar.
    */
   const handleAddLine = () => {
-    setLineItems([...lineItems, { productoId: 0, productoNombre: '', precio: 0, cantidad: 1 }]);
+    setLineItems([...lineItems, {
+      productoId: 0,
+      productoNombre: '',
+      unidadMedida: 'UNIDAD',
+      precio: 0,
+      descuento: 0,
+      cantidad: 1,
+    }]);
   };
 
   /**
@@ -157,7 +239,11 @@ export default function PedidoForm ({ onSubmit, onCancel }: PedidoFormProps) {
     newItems[index] = {
       productoId,
       productoNombre: prod?.nombre ?? '',
+      unidadMedida: prod?.unidadMedida ?? 'UNIDAD',
       precio: prod?.precio ?? 0,
+      // Copia el descuento promocional (%) para poder mostrarlo en el
+      // preview y para que el payload coincida con el cálculo del backend.
+      descuento: prod?.descuentoPromocional ?? 0,
       cantidad: newItems[index].cantidad, // conserva la cantidad que ya estaba
     };
     setLineItems(newItems);
@@ -189,8 +275,8 @@ export default function PedidoForm ({ onSubmit, onCancel }: PedidoFormProps) {
       setError('Debe agregar al menos un producto.');
       return;
     }
-    // `some()`: true si ALGUNA línea no tiene producto o cantidad < 1.
-    if (lineItems.some((item) => !item.productoId || item.cantidad < 1)) {
+    // `some()`: true si ALGUNA línea no tiene producto o cantidad <= 0.
+    if (lineItems.some((item) => !item.productoId || item.cantidad <= 0)) {
       setError('Complete todos los productos con cantidad válida.');
       return;
     }
@@ -208,12 +294,17 @@ export default function PedidoForm ({ onSubmit, onCancel }: PedidoFormProps) {
       return;
     }
 
+    // Resuelve la obra elegida (opcional): el backend de pedidos guarda un
+    // snapshot { id, direccion }; si no se eligió obra, el pedido queda sin ella.
+    const obraElegida = obras.find((o) => o.id === Number(obraId));
+
     // Transforma las líneas del form (LineItem) al formato que espera el
     // backend (DetallePedido). El `!` final afirma que el producto existe
     // (ya validamos que productId sea válido más arriba).
     const detalle: DetallePedido[] = lineItems.map((item) => {
       const prod = productos.find((p) => p.id === item.productoId)!;
       return {
+        lineaId: '',
         producto: {
           id: prod.id!,
           nombre: prod.nombre,
@@ -230,7 +321,11 @@ export default function PedidoForm ({ onSubmit, onCancel }: PedidoFormProps) {
     try {
       await onSubmit({
         cliente: { id: cliente.id, nombre: cliente.nombre },
-        usuario: usuario.trim() || undefined,
+        // Spread condicional: si hay obra elegida, se manda el snapshot
+        // { id, direccion }; si no, no se agrega la propiedad.
+        ...(obraElegida
+          ? { obra: { id: obraElegida.id!, direccion: obraElegida.direccion } }
+          : {}),
         observaciones: observaciones.trim() || undefined,
         detalle,
         // El backend asigna/calcula estos valores reales (nro de pedido,
@@ -239,9 +334,9 @@ export default function PedidoForm ({ onSubmit, onCancel }: PedidoFormProps) {
         numeroPedido: 0,
         total: 1,
         estado: 'RECIBIDO', // estado inicial del flujo de pedidos
-      });
-    } catch {
-      setError('Ocurrió un error al crear el pedido.');
+      }, idempotencyKey);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Ocurrió un error al crear el pedido.'));
     } finally {
       setSubmitting(false);
     }
@@ -286,28 +381,51 @@ export default function PedidoForm ({ onSubmit, onCancel }: PedidoFormProps) {
             </select>
           </div>
 
-          <div className='grid grid-cols-2 gap-4'>
-            <div>
-              <label className='block text-sm font-medium text-slate-700'>Usuario</label>
-              {/* `readOnly={isCliente}`: el nombre del CLIENTE se
-                  autocompleta de la sesión y no debe poder cambiarse. */}
-              <input
-                type='text'
-                value={usuario}
-                onChange={(e) => setUsuario(e.target.value)}
-                readOnly={isCliente}
-                className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none disabled:bg-slate-100'
-              />
-            </div>
-            <div>
-              <label className='block text-sm font-medium text-slate-700'>Observaciones</label>
-              <input
-                type='text'
-                value={observaciones}
-                onChange={(e) => setObservaciones(e.target.value)}
-                className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
-              />
-            </div>
+          {/* Selector de Obra (opcional): solo las obras HABILITADAS del
+              cliente del pedido. Deshabilitado hasta que haya cliente. */}
+          <div>
+            <label className='block text-sm font-medium text-slate-700'>
+              Obra <span className='text-xs font-normal text-slate-400'>(opcional)</span>
+            </label>
+            <select
+              value={obraId}
+              onChange={(e) => setObraId(e.target.value)}
+              disabled={selectedClienteNumeric == null}
+              className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none disabled:bg-slate-100'
+            >
+              {selectedClienteNumeric == null
+                ? (
+                  <option value='' disabled>
+                    Seleccioná un cliente para ver sus obras
+                  </option>
+                  )
+                : obras.length === 0
+                  ? (
+                    <option value='' disabled>
+                      Sin obras habilitadas para este cliente
+                    </option>
+                    )
+                  : (
+                    <>
+                      <option value=''>Sin obra</option>
+                      {obras.map((obra) => (
+                        <option key={obra.id} value={obra.id}>
+                          {obra.direccion}
+                        </option>
+                      ))}
+                    </>
+                    )}
+            </select>
+          </div>
+
+          <div>
+            <label className='block text-sm font-medium text-slate-700'>Observaciones</label>
+            <input
+              type='text'
+              value={observaciones}
+              onChange={(e) => setObservaciones(e.target.value)}
+              className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
+            />
           </div>
 
           <div>
@@ -349,21 +467,42 @@ export default function PedidoForm ({ onSubmit, onCancel }: PedidoFormProps) {
                     ))}
                   </select>
                 </div>
-                <div className='w-24'>
-                  <label className='block text-xs font-medium text-slate-500 mb-1'>Cantidad</label>
+                <div className='w-28'>
+                  <label className='block text-xs font-medium text-slate-500 mb-1'>
+                    Cantidad ({item.unidadMedida})
+                  </label>
                   <input
                     type='number'
-                    min={1}
+                    min={0.001}
+                    step={0.001}
                     value={item.cantidad}
                     onChange={(e) => handleLineCantidadChange(i, Number(e.target.value))}
                     className='w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
                   />
                 </div>
-                {/* Subtotal de la línea, en vivo (precio × cantidad) */}
-                <div className='w-28 text-right text-sm text-slate-600 py-2'>
-                  {item.precio > 0
-                    ? `$${(item.precio * item.cantidad).toLocaleString('es-AR')}`
-                    : '—'}
+                {/* Desglose de la línea, en vivo: precio del producto,
+                    descuento aplicado en PESOS (% sobre el bruto) y el
+                    total neto final. Solo se muestra si hay producto. */}
+                <div className='w-44 text-right text-xs text-slate-600 py-2 space-y-0.5'>
+                  {item.productoId > 0
+                    ? (
+                      <>
+                        <div>
+                          P. unitario: <span className='font-medium text-slate-900'>{formatPesos(item.precio)}</span>
+                        </div>
+                        {lineDescuentoPesos(item) > 0 && (
+                          <div className='text-emerald-700'>
+                            Descuento: −{formatPesos(lineDescuentoPesos(item))} ({item.descuento}%)
+                          </div>
+                        )}
+                        <div className='text-sm font-semibold text-slate-900'>
+                          Total: {formatPesos(lineSubtotal(item))}
+                        </div>
+                      </>
+                      )
+                    : (
+                      <div>—</div>
+                      )}
                 </div>
                 {/* Botón quitar línea: `&times;` es la entidad HTML "×" */}
                 <button

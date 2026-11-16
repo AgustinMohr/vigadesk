@@ -34,6 +34,7 @@ const estadoColors: Record<string, string> = {
   RECIBIDO: 'text-yellow-700 bg-yellow-100',
   ACEPTADO: 'text-blue-700 bg-blue-100',
   EN_PREPARACION: 'text-indigo-700 bg-indigo-100',
+  ENTREGA_PARCIAL: 'text-purple-700 bg-purple-100',
   ENTREGADO: 'text-green-700 bg-green-100',
   CANCELADO: 'text-red-700 bg-red-100',
   RECHAZADO: 'text-gray-700 bg-gray-100',
@@ -82,12 +83,14 @@ function formatCurrency (n?: number) {
  * @property {(pedido: Pedido) => void} onUpdateEstado - Abre el modal de estado.
  * @property {(pedido: Pedido) => void} onDelete - Confirma y elimina.
  * @property {(pedido: Pedido) => void} onVer - Abre el detalle del pedido.
+ * @property {(pedido: Pedido) => void} onEntregar - Abre el remito de entrega.
  */
 type PedidoTableProps = {
   pedidos: Pedido[];
   onUpdateEstado: (pedido: Pedido) => void;
   onDelete: (pedido: Pedido) => void;
   onVer: (pedido: Pedido) => void;
+  onEntregar: (pedido: Pedido) => void;
 };
 
 /**
@@ -120,6 +123,7 @@ export default function PedidoTable ({
   onUpdateEstado,
   onDelete,
   onVer,
+  onEntregar,
 }: PedidoTableProps) {
   const { isAdmin } = useAuth();
 
@@ -207,6 +211,11 @@ export default function PedidoTable ({
                             EN_PREPARACION: en RECIBIDO aún no lo toma el
                             admin y en ENTREGADO/CANCELADO/RECHAZADO el flujo
                             ya terminó (no hay adónde avanzar). */}
+                        {isAdmin && (pedido.estado === 'EN_PREPARACION' || pedido.estado === 'ENTREGA_PARCIAL') && (
+                          <Button variant='secondary' onClick={() => onEntregar(pedido)}>
+                            Entregar
+                          </Button>
+                        )}
                         {isAdmin && (pedido.estado === 'ACEPTADO' || pedido.estado === 'EN_PREPARACION') && (
                           <Button variant='secondary' onClick={() => onUpdateEstado(pedido)}>
                             Estado

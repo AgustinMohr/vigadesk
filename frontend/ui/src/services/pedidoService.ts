@@ -36,21 +36,46 @@ export type ProductoInfo = {
   id: number;
   nombre?: string;
   descripcion?: string;
+  unidadMedida?: string;
   precio?: number;
   descuentoPromocional?: number;
 };
 
 /**
  * Línea de detalle del pedido: un producto con su cantidad y precios.
- * `precioFinal` suele calcularse en el backend aplicando el descuento:
- *   precioFinal = precioUnitario * cantidad * (1 - descuento/100).
+ * `cantidadPendiente` la calcula el backend a partir de lo entregado.
  */
 export type DetallePedido = {
+  lineaId: string;
   producto: ProductoInfo;
   cantidad: number;
+  cantidadEntregada?: number;
+  cantidadPendiente?: number;
   precioUnitario?: number;
   descuento?: number;   // % de descuento (0-100)
   precioFinal?: number; // precio ya con descuento aplicado
+};
+
+export type EntregaItem = {
+  lineaId: string;
+  idProducto: number;
+  productoNombre: string;
+  cantidad: number;
+};
+
+export type Entrega = {
+  id: string;
+  numeroRemito: number;
+  fecha: string;
+  receptor: string;
+  observaciones?: string;
+  items: EntregaItem[];
+};
+
+export type EntregaInput = {
+  receptor: string;
+  observaciones?: string;
+  items: Array<{ lineaId: string; cantidad: number }>;
 };
 
 /**
@@ -69,6 +94,13 @@ export type Pedido = {
   total?: number;
   estado: string;
   detalle: DetallePedido[];
+  entregas?: Entrega[];
+  auditoria?: Array<{
+    fecha: string;
+    actor: string;
+    accion: string;
+    detalle: string;
+  }>;
 };
 
 /**
@@ -114,8 +146,14 @@ export const pedidoService = {
   // GET /api/pedidos → lista completa de pedidos
   getAll: () => http.get<Pedido[]>(basePath),
 
-  // POST /api/pedidos → crea un pedido con su detalle
-  create: (pedido: Partial<Pedido>) => http.post<Pedido>(basePath, pedido),
+  // POST /api/pedidos → crea un pedido con su detalle.
+  // El Idempotency-Key evita duplicados si el navegador reintenta.
+  create: (pedido: Partial<Pedido>, idempotencyKey?: string) =>
+    http.post<Pedido>(
+      basePath,
+      pedido,
+      idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined
+    ),
 
   // DELETE /api/pedidos/:id → elimina; HTTP 204 (sin body → <void>)
   delete: (id: string) => http.delete<void>(`${basePath}/${id}`),
@@ -127,4 +165,12 @@ export const pedidoService = {
   // PATCH /api/pedidos/:id/estado → actualiza SOLO el estado del pedido
   updateEstado: (id: string, estado: string) =>
     http.patch<Pedido>(`${basePath}/${id}/estado`, { estado }),
+
+  // GET /api/pedidos/:id/entregas → remitos registrados
+  getEntregas: (id: string) =>
+    http.get<Entrega[]>(`${basePath}/${id}/entregas`),
+
+  // POST /api/pedidos/:id/entregas → registra entrega parcial o total
+  createEntrega: (id: string, entrega: EntregaInput) =>
+    http.post<Pedido>(`${basePath}/${id}/entregas`, entrega),
 };

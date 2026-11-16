@@ -133,10 +133,10 @@ export default function StockBajoModal ({
                 Descuento Promocional:
               </span>
               <p className='text-slate-900'>
-                {/* Solo muestra el monto si existe y es > 0 */}
+                {/* Solo muestra el porcentaje si existe y es > 0 */}
                 {selected.descuentoPromocional != null &&
                 selected.descuentoPromocional > 0
-                  ? formatCurrency(Number(selected.descuentoPromocional))
+                  ? `${Number(selected.descuentoPromocional).toLocaleString('es-AR')}%`
                   : '—'}
               </p>
             </div>

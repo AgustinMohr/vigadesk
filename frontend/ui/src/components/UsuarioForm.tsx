@@ -21,6 +21,7 @@ import { useEffect, useState } from 'react';
 import type { UsuarioCliente } from '@/services/usuarioService';
 import { clienteService, type Cliente } from '@/services/clienteService';
 import Button from './Button';
+import { getErrorMessage } from '@/lib/http/api-error';
 
 /**
  * PROPS del modal de usuario de cliente.
@@ -121,8 +122,8 @@ export default function UsuarioForm ({
         // cliente, y todo cliente de la lista tiene id).
         cliente: { id: cliente.id!, nombre: cliente.nombre },
       });
-    } catch {
-      setError('Ocurrió un error al guardar el usuario.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Ocurrió un error al guardar el usuario.'));
     } finally {
       setSubmitting(false);
     }

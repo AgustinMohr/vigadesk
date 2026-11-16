@@ -110,7 +110,6 @@ async function proxyToGateway (request: NextRequest, context: RouteContext) {
   // `new URL(ruta, base)` combina ambos: mantiene el query string original.
   const targetUrl = new URL(`/${targetPath}${incomingUrl.search}`, haproxyBaseUrl);
 
- 
   // Se limita el tamaño del body a 5 MB para evitar abusos de memoria.
   const MAX_BODY_BYTES = 5 * 1024 * 1024;
   const contentLength = Number(request.headers.get('content-length') ?? 0);
@@ -120,8 +119,9 @@ async function proxyToGateway (request: NextRequest, context: RouteContext) {
 
   // El body solo tiene sentido en métodos que lo envían (POST/PUT/PATCH).
   // `request.text()` lee el cuerpo como string plano para poder re-enviarlo.
+  // ArrayBuffer preserva multipart/form-data (CSV) y tambien JSON.
   const body = request.method !== 'GET'
-    ? await request.text()
+    ? await request.arrayBuffer()
     : undefined;
 
   // Reenvío de headers al gateway. content-type siempre; el header

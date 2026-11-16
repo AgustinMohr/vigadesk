@@ -13,7 +13,8 @@
 //  - Admin: ve todo.
 //  - CLIENTE: solo lo operativo (productos y pedidos), sin las pantallas
 //    adminOnly (no administra clientes/obras/usuarios).
-//  - Invitado (GUEST): mantiene el acceso completo (igual que admin).
+//  - Invitado (GUEST): solo catálogo de productos; sin datos de clientes,
+//    obras, pedidos ni pagos.
 // ==============================================================
 
 'use client';
@@ -31,6 +32,7 @@ const allLinks = [
   { href: '/usuarios', label: 'Usuarios', adminOnly: true },
   { href: '/productos', label: 'Productos' },
   { href: '/pedidos', label: 'Pedidos' },
+  { href: '/importar', label: 'Importar CSV', adminOnly: true },
 ];
 
 /**
@@ -50,14 +52,15 @@ export default function Sidebar () {
   //  - Admin: ve todo.
   //  - CLIENTE: ve solo lo operativo (productos y pedidos), sin las
   //    pantallas adminOnly (no administra clientes/obras/usuarios).
-  //  - Invitado (GUEST): mantiene el acceso completo.
+  //  - Invitado (GUEST): solo el catálogo de productos.
   // `filter` es un método de array que devuelve un NUEVO array con los
   // items que cumplen la condición (no muta `allLinks` original).
   const links = allLinks.filter((link) => {
     if (isAdmin) return true;
     // `user?.rol` con optional chaining: si user es null no lanza error.
     if (user?.rol === 'CLIENTE') return !link.adminOnly;
-    return true; // GUEST y demás roles: acceso completo
+    if (user?.rol === 'GUEST') return link.href === '/productos';
+    return false;
   });
 
   return (

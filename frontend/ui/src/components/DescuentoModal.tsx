@@ -2,13 +2,19 @@
 // MODAL DE DESCUENTO PROMOCIONAL
 // --------------------------------------------------------------
 // Ventana pequeña con un solo input numérico. Valida que el valor sea
-// >= 0 y llama a onSubmit(producto.id, descuento) para persistir.
+// un PORCENTAJE entre 0 y 100 y llama a onSubmit(producto.id, descuento)
+// para persistir.
 //
 // CONCEPTO CLAVE — Number.isNaN vs isNaN: `Number.isNaN(x)` devuelve
 // true SOLO si x es literalmente NaN (el resultado de Number("abc")),
 // sin coerción rara. Es la forma correcta de validar una conversión
 // numérica hecha por Number(). (El `isNaN` global tiene comportamiento
 // confuso con strings.)
+//
+// SEMÁNTICA DEL CAMPO: descuentoPromocional es un PORCENTAJE (0-100).
+// El backend (ms-pedidos) lo aplica como precio × (1 − descuento/100);
+// si entrara un valor > 100, el factor se vuelve negativo y el total del
+// pedido da absurdo. Por eso acá se valida 0 ≤ valor ≤ 100.
 //
 // NOTA DE UX/SEGURIDAD: al precargar el descuento actual del producto en
 // el input, el admin SIEMPRE ve cuánto descuento tiene hoy antes de
@@ -20,6 +26,7 @@
 import { useState } from 'react';
 import type { Producto } from '@/services/productoService';
 import Button from './Button';
+import { getErrorMessage } from '@/lib/http/api-error';
 
 /**
  * PROPS del modal de descuento.
@@ -39,9 +46,10 @@ type DescuentoModalProps = {
 /**
  * Modal de un campo para fijar el descuento promocional de un producto.
  *
- * El descuento se guarda como MONTO en pesos (no porcentaje). El input
- * parte del valor actual del producto (o "0") para que el admin vea y
- * ajuste el estado vigente.
+ * El descuento se guarda como PORCENTAJE entre 0 y 100 (ej: 10 = 10% de
+ * descuento sobre el precio del producto). El input parte del valor
+ * actual del producto (o "0") para que el admin vea y ajuste el estado
+ * vigente.
  *
  * @param {DescuentoModalProps} props - Ver DescuentoModalProps.
  * @returns {JSX.Element} El modal con el input de descuento.
@@ -71,9 +79,11 @@ export default function DescuentoModal ({
     const descuento = Number(valor);
 
     // `Number.isNaN` solo entra si escribieron algo no numérico (ej "abc").
-    // `descuento < 0`: descuentos negativos no tienen sentido de negocio.
-    if (Number.isNaN(descuento) || descuento < 0) {
-      setError('Ingrese un valor numérico válido (mayor o igual a 0).');
+    // `descuento < 0 || descuento > 100`: el descuento es un porcentaje
+    // válido entre 0 y 100; fuera de ese rango el cálculo del pedido se
+    // rompe (valores > 100 dan totales negativos en el backend).
+    if (Number.isNaN(descuento) || descuento < 0 || descuento > 100) {
+      setError('Ingrese un porcentaje válido entre 0 y 100.');
       return;
     }
 
@@ -82,8 +92,8 @@ export default function DescuentoModal ({
       // `producto.id!` — non-null assertion: los productos listados siempre
       // traen id (si no, el row no existiría en la tabla).
       await onSubmit(producto.id!, descuento);
-    } catch {
-      setError('Ocurrió un error al aplicar el descuento.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Ocurrió un error al aplicar el descuento.'));
     } finally {
       setSubmitting(false);
     }
@@ -106,14 +116,16 @@ export default function DescuentoModal ({
         <form onSubmit={handleSubmit} className='space-y-4'>
           <div>
             <label className='block text-sm font-medium text-slate-700'>
-              Descuento promocional ($)
+              Descuento promocional (%)
             </label>
-            {/* step='0.01' → moneda con decimales; min='0' → el navegador
-                ayuda a no escribir negativos (validación extra a la JS). */}
+            {/* step='0.01' → permite porcentajes con decimales; min/max='0/100'
+                → el navegador ayuda a no escribir valores fuera de rango
+                (validación extra a la JS). */}
             <input
               type='number'
               step='0.01'
               min='0'
+              max='100'
               value={valor}
               onChange={(e) => setValor(e.target.value)}
               className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'

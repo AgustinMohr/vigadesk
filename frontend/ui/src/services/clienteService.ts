@@ -24,8 +24,7 @@ import { http } from './http';
  * @property {string} nombre - Nombre o razón social del cliente (obligatorio).
  * @property {string} correoElectronico - Email de contacto (obligatorio).
  * @property {string} [cuit] - CUIT opcional; se valida solo si viene.
- * @property {number} [maximoDescubierto] - Tope de deuda permitida en la obra.
- * @property {number} [maxObrasActivas] - Cantidad máxima de obras simultáneas.
+ * @property {number} [maximoDescubierto] - Límite de crédito del cliente.
  */
 export type Cliente = {
   id?: number;
@@ -33,7 +32,7 @@ export type Cliente = {
   correoElectronico: string;
   cuit?: string;
   maximoDescubierto?: number;
-  maxObrasActivas?: number;
+  saldoInicial?: number;
 };
 
 // Prefijo común de todas las rutas de clientes. La URL final siempre es
