@@ -1,5 +1,6 @@
 package isi.dan.ms_productos.controller;
 
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -55,14 +56,19 @@ public class ProductoController {
 
     @GetMapping
     @LogExecutionTime
-    public List<Producto> getAllProductos() {
-        return productoService.getAllProductos();
+    public List<Producto> getAllProductos(
+            @RequestHeader(value = "X-User-Rol", required = false) String rol) {
+        return productoService.getAllProductos().stream()
+                .map(producto -> vistaSegunRol(producto, rol))
+                .toList();
     }
 
     @GetMapping("/{id}")
     @LogExecutionTime
-    public ResponseEntity<Producto> getProductoById(@PathVariable Long id) throws ProductoNotFoundException {
-        return  ResponseEntity.ok(productoService.getProductoById(id));
+    public ResponseEntity<Producto> getProductoById(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-User-Rol", required = false) String rol) throws ProductoNotFoundException {
+        return ResponseEntity.ok(vistaSegunRol(productoService.getProductoById(id), rol));
     }
 
     @PutMapping("/{id}")
@@ -83,8 +89,11 @@ public class ProductoController {
             @RequestParam(required = false) BigDecimal precioMin,
             @RequestParam(required = false) BigDecimal precioMax,
             @RequestParam(required = false) BigDecimal stockMin,
-            @RequestParam(required = false) BigDecimal stockMax) {
-        return productoService.searchProductos(nombre, codigo, precioMin, precioMax, stockMin, stockMax);
+            @RequestParam(required = false) BigDecimal stockMax,
+            @RequestHeader(value = "X-User-Rol", required = false) String rol) {
+        return productoService.searchProductos(nombre, codigo, precioMin, precioMax, stockMin, stockMax).stream()
+                .map(producto -> vistaSegunRol(producto, rol))
+                .toList();
     }
 
     @DeleteMapping("/{id}")
@@ -131,6 +140,23 @@ public class ProductoController {
             @RequestHeader(value = "X-User-Nombre", required = false) String userNombre,
             @RequestHeader(value = "X-User-Email", required = false) String userEmail) {
         return ResponseEntity.ok(productoService.actualizarDescuento(id, descuento, actor(userNombre, userEmail)));
+    }
+
+    /**
+     * El costo (margen del corralon) y el usuario que modifico el producto son datos
+     * internos: solo los ve un ADMIN. Para cualquier otro rol (o sin rol) se devuelve una
+     * COPIA sin esos campos. Nunca se modifica la entidad original: si estuviera
+     * gestionada por Hibernate, el null podria terminar guardado en la base.
+     */
+    private Producto vistaSegunRol(Producto producto, String rol) {
+        if ("ADMIN".equalsIgnoreCase(rol)) {
+            return producto;
+        }
+        Producto vista = new Producto();
+        BeanUtils.copyProperties(producto, vista);
+        vista.setCosto(null);
+        vista.setActualizadoPor(null);
+        return vista;
     }
 
     private String actor(String userNombre, String userEmail) {
