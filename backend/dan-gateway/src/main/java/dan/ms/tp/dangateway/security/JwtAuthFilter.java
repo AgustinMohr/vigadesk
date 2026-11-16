@@ -1,6 +1,7 @@
 package dan.ms.tp.dangateway.security;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -26,6 +27,8 @@ import reactor.core.publisher.Mono;
  */
 @Component
 public class JwtAuthFilter implements GlobalFilter, Ordered {
+
+    private static final List<String> SERVICE_PREFIXES = List.of("/clientes", "/productos", "/pedidos");
 
     private final String secret;
 
@@ -53,8 +56,15 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
                     .parseSignedClaims(token)
                     .getPayload();
 
+            // La autorizacion se decide sobre el path canonico: el enrutamiento y los
+            // controladores interpretan el path decodificado, no el texto crudo.
+            String canonicalPath = PathNormalizer.normalize(path);
+            if (canonicalPath == null) {
+                return badRequest(exchange);
+            }
+
             String rol = claims.get("rol", String.class);
-            if (!isAuthorized(exchange.getRequest().getMethod(), path, rol)) {
+            if (!isAuthorized(exchange.getRequest().getMethod(), stripServicePrefix(canonicalPath), rol)) {
                 return forbidden(exchange);
             }
 
@@ -110,11 +120,10 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
      * trafico de usuarios; los microservicios confian en los headers X-User-*.
      * ADMIN puede todo. CLIENTE/GUEST solo lectura propia y alta de pedidos.
      */
-    private boolean isAuthorized(HttpMethod method, String path, String rol) {
+    private boolean isAuthorized(HttpMethod method, String normalized, String rol) {
         if ("ADMIN".equalsIgnoreCase(rol)) {
             return true;
         }
-        String normalized = normalize(path);
         if (normalized.startsWith("/actuator")) {
             return false;
         }
@@ -140,17 +149,30 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
                 || HttpMethod.OPTIONS.equals(method);
     }
 
-    private String normalize(String path) {
-        if (path.startsWith("/clientes/api/")) {
-            return path.substring("/clientes".length());
-        }
-        if (path.startsWith("/productos/api/")) {
-            return path.substring("/productos".length());
-        }
-        if (path.startsWith("/pedidos/api/")) {
-            return path.substring("/pedidos".length());
+    /**
+     * Las rutas /clientes/**, /productos/** y /pedidos/** llegan al microservicio sin
+     * el prefijo (RewritePath). Se aplican las mismas reglas que al path sin prefijo,
+     * incluido /actuator, que un CLIENTE o GUEST nunca debe alcanzar por esa via.
+     */
+    private String stripServicePrefix(String path) {
+        for (String prefix : SERVICE_PREFIXES) {
+            if (path.equals(prefix)) {
+                return "/";
+            }
+            if (path.startsWith(prefix + "/")) {
+                return path.substring(prefix.length());
+            }
         }
         return path;
+    }
+
+    private Mono<Void> badRequest(ServerWebExchange exchange) {
+        exchange.getResponse().setStatusCode(HttpStatus.BAD_REQUEST);
+        exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
+
+        byte[] body = "{\"message\":\"Ruta invalida\"}".getBytes(StandardCharsets.UTF_8);
+        return exchange.getResponse()
+                .writeWith(Mono.just(exchange.getResponse().bufferFactory().wrap(body)));
     }
 
     private Mono<Void> unauthorized(ServerWebExchange exchange) {
