@@ -325,8 +325,8 @@ Prometheus (`prometheus.yml`) raspa `/actuator/prometheus` de los cuatro servici
 ### 1. Clonar
 
 ```bash
-git clone https://github.com/AgustinMohr/sistema-construccion.git
-cd sistema-construccion
+git clone https://github.com/AgustinMohr/vigadesk.git
+cd vigadesk
 ```
 
 ### 2. Configurar `.env`
