@@ -1,4 +1,6 @@
 # Frontend + HAProxy. Requiere backend-net y el stack backend ya corriendo.
+name: vigadesk
+
 services:
   haproxy:
     image: haproxy:3.0-alpine

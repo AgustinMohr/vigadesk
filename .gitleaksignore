@@ -1,0 +1,4 @@
+# Hallazgos historicos justificados.
+# GRAYLOG_ROOT_PASSWORD_SHA2 en docker-compose.yml: es sha256("admin") de un
+# bloque Graylog comentado que ya fue eliminado y nunca se desplego.
+462a4fa06d9af7774a495faabd83e71c26fed26d:docker-compose.yml:generic-api-key:282

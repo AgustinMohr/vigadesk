@@ -26,6 +26,8 @@ yarn-error.log*
 .env
 .env.*
 !.env.example
+.secrets/
+credenciales.txt
 
 # ==== IDE / editores ====
 .idea/
@@ -51,5 +53,16 @@ replay_pid*
 AGENTS.md
 "comandos e ips.txt"
 opencode.json
-README-frontend-haproxy.md
 todos.txt
+
+# ==== Backups y artefactos de rotación ====
+ops/backups/
+*.dump
+backup-mysql.sql
+backup-mongo.gz
+
+
+informe-16-11-26.md
+docs/
+
+

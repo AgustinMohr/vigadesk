@@ -259,37 +259,37 @@ PUT {{gateway}}/api/obras/{{obraId}}/asignar-cliente/{{clienteId}}
 ### ---------- CAMBIO DE ESTADO ----------
 
 ### 2.17 Cambiar estado a FINALIZADA
-PUT {{gateway}}/api/obras/{{obraId}}/estado
+PATCH {{gateway}}/api/obras/{{obraId}}/estado
 Content-Type: application/json
 
 { "estado": "FINALIZADA" }
 
 ### 2.18 Cambiar estado a HABILITADA
-PUT {{gateway}}/api/obras/{{obraId}}/estado
+PATCH {{gateway}}/api/obras/{{obraId}}/estado
 Content-Type: application/json
 
 { "estado": "HABILITADA" }
 
 ### 2.19 Cambiar estado a PENDIENTE
-PUT {{gateway}}/api/obras/{{obraId}}/estado
+PATCH {{gateway}}/api/obras/{{obraId}}/estado
 Content-Type: application/json
 
 { "estado": "PENDIENTE" }
 
 ### 2.20 Cambiar estado con valor inválido → 400
-PUT {{gateway}}/api/obras/{{obraId}}/estado
+PATCH {{gateway}}/api/obras/{{obraId}}/estado
 Content-Type: application/json
 
 { "estado": "INEXISTENTE" }
 
 ### 2.21 Cambiar estado de obra inexistente → 400
-PUT {{gateway}}/api/obras/99999/estado
+PATCH {{gateway}}/api/obras/99999/estado
 Content-Type: application/json
 
 { "estado": "FINALIZADA" }
 
 ### 2.22 Cambiar estado sin body → 400
-PUT {{gateway}}/api/obras/{{obraId}}/estado
+PATCH {{gateway}}/api/obras/{{obraId}}/estado
 Content-Type: application/json
 
 {}

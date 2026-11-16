@@ -1,0 +1,19 @@
+title = "gitleaks config"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Artefactos de build y backups locales"
+paths = [
+  '''node_modules/''',
+  '''target/''',
+  '''\.next/''',
+  '''ops/backups/''',
+  '''tsconfig\.tsbuildinfo''',
+  '''^\.env$''',
+  '''^\.env\.bak''',
+  '''^\.env\.disabled''',
+  '''^\.secrets/''',
+  '''^backup-''',
+]

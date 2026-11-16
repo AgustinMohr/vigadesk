@@ -88,8 +88,8 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "process_uptime_seconds{application=~\"$application\"}",
-          "legendFormat": "{{application}}",
+          "expr": "process_uptime_seconds{job=~\"$application\"}",
+          "legendFormat": "{{job}}",
           "instant": true,
           "refId": "A"
         }
@@ -128,8 +128,8 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "process_cpu_usage{application=~\"$application\"}",
-          "legendFormat": "{{application}}",
+          "expr": "process_cpu_usage{job=~\"$application\"}",
+          "legendFormat": "{{job}}",
           "instant": true,
           "refId": "A"
         }
@@ -168,8 +168,8 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "jvm_memory_used_bytes{application=~\"$application\", area=\"heap\"}",
-          "legendFormat": "{{application}}",
+          "expr": "jvm_memory_used_bytes{job=~\"$application\", area=\"heap\"}",
+          "legendFormat": "{{job}}",
           "instant": true,
           "refId": "A"
         }
@@ -219,8 +219,8 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(rate(http_server_requests_seconds_count{application=~\"$application\"}[5m])) by (application)",
-          "legendFormat": "{{application}}",
+          "expr": "sum(rate(http_server_requests_seconds_count{job=~\"$application\"}[5m])) by (job)",
+          "legendFormat": "{{job}}",
           "refId": "A"
         }
       ],
@@ -269,8 +269,8 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=~\"$application\"}[5m])) by (le, application))",
-          "legendFormat": "{{application}}",
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{job=~\"$application\"}[5m])) by (le, job))",
+          "legendFormat": "{{job}}",
           "refId": "A"
         }
       ],
@@ -319,8 +319,8 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(jvm_memory_used_bytes{application=~\"$application\", area=\"heap\"}) by (application)",
-          "legendFormat": "{{application}}",
+          "expr": "sum(jvm_memory_used_bytes{job=~\"$application\", area=\"heap\"}) by (job)",
+          "legendFormat": "{{job}}",
           "refId": "A"
         }
       ],
@@ -337,7 +337,7 @@
         "allValue": ".*",
         "current": { "selected": false, "text": "All", "value": "$__all" },
         "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "definition": "label_values(application)",
+        "definition": "label_values(job)",
         "hide": 0,
         "includeAll": true,
         "label": "Servicio",
@@ -345,7 +345,7 @@
         "name": "application",
         "options": [],
         "query": {
-          "query": "label_values(application)",
+          "query": "label_values(job)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 1,
