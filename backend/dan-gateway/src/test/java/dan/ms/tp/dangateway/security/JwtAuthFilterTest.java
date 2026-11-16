@@ -162,4 +162,132 @@ class JwtAuthFilterTest {
         assertThat(forwarded.getRequest().getHeaders().getFirst("X-User-Rol")).isEqualTo("ADMIN");
         assertThat(forwarded.getRequest().getHeaders().getFirst("X-User-ClienteId")).isEqualTo("1");
     }
+
+    @Test
+    void clienteGetClientes_ShouldBeAllowed() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/clientes")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token(3_600_000, "c@example.com", "CLIENTE", 7)));
+
+        filter.filter(exchange, chain).block();
+
+        verify(chain).filter(any(ServerWebExchange.class));
+    }
+
+    @Test
+    void clienteGetUsuarios_ShouldBeForbidden() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/usuarios")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token(3_600_000, "c@example.com", "CLIENTE", 7)));
+
+        filter.filter(exchange, chain).block();
+
+        assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        verify(chain, never()).filter(any(ServerWebExchange.class));
+    }
+
+    @Test
+    void clienteDeleteUsuarioWithServicePrefix_ShouldBeForbidden() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.delete("/clientes/api/usuarios/5")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token(3_600_000, "c@example.com", "CLIENTE", 7)));
+
+        filter.filter(exchange, chain).block();
+
+        assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        verify(chain, never()).filter(any(ServerWebExchange.class));
+    }
+
+    @Test
+    void clientePostProductos_ShouldBeForbidden() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.post("/api/productos")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token(3_600_000, "c@example.com", "CLIENTE", 7)));
+
+        filter.filter(exchange, chain).block();
+
+        assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        verify(chain, never()).filter(any(ServerWebExchange.class));
+    }
+
+    @Test
+    void clientePostPedidos_ShouldBeAllowed() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.post("/api/pedidos")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token(3_600_000, "c@example.com", "CLIENTE", 7)));
+
+        filter.filter(exchange, chain).block();
+
+        verify(chain).filter(any(ServerWebExchange.class));
+    }
+
+    @Test
+    void clientePatchPedidoEstado_ShouldBeForbidden() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.patch("/api/pedidos/1/estado")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token(3_600_000, "c@example.com", "CLIENTE", 7)));
+
+        filter.filter(exchange, chain).block();
+
+        assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        verify(chain, never()).filter(any(ServerWebExchange.class));
+    }
+
+    @Test
+    void adminPostProductos_ShouldBeAllowed() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.post("/api/productos")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token(3_600_000, "a@example.com", "ADMIN", null)));
+
+        filter.filter(exchange, chain).block();
+
+        verify(chain).filter(any(ServerWebExchange.class));
+    }
+
+    @Test
+    void guestGetProductos_ShouldBeAllowed() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/productos")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token(3_600_000, "g@example.com", "GUEST", null)));
+
+        filter.filter(exchange, chain).block();
+
+        verify(chain).filter(any(ServerWebExchange.class));
+    }
+
+    @Test
+    void guestGetClientes_ShouldBeForbidden() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/clientes")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token(3_600_000, "g@example.com", "GUEST", null)));
+
+        filter.filter(exchange, chain).block();
+
+        assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        verify(chain, never()).filter(any(ServerWebExchange.class));
+    }
+
+    @Test
+    void guestGetObras_ShouldBeForbidden() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/obras")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token(3_600_000, "g@example.com", "GUEST", null)));
+
+        filter.filter(exchange, chain).block();
+
+        assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        verify(chain, never()).filter(any(ServerWebExchange.class));
+    }
+
+    @Test
+    void guestGetPedidos_ShouldBeForbidden() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/pedidos")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token(3_600_000, "g@example.com", "GUEST", null)));
+
+        filter.filter(exchange, chain).block();
+
+        assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        verify(chain, never()).filter(any(ServerWebExchange.class));
+    }
 }

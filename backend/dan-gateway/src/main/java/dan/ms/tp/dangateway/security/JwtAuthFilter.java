@@ -7,6 +7,7 @@ import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -51,6 +52,11 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             Claims claims = Jwts.parser().verifyWith(key).build()
                     .parseSignedClaims(token)
                     .getPayload();
+
+            String rol = claims.get("rol", String.class);
+            if (!isAuthorized(exchange.getRequest().getMethod(), path, rol)) {
+                return forbidden(exchange);
+            }
 
             ServerWebExchange mutated = exchange.mutate()
                     .request(r -> r.headers(h -> {
@@ -99,11 +105,68 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         return path.equals("/api/usuarios/login") || path.equals("/clientes/api/usuarios/login");
     }
 
+    /**
+     * Autorizacion por rol. El gateway es la unica puerta de entrada del
+     * trafico de usuarios; los microservicios confian en los headers X-User-*.
+     * ADMIN puede todo. CLIENTE/GUEST solo lectura propia y alta de pedidos.
+     */
+    private boolean isAuthorized(HttpMethod method, String path, String rol) {
+        if ("ADMIN".equalsIgnoreCase(rol)) {
+            return true;
+        }
+        String normalized = normalize(path);
+        if (normalized.startsWith("/actuator")) {
+            return false;
+        }
+        if (normalized.startsWith("/api/usuarios")) {
+            return false;
+        }
+        if ("GUEST".equalsIgnoreCase(rol)) {
+            // El invitado solo puede ver el catalogo publico. Nunca clientes,
+            // obras, pedidos ni pagos.
+            return isSafeMethod(method)
+                    && (normalized.startsWith("/api/productos") || normalized.startsWith("/api/categorias"));
+        }
+        if (isSafeMethod(method)) {
+            return true;
+        }
+        return HttpMethod.POST.equals(method)
+                && (normalized.equals("/api/pedidos") || normalized.equals("/api/pedidos/"));
+    }
+
+    private boolean isSafeMethod(HttpMethod method) {
+        return HttpMethod.GET.equals(method)
+                || HttpMethod.HEAD.equals(method)
+                || HttpMethod.OPTIONS.equals(method);
+    }
+
+    private String normalize(String path) {
+        if (path.startsWith("/clientes/api/")) {
+            return path.substring("/clientes".length());
+        }
+        if (path.startsWith("/productos/api/")) {
+            return path.substring("/productos".length());
+        }
+        if (path.startsWith("/pedidos/api/")) {
+            return path.substring("/pedidos".length());
+        }
+        return path;
+    }
+
     private Mono<Void> unauthorized(ServerWebExchange exchange) {
         exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
         exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
 
         byte[] body = "{\"message\":\"Token invalido o ausente\"}".getBytes(StandardCharsets.UTF_8);
+        return exchange.getResponse()
+                .writeWith(Mono.just(exchange.getResponse().bufferFactory().wrap(body)));
+    }
+
+    private Mono<Void> forbidden(ServerWebExchange exchange) {
+        exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+        exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
+
+        byte[] body = "{\"message\":\"No tenes permisos para esta operacion\"}".getBytes(StandardCharsets.UTF_8);
         return exchange.getResponse()
                 .writeWith(Mono.just(exchange.getResponse().bufferFactory().wrap(body)));
     }
