@@ -21,7 +21,7 @@ import jakarta.servlet.http.HttpServletResponse;
 public class RoleAuthorizationFilter extends OncePerRequestFilter {
 
     private static final Pattern FEIGN_CLIENT_READ =
-            Pattern.compile("^/api/clientes/\\d+/(saldo|maximo-descubierto)$");
+            Pattern.compile("^/api/clientes/\\d+/(saldo|maximo-descubierto|contexto-pedido)$");
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)

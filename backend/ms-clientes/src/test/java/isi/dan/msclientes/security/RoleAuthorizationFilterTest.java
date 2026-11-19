@@ -39,6 +39,11 @@ class RoleAuthorizationFilterTest {
     }
 
     @Test
+    void feignContextoPedidoWithoutRole_isAllowed() throws Exception {
+        assertThat(chainCalled(run("GET", "/api/clientes/5/contexto-pedido", null))).isTrue();
+    }
+
+    @Test
     void feignSaldoWithoutRole_isAllowed() throws Exception {
         assertThat(chainCalled(run("GET", "/api/clientes/5/saldo", null))).isTrue();
     }

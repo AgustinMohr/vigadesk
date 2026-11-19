@@ -2,6 +2,7 @@ package isi.dan.msclientes.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import isi.dan.msclientes.dto.ContextoPedidoDTO;
 import isi.dan.msclientes.model.Cliente;
 import isi.dan.msclientes.servicios.ClienteImportService;
 import isi.dan.msclientes.servicios.ClienteService;
@@ -220,6 +221,28 @@ public class ClienteControllerTest {
                 .header("X-User-Rol", "CLIENTE")
                 .header("X-User-ClienteId", "1"))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void testGetContextoPedido_Ok() throws Exception {
+        ContextoPedidoDTO dto = new ContextoPedidoDTO();
+        dto.setClienteId(1);
+        dto.setClienteNombre("Test");
+        dto.setObraId(5);
+        Mockito.when(clienteService.contextoPedido(1, 5)).thenReturn(Optional.of(dto));
+
+        mockMvc.perform(get("/api/clientes/1/contexto-pedido?obraId=5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.clienteNombre").value("Test"))
+                .andExpect(jsonPath("$.obraId").value(5));
+    }
+
+    @Test
+    void testGetContextoPedido_ClienteNoExiste() throws Exception {
+        Mockito.when(clienteService.contextoPedido(99, null)).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/clientes/99/contexto-pedido"))
+                .andExpect(status().isNotFound());
     }
 
     private static String asJsonString(final Object obj) {

@@ -10,7 +10,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import isi.dan.msclientes.dao.ClienteRepository;
+import isi.dan.msclientes.dao.ObraRepository;
 import isi.dan.msclientes.dao.PagoRepository;
+import isi.dan.msclientes.dto.ContextoPedidoDTO;
 import isi.dan.msclientes.model.Cliente;
 import isi.dan.msclientes.model.Pago;
 
@@ -22,6 +24,9 @@ public class ClienteService {
 
     @Autowired
     private PagoRepository pagoRepository;
+
+    @Autowired
+    private ObraRepository obraRepository;
 
     @Value("${cliente.maximo-descubierto.default:10000}")
     private BigDecimal maximoDescubiertoDefault;
@@ -110,5 +115,28 @@ public class ClienteService {
 
     private BigDecimal saldoInicialDe(Cliente cliente) {
         return cliente.getSaldoInicial() == null ? BigDecimal.ZERO : cliente.getSaldoInicial();
+    }
+
+    /**
+     * Datos del cliente y, si se indica, de la obra, para que ms-pedidos valide el pedido.
+     * Vacio si el cliente no existe o esta dado de baja.
+     */
+    public Optional<ContextoPedidoDTO> contextoPedido(Integer idCliente, Integer obraId) {
+        return clienteRepository.findByIdAndHabilitadoTrue(idCliente).map(cliente -> {
+            ContextoPedidoDTO dto = new ContextoPedidoDTO();
+            dto.setClienteId(cliente.getId());
+            dto.setClienteNombre(cliente.getNombre());
+            dto.setClienteCorreoElectronico(cliente.getCorreoElectronico());
+            dto.setClienteCuit(cliente.getCuit());
+            if (obraId != null) {
+                obraRepository.findByIdAndHabilitadoTrue(obraId).ifPresent(obra -> {
+                    dto.setObraId(obra.getId());
+                    dto.setObraDireccion(obra.getDireccion());
+                    dto.setObraEstado(obra.getEstado() == null ? null : obra.getEstado().name());
+                    dto.setObraClienteId(obra.getCliente() == null ? null : obra.getCliente().getId());
+                });
+            }
+            return dto;
+        });
     }
 }

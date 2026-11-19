@@ -21,9 +21,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import isi.dan.msclientes.dao.ClienteRepository;
+import isi.dan.msclientes.dao.ObraRepository;
 import isi.dan.msclientes.dao.PagoRepository;
+import isi.dan.msclientes.dto.ContextoPedidoDTO;
 import isi.dan.msclientes.model.Cliente;
+import isi.dan.msclientes.model.EstadoObra;
 import isi.dan.msclientes.model.Pago;
+import isi.dan.msclientes.model.Obra;
 
 @ExtendWith(MockitoExtension.class)
 class ClienteServiceTest {
@@ -33,6 +37,9 @@ class ClienteServiceTest {
 
     @Mock
     private PagoRepository pagoRepository;
+
+    @Mock
+    private ObraRepository obraRepository;
 
     @InjectMocks
     private ClienteService clienteService;
@@ -251,5 +258,54 @@ class ClienteServiceTest {
         assertThatThrownBy(() -> clienteService.getMaximoDescubierto(99))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("Cliente no encontrado: 99");
+    }
+
+    @Test
+    void contextoPedido_ConObraDelCliente_ShouldDevolverDatosDeClienteYObra() {
+        Obra obra = new Obra();
+        obra.setId(7);
+        obra.setDireccion("Calle 1");
+        obra.setEstado(EstadoObra.HABILITADA);
+        obra.setCliente(cliente);
+        when(clienteRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(cliente));
+        when(obraRepository.findByIdAndHabilitadoTrue(7)).thenReturn(Optional.of(obra));
+
+        ContextoPedidoDTO dto = clienteService.contextoPedido(1, 7).orElseThrow();
+
+        assertThat(dto.getClienteNombre()).isEqualTo("Test Cliente");
+        assertThat(dto.getClienteCuit()).isEqualTo("12998887776");
+        assertThat(dto.getObraId()).isEqualTo(7);
+        assertThat(dto.getObraEstado()).isEqualTo("HABILITADA");
+        assertThat(dto.getObraClienteId()).isEqualTo(1);
+    }
+
+    @Test
+    void contextoPedido_ObraInexistenteOSinObraId_ShouldDejarObraEnNull() {
+        when(clienteRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(cliente));
+        when(obraRepository.findByIdAndHabilitadoTrue(9)).thenReturn(Optional.empty());
+
+        assertThat(clienteService.contextoPedido(1, 9).orElseThrow().getObraId()).isNull();
+        assertThat(clienteService.contextoPedido(1, null).orElseThrow().getObraId()).isNull();
+    }
+
+    @Test
+    void contextoPedido_ObraSinClienteNiEstado_ShouldDejarEsosCamposEnNull() {
+        Obra obra = new Obra();
+        obra.setId(8);
+        when(clienteRepository.findByIdAndHabilitadoTrue(1)).thenReturn(Optional.of(cliente));
+        when(obraRepository.findByIdAndHabilitadoTrue(8)).thenReturn(Optional.of(obra));
+
+        ContextoPedidoDTO dto = clienteService.contextoPedido(1, 8).orElseThrow();
+
+        assertThat(dto.getObraId()).isEqualTo(8);
+        assertThat(dto.getObraEstado()).isNull();
+        assertThat(dto.getObraClienteId()).isNull();
+    }
+
+    @Test
+    void contextoPedido_ClienteInexistente_ShouldDevolverVacio() {
+        when(clienteRepository.findByIdAndHabilitadoTrue(99)).thenReturn(Optional.empty());
+
+        assertThat(clienteService.contextoPedido(99, 7)).isEmpty();
     }
 }

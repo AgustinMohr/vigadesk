@@ -6,6 +6,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import isi.dan.msclientes.aop.LogExecutionTime;
+import isi.dan.msclientes.dto.ContextoPedidoDTO;
 import isi.dan.msclientes.dto.ImportResult;
 import isi.dan.msclientes.exception.ClienteNotFoundException;
 import isi.dan.msclientes.exception.ForbiddenException;
@@ -113,6 +114,15 @@ public class ClienteController {
                 .orElseThrow(() -> new ClienteNotFoundException("Cliente " + id + " no encontrado"));
         ensureOwnership(id, rol, clienteId);
         return ResponseEntity.ok(clienteService.getMaximoDescubierto(cliente.getId()));
+    }
+
+    @GetMapping("/{id}/contexto-pedido")
+    @LogExecutionTime
+    public ResponseEntity<ContextoPedidoDTO> getContextoPedido(
+            @PathVariable Integer id,
+            @RequestParam(required = false) Integer obraId) throws ClienteNotFoundException {
+        return ResponseEntity.ok(clienteService.contextoPedido(id, obraId)
+                .orElseThrow(() -> new ClienteNotFoundException("Cliente " + id + " no encontrado")));
     }
 
     private boolean isCliente(String rol) {
