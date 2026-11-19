@@ -36,7 +36,15 @@ public class RestControllerException {
     }
 	@ExceptionHandler(InsufficientStockException.class)
 	public ResponseEntity<Map<String, Object>> handleInsufficientStock(InsufficientStockException ex) {
-		return badRequest(ex.getMessage());
+		// 409 + codigo estable para que ms-pedidos distinga "sin stock" de un fallo de infraestructura.
+		Map<String, Object> respuesta = new HashMap<>();
+		respuesta.put("timestamp", LocalDateTime.now());
+		respuesta.put("status", HttpStatus.CONFLICT.value());
+		respuesta.put("error", "Conflict");
+		respuesta.put("codigo", "STOCK_INSUFICIENTE");
+		respuesta.put("mensaje", ex.getMessage());
+
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(respuesta);
 	}
 
 	// Reglas de negocio inválidas lanzadas desde ProductoService

@@ -74,14 +74,15 @@ class RestControllerExceptionTest {
     }
 
     @Test
-    void handleInsufficientStock_ShouldReturnBadRequestWithMessage() {
+    void handleInsufficientStock_ShouldReturnConflictWithStableCode() {
         InsufficientStockException ex = new InsufficientStockException("Stock insuficiente para el producto ID 1");
 
         ResponseEntity<Map<String, Object>> response = handler.handleInsufficientStock(ex);
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody()).containsEntry("status", HttpStatus.BAD_REQUEST.value());
+        assertThat(response.getBody()).containsEntry("status", HttpStatus.CONFLICT.value());
+        assertThat(response.getBody()).containsEntry("codigo", "STOCK_INSUFICIENTE");
         assertThat(response.getBody()).containsEntry("mensaje", "Stock insuficiente para el producto ID 1");
     }
 
