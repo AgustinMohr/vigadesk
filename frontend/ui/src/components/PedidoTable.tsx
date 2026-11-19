@@ -91,6 +91,7 @@ type PedidoTableProps = {
   onDelete: (pedido: Pedido) => void;
   onVer: (pedido: Pedido) => void;
   onEntregar: (pedido: Pedido) => void;
+  onReintentarReserva?: (pedido: Pedido) => void;
 };
 
 /**
@@ -124,6 +125,7 @@ export default function PedidoTable ({
   onDelete,
   onVer,
   onEntregar,
+  onReintentarReserva,
 }: PedidoTableProps) {
   const { isAdmin } = useAuth();
 
@@ -197,6 +199,10 @@ export default function PedidoTable ({
                       >
                         {pedido.estado}
                       </span>
+                      {/* ACEPTADO = reserva de stock pendiente (con stock pasa a EN_PREPARACION). */}
+                      {pedido.estado === 'ACEPTADO' && (
+                        <span className='ml-2 text-xs text-amber-700'>pendiente de stock</span>
+                      )}
                     </td>
                     <td className='px-4 py-3 text-slate-600'>
                       {formatDate(pedido.fecha)}
@@ -214,6 +220,11 @@ export default function PedidoTable ({
                         {isAdmin && (pedido.estado === 'EN_PREPARACION' || pedido.estado === 'ENTREGA_PARCIAL') && (
                           <Button variant='secondary' onClick={() => onEntregar(pedido)}>
                             Entregar
+                          </Button>
+                        )}
+                        {isAdmin && pedido.estado === 'ACEPTADO' && onReintentarReserva && (
+                          <Button variant='secondary' onClick={() => onReintentarReserva(pedido)}>
+                            Reintentar reserva
                           </Button>
                         )}
                         {isAdmin && (pedido.estado === 'ACEPTADO' || pedido.estado === 'EN_PREPARACION') && (

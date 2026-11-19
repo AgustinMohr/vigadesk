@@ -166,6 +166,11 @@ export const pedidoService = {
   updateEstado: (id: string, estado: string) =>
     http.patch<Pedido>(`${basePath}/${id}/estado`, { estado }),
 
+  // POST /api/pedidos/:id/reintentar-reserva → ADMIN: reintenta reservar stock
+  // de un pedido ACEPTADO (pendiente de stock). 409 si sigue sin stock.
+  reintentarReserva: (id: string) =>
+    http.post<Pedido>(`${basePath}/${id}/reintentar-reserva`, {}),
+
   // GET /api/pedidos/:id/entregas → remitos registrados
   getEntregas: (id: string) =>
     http.get<Entrega[]>(`${basePath}/${id}/entregas`),

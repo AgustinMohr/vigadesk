@@ -29,6 +29,26 @@ import { getErrorMessage } from '@/lib/http/api-error';
 
 const ESTADOS_PEDIDO = ['RECIBIDO', 'ACEPTADO', 'EN_PREPARACION', 'ENTREGA_PARCIAL', 'ENTREGADO', 'CANCELADO', 'RECHAZADO'];
 
+type Aviso = { tipo: 'ok' | 'warn' | 'error'; texto: string };
+
+// Resultado de crear un pedido: creado, rechazado por crédito o pendiente de stock.
+function avisoDeCreacion (pedido: Pedido): Aviso {
+  const n = pedido.numeroPedido;
+  if (pedido.estado === 'RECHAZADO') {
+    return { tipo: 'error', texto: `Pedido #${n} rechazado: crédito insuficiente.` };
+  }
+  if (pedido.estado === 'ACEPTADO') {
+    return { tipo: 'warn', texto: `Pedido #${n} creado, pendiente de stock. Un administrador puede reintentar la reserva.` };
+  }
+  return { tipo: 'ok', texto: `Pedido #${n} creado y stock reservado (${pedido.estado}).` };
+}
+
+const avisoClasses: Record<Aviso['tipo'], string> = {
+  ok: 'border-green-300 bg-green-50 text-green-800',
+  warn: 'border-amber-300 bg-amber-50 text-amber-800',
+  error: 'border-red-300 bg-red-50 text-red-800',
+};
+
 /**
  * Componente "cerebro" de la página /pedidos.
  *
@@ -95,6 +115,7 @@ export default function PedidosPageClient ({
   const [pedidoEntrega, setPedidoEntrega] = useState<Pedido | null>(null);
   const [searchCliente, setSearchCliente] = useState('');
   const [searchEstado, setSearchEstado] = useState('');
+  const [aviso, setAviso] = useState<Aviso | null>(null);
 
   const handleCreate = () => {
     setShowForm(true);
@@ -157,8 +178,23 @@ export default function PedidosPageClient ({
 
   // Crea un pedido nuevo y refresca la lista
   const handleFormSubmit = async (data: Partial<Pedido>, idempotencyKey: string) => {
-    await pedidoService.create(data, idempotencyKey);
+    const creado = await pedidoService.create(data, idempotencyKey);
     setShowForm(false);
+    setAviso(avisoDeCreacion(creado));
+    await refreshPedidos();
+  };
+
+  // Reintenta la reserva de stock de un pedido pendiente (solo ADMIN)
+  const handleReintentarReserva = async (pedido: Pedido) => {
+    try {
+      const actualizado = await pedidoService.reintentarReserva(pedido.id!);
+      setAviso({
+        tipo: 'ok',
+        texto: `Pedido #${actualizado.numeroPedido}: stock reservado, pasó a ${actualizado.estado}.`,
+      });
+    } catch (err) {
+      setAviso({ tipo: 'error', texto: getErrorMessage(err, 'No se pudo reintentar la reserva.') });
+    }
     await refreshPedidos();
   };
 
@@ -204,6 +240,18 @@ export default function PedidosPageClient ({
         </div>
         {canCreatePedido && <Button onClick={handleCreate}>Nuevo pedido</Button>}
       </div>
+
+      {aviso && (
+        <div
+          role='status'
+          className={`mt-4 flex items-start justify-between rounded border px-4 py-3 text-sm ${avisoClasses[aviso.tipo]}`}
+        >
+          <span>{aviso.texto}</span>
+          <button onClick={() => setAviso(null)} aria-label='Cerrar aviso' className='ml-4 font-medium'>
+            ×
+          </button>
+        </div>
+      )}
 
       {/* Filtros de búsqueda: nombre de cliente, estado, y botones buscar/limpiar */}
       <div className='mt-6'>
@@ -255,6 +303,7 @@ export default function PedidosPageClient ({
                 onUpdateEstado={handleChangeEstado}
                 onVer={handleVer}
                 onEntregar={handleEntregar}
+                onReintentarReserva={handleReintentarReserva}
               />
               )}
       </div>
