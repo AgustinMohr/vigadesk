@@ -152,6 +152,34 @@ public class PedidoService {
         return guardarConIdempotencia(pedido, effectiveKey);
     }
 
+    public Pedido reintentarReserva(String id, String actor) {
+        Pedido pedido = pedidoRepository.findByIdActivo(id)
+                .orElseThrow(() -> new PedidoNotFoundException(id));
+
+        if (pedido.getEstado() != EstadoPedido.ACEPTADO) {
+            throw new ConflictException("Solo se puede reintentar la reserva de un pedido ACEPTADO (pendiente de stock)");
+        }
+
+        inicializarColecciones(pedido);
+        try {
+            productoFeignClient.reserveStock(buildStockItems(pedido));
+        } catch (FeignException.NotFound e) {
+            throw new UnprocessableEntityException("No se encontro uno de los productos del pedido");
+        } catch (FeignException.Conflict e) {
+            auditar(pedido, actor, "RESERVA_REINTENTO_SIN_STOCK", "Stock insuficiente al reintentar la reserva");
+            pedidoRepository.save(pedido);
+            throw new ConflictException("Stock insuficiente: el pedido sigue pendiente de stock");
+        } catch (Exception e) {
+            log.error("Error al reintentar la reserva del pedido {}", pedido.getNumeroPedido(), e);
+            throw new ExternalServiceUnavailableException(
+                    "No se pudo reservar el stock del pedido " + pedido.getNumeroPedido(), e);
+        }
+
+        pedido.setEstado(EstadoPedido.EN_PREPARACION);
+        auditar(pedido, actor, "RESERVA_CONFIRMADA", "Stock reservado, estado EN_PREPARACION");
+        return pedidoRepository.save(pedido);
+    }
+
     public Pedido registrarEntrega(String id, EntregaRequest request, String actor) {
         Pedido pedido = pedidoRepository.findByIdActivo(id)
                 .orElseThrow(() -> new PedidoNotFoundException(id));

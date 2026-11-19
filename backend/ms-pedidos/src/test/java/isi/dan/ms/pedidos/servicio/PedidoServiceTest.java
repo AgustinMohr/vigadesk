@@ -408,6 +408,58 @@ class PedidoServiceTest {
     }
 
     @Test
+    void reintentarReserva_WithStock_ShouldMoveToEnPreparacion() {
+        pedido.setEstado(EstadoPedido.ACEPTADO);
+        when(pedidoRepository.findByIdActivo("1")).thenReturn(Optional.of(pedido));
+        when(productoFeignClient.reserveStock(any())).thenReturn(true);
+        when(pedidoRepository.save(any(Pedido.class))).thenAnswer(i -> i.getArgument(0));
+
+        Pedido result = pedidoService.reintentarReserva("1", "Admin");
+
+        assertThat(result.getEstado()).isEqualTo(EstadoPedido.EN_PREPARACION);
+        assertThat(result.getAuditoria()).extracting(AuditLog::getAccion).contains("RESERVA_CONFIRMADA");
+    }
+
+    @Test
+    void reintentarReserva_WithoutStock_ShouldThrowConflictAndKeepACEPTADO() {
+        pedido.setEstado(EstadoPedido.ACEPTADO);
+        when(pedidoRepository.findByIdActivo("1")).thenReturn(Optional.of(pedido));
+        when(productoFeignClient.reserveStock(any())).thenThrow(new FeignException.Conflict(
+                "STOCK_INSUFICIENTE",
+                Request.create(Request.HttpMethod.PUT, "/api/productos/stock/reserve", Map.of(), null,
+                        StandardCharsets.UTF_8, null),
+                null, null));
+
+        assertThatThrownBy(() -> pedidoService.reintentarReserva("1", "Admin"))
+                .isInstanceOf(ConflictException.class);
+
+        assertThat(pedido.getEstado()).isEqualTo(EstadoPedido.ACEPTADO);
+    }
+
+    @Test
+    void reintentarReserva_StockServiceDown_ShouldThrowUnavailableAndNotSave() {
+        pedido.setEstado(EstadoPedido.ACEPTADO);
+        when(pedidoRepository.findByIdActivo("1")).thenReturn(Optional.of(pedido));
+        when(productoFeignClient.reserveStock(any())).thenThrow(new RuntimeException("Timeout"));
+
+        assertThatThrownBy(() -> pedidoService.reintentarReserva("1", "Admin"))
+                .isInstanceOf(ExternalServiceUnavailableException.class);
+
+        verify(pedidoRepository, never()).save(any(Pedido.class));
+    }
+
+    @Test
+    void reintentarReserva_FromOtherState_ShouldThrowConflictWithoutCallingStock() {
+        pedido.setEstado(EstadoPedido.EN_PREPARACION);
+        when(pedidoRepository.findByIdActivo("1")).thenReturn(Optional.of(pedido));
+
+        assertThatThrownBy(() -> pedidoService.reintentarReserva("1", "Admin"))
+                .isInstanceOf(ConflictException.class);
+
+        verify(productoFeignClient, never()).reserveStock(any());
+    }
+
+    @Test
     void registrarEntrega_FromACEPTADO_ShouldThrowConflict() {
         pedido.setEstado(EstadoPedido.ACEPTADO);
         when(pedidoRepository.findByIdActivo("1")).thenReturn(Optional.of(pedido));

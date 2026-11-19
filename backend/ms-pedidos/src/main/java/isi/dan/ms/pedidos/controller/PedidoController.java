@@ -225,6 +225,18 @@ public class PedidoController {
                 id, request, actor(userNombre, userEmail)));
     }
 
+    @PostMapping("/{id}/reintentar-reserva")
+    public ResponseEntity<Pedido> reintentarReserva(
+            @PathVariable String id,
+            @RequestHeader(value = "X-User-Rol", required = false) String rol,
+            @RequestHeader(value = "X-User-Nombre", required = false) String userNombre,
+            @RequestHeader(value = "X-User-Email", required = false) String userEmail) {
+        if (!isAdmin(rol)) {
+            throw new ForbiddenException("No tenes permisos para reintentar la reserva de stock");
+        }
+        return ResponseEntity.ok(pedidoService.reintentarReserva(id, actor(userNombre, userEmail)));
+    }
+
     private boolean isCliente(String rol) {
         return "CLIENTE".equalsIgnoreCase(rol);
     }
