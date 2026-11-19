@@ -12,9 +12,15 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+
+import feign.FeignException;
+import feign.Request;
+import isi.dan.ms.pedidos.modelo.AuditLog;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -285,21 +291,28 @@ class PedidoServiceTest {
     @Test
     void savePedido_CreditOkButStockInsufficient_ShouldReturnACEPTADO() {
         stubCreditoOk();
-        when(productoFeignClient.reserveStock(any())).thenReturn(false);
+        when(productoFeignClient.reserveStock(any())).thenThrow(new FeignException.Conflict(
+                "STOCK_INSUFICIENTE",
+                Request.create(Request.HttpMethod.PUT, "/api/productos/stock/reserve", Map.of(), null,
+                        StandardCharsets.UTF_8, null),
+                null, null));
 
         Pedido result = pedidoService.savePedido(pedido);
 
         assertThat(result.getEstado()).isEqualTo(EstadoPedido.ACEPTADO);
+        assertThat(result.getAuditoria()).extracting(AuditLog::getAccion)
+                .contains("PEDIDO_PENDIENTE_STOCK");
     }
 
     @Test
-    void savePedido_CreditOkAndStockServiceDown_ShouldReturnACEPTADO() {
+    void savePedido_CreditOkAndStockServiceDown_ShouldFailAndNotSave() {
         stubCreditoOk();
         when(productoFeignClient.reserveStock(any())).thenThrow(new RuntimeException("Timeout"));
 
-        Pedido result = pedidoService.savePedido(pedido);
+        assertThatThrownBy(() -> pedidoService.savePedido(pedido))
+                .isInstanceOf(ExternalServiceUnavailableException.class);
 
-        assertThat(result.getEstado()).isEqualTo(EstadoPedido.ACEPTADO);
+        verify(pedidoRepository, never()).save(any(Pedido.class));
     }
 
     @Test

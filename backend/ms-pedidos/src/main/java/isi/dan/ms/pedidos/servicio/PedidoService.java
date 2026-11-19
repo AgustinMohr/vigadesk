@@ -127,20 +127,28 @@ public class PedidoService {
         pedido.setEstado(EstadoPedido.ACEPTADO);
 
         List<StockUpdateDTO> stockItems = buildStockItems(pedido);
+        boolean pendienteStock = false;
         try {
-            if (Boolean.TRUE.equals(productoFeignClient.reserveStock(stockItems))) {
-                pedido.setEstado(EstadoPedido.EN_PREPARACION);
-            } else {
-                log.warn("Stock insuficiente, pedido {} queda en ACEPTADO", pedido.getNumeroPedido());
-            }
+            productoFeignClient.reserveStock(stockItems);
+            pedido.setEstado(EstadoPedido.EN_PREPARACION);
         } catch (FeignException.NotFound e) {
             throw new UnprocessableEntityException("No se encontro uno de los productos del pedido");
+        } catch (FeignException.Conflict e) {
+            // 409 STOCK_INSUFICIENTE: el pedido queda ACEPTADO a la espera de stock.
+            log.warn("Stock insuficiente, pedido {} queda pendiente de stock", pedido.getNumeroPedido());
+            pendienteStock = true;
         } catch (Exception e) {
+            // Timeout, 5xx o servicio caido: no se acepta el pedido en silencio.
             log.error("Error al reservar stock para pedido {}", pedido.getNumeroPedido(), e);
+            throw new ExternalServiceUnavailableException(
+                    "No se pudo reservar el stock del pedido " + pedido.getNumeroPedido(), e);
         }
 
         auditar(pedido, actor, "PEDIDO_CREADO",
                 "Estado inicial " + pedido.getEstado() + ", total " + total);
+        if (pendienteStock) {
+            auditar(pedido, actor, "PEDIDO_PENDIENTE_STOCK", "Stock insuficiente al crear el pedido");
+        }
         return guardarConIdempotencia(pedido, effectiveKey);
     }
 
