@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 
 import feign.FeignException;
 import isi.dan.ms.pedidos.dao.PedidoRepository;
+import isi.dan.ms.pedidos.dto.ContextoPedidoDTO;
 import isi.dan.ms.pedidos.dto.EntregaItemRequest;
 import isi.dan.ms.pedidos.dto.EntregaRequest;
 import isi.dan.ms.pedidos.dto.StockUpdateDTO;
@@ -31,10 +32,12 @@ import isi.dan.ms.pedidos.exception.ExternalServiceUnavailableException;
 import isi.dan.ms.pedidos.exception.PedidoNotFoundException;
 import isi.dan.ms.pedidos.exception.UnprocessableEntityException;
 import isi.dan.ms.pedidos.modelo.AuditLog;
+import isi.dan.ms.pedidos.modelo.Cliente;
 import isi.dan.ms.pedidos.modelo.DetallePedido;
 import isi.dan.ms.pedidos.modelo.Entrega;
 import isi.dan.ms.pedidos.modelo.EntregaItem;
 import isi.dan.ms.pedidos.modelo.EstadoPedido;
+import isi.dan.ms.pedidos.modelo.Obra;
 import isi.dan.ms.pedidos.modelo.Pedido;
 import isi.dan.ms.pedidos.modelo.Producto;
 
@@ -80,6 +83,7 @@ public class PedidoService {
         }
 
         validarPedido(pedido);
+        completarClienteYObra(pedido);
         pedido.setIdempotencyKey(effectiveKey);
         pedido.setUsuario(actor);
         inicializarColecciones(pedido);
@@ -312,6 +316,50 @@ public class PedidoService {
                         "La cantidad del producto " + detalle.getProducto().getId() + " debe ser mayor a cero");
             }
         }
+    }
+
+    /**
+     * El cliente y la obra los decide el servidor: se consultan en ms-clientes, la obra debe existir,
+     * estar HABILITADA y pertenecer al cliente. Nombre y CUIT del cliente salen de ahi, no del request.
+     */
+    private void completarClienteYObra(Pedido pedido) {
+        Integer clienteId = pedido.getCliente().getId();
+        if (pedido.getObra() == null || pedido.getObra().getId() == null) {
+            throw new UnprocessableEntityException("La obra es obligatoria");
+        }
+        Integer obraId = pedido.getObra().getId();
+
+        ContextoPedidoDTO contexto;
+        try {
+            contexto = clienteFeignClient.getContextoPedido(clienteId, obraId);
+        } catch (FeignException.NotFound e) {
+            throw new UnprocessableEntityException("El cliente " + clienteId + " no existe");
+        } catch (Exception e) {
+            log.error("No se pudo validar el cliente {} y la obra {}", clienteId, obraId, e);
+            throw new ExternalServiceUnavailableException(
+                    "No se pudo validar el cliente " + clienteId + " y la obra " + obraId, e);
+        }
+        if (contexto == null || contexto.getObraId() == null) {
+            throw new UnprocessableEntityException("La obra " + obraId + " no existe");
+        }
+        if (!clienteId.equals(contexto.getObraClienteId())) {
+            throw new UnprocessableEntityException("La obra " + obraId + " no pertenece al cliente " + clienteId);
+        }
+        if (!"HABILITADA".equals(contexto.getObraEstado())) {
+            throw new UnprocessableEntityException("La obra " + obraId + " no esta habilitada");
+        }
+
+        Cliente cliente = new Cliente();
+        cliente.setId(contexto.getClienteId());
+        cliente.setNombre(contexto.getClienteNombre());
+        cliente.setCorreoElectronico(contexto.getClienteCorreoElectronico());
+        cliente.setCuit(contexto.getClienteCuit());
+        pedido.setCliente(cliente);
+
+        Obra obra = new Obra();
+        obra.setId(contexto.getObraId());
+        obra.setDireccion(contexto.getObraDireccion());
+        pedido.setObra(obra);
     }
 
     private void inicializarColecciones(Pedido pedido) {

@@ -30,9 +30,11 @@ import org.testcontainers.containers.MongoDBContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import isi.dan.ms.pedidos.dto.ContextoPedidoDTO;
 import isi.dan.ms.pedidos.modelo.Cliente;
 import isi.dan.ms.pedidos.modelo.DetallePedido;
 import isi.dan.ms.pedidos.modelo.EstadoPedido;
+import isi.dan.ms.pedidos.modelo.Obra;
 import isi.dan.ms.pedidos.modelo.Pedido;
 import isi.dan.ms.pedidos.modelo.Producto;
 import isi.dan.ms.pedidos.servicio.ClienteFeignClient;
@@ -253,6 +255,13 @@ class PedidoMongoTest {
         real.setPrecio(BigDecimal.valueOf(1000));
         org.mockito.Mockito.when(productoFeignClient.getProducto(org.mockito.ArgumentMatchers.anyLong(),
                 org.mockito.ArgumentMatchers.anyString())).thenReturn(real);
+        ContextoPedidoDTO contexto = new ContextoPedidoDTO();
+        contexto.setClienteId(1);
+        contexto.setClienteNombre("Acme");
+        contexto.setObraId(1);
+        contexto.setObraClienteId(1);
+        contexto.setObraEstado("HABILITADA");
+        org.mockito.Mockito.when(clienteFeignClient.getContextoPedido(1, 1)).thenReturn(contexto);
         BigDecimal maximo = BigDecimal.valueOf(3000);
         org.mockito.Mockito.when(clienteFeignClient.getMaximoDescubierto(1)).thenReturn(maximo);
         org.mockito.Mockito.when(clienteFeignClient.checkSaldo(org.mockito.ArgumentMatchers.eq(1),
@@ -295,6 +304,9 @@ class PedidoMongoTest {
         Pedido p = new Pedido();
         p.setCliente(cliente);
         p.setDetalle(new ArrayList<>(List.of(linea)));
+        Obra obra = new Obra();
+        obra.setId(1);
+        p.setObra(obra);
         return p;
     }
 }

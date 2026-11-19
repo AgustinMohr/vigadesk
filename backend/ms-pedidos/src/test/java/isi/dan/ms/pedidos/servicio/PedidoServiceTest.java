@@ -33,6 +33,7 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Query;
 
 import isi.dan.ms.pedidos.dao.PedidoRepository;
+import isi.dan.ms.pedidos.dto.ContextoPedidoDTO;
 import isi.dan.ms.pedidos.dto.EntregaItemRequest;
 import isi.dan.ms.pedidos.dto.EntregaRequest;
 import isi.dan.ms.pedidos.exception.ConflictException;
@@ -106,6 +107,16 @@ class PedidoServiceTest {
         pedido.setDetalle(Collections.singletonList(detalle));
         pedido.setUsuario("payload-hacker");
 
+        ContextoPedidoDTO contexto = new ContextoPedidoDTO();
+        contexto.setClienteId(1);
+        contexto.setClienteNombre("Nombre real");
+        contexto.setClienteCuit("30-11111111-1");
+        contexto.setClienteCorreoElectronico("real@cliente.com");
+        contexto.setObraId(1);
+        contexto.setObraDireccion("Obra real");
+        contexto.setObraEstado("HABILITADA");
+        contexto.setObraClienteId(1);
+        lenient().when(clienteFeignClient.getContextoPedido(1, 1)).thenReturn(contexto);
         lenient().when(creditoService.conBloqueo(any(), any())).thenAnswer(i -> {
             java.util.function.Supplier<?> accion = i.getArgument(1);
             return accion.get();
@@ -658,5 +669,93 @@ class PedidoServiceTest {
         List<Pedido> result = pedidoService.searchPedidos(null, null, null);
 
         assertThat(result).hasSize(1);
+    }
+
+    private ContextoPedidoDTO contextoObra(Integer obraClienteId, String estado) {
+        ContextoPedidoDTO c = new ContextoPedidoDTO();
+        c.setClienteId(1);
+        c.setClienteNombre("Nombre real");
+        c.setObraId(1);
+        c.setObraClienteId(obraClienteId);
+        c.setObraEstado(estado);
+        return c;
+    }
+
+    @Test
+    void savePedido_ShouldTakeClienteNombreCuitAndObraFromMsClientes() {
+        stubCreditoOk();
+        stubStockOk();
+        pedido.getCliente().setNombre("Nombre trucado");
+        pedido.getCliente().setCuit("00-00000000-0");
+        pedido.getObra().setDireccion("Direccion trucada");
+
+        Pedido result = pedidoService.savePedido(pedido);
+
+        assertThat(result.getCliente().getNombre()).isEqualTo("Nombre real");
+        assertThat(result.getCliente().getCuit()).isEqualTo("30-11111111-1");
+        assertThat(result.getObra().getDireccion()).isEqualTo("Obra real");
+    }
+
+    @Test
+    void savePedido_ObraDeOtroCliente_ShouldThrowUnprocessableAndNotSave() {
+        when(clienteFeignClient.getContextoPedido(1, 1)).thenReturn(contextoObra(2, "HABILITADA"));
+
+        assertThatThrownBy(() -> pedidoService.savePedido(pedido))
+                .isInstanceOf(UnprocessableEntityException.class)
+                .hasMessageContaining("no pertenece al cliente");
+
+        verify(pedidoRepository, never()).save(any(Pedido.class));
+    }
+
+    @Test
+    void savePedido_ObraNoHabilitada_ShouldThrowUnprocessable() {
+        when(clienteFeignClient.getContextoPedido(1, 1)).thenReturn(contextoObra(1, "FINALIZADA"));
+
+        assertThatThrownBy(() -> pedidoService.savePedido(pedido))
+                .isInstanceOf(UnprocessableEntityException.class)
+                .hasMessageContaining("no esta habilitada");
+    }
+
+    @Test
+    void savePedido_ObraInexistente_ShouldThrowUnprocessable() {
+        ContextoPedidoDTO sinObra = contextoObra(null, null);
+        sinObra.setObraId(null);
+        when(clienteFeignClient.getContextoPedido(1, 1)).thenReturn(sinObra);
+
+        assertThatThrownBy(() -> pedidoService.savePedido(pedido))
+                .isInstanceOf(UnprocessableEntityException.class)
+                .hasMessageContaining("no existe");
+    }
+
+    @Test
+    void savePedido_SinObra_ShouldThrowUnprocessable() {
+        pedido.setObra(null);
+
+        assertThatThrownBy(() -> pedidoService.savePedido(pedido))
+                .isInstanceOf(UnprocessableEntityException.class)
+                .hasMessageContaining("obra es obligatoria");
+    }
+
+    @Test
+    void savePedido_ClienteInexistente_ShouldThrowUnprocessable() {
+        when(clienteFeignClient.getContextoPedido(1, 1)).thenThrow(new FeignException.NotFound(
+                "no existe",
+                Request.create(Request.HttpMethod.GET, "/api/clientes/1/contexto-pedido", Map.of(), null,
+                        StandardCharsets.UTF_8, null),
+                null, null));
+
+        assertThatThrownBy(() -> pedidoService.savePedido(pedido))
+                .isInstanceOf(UnprocessableEntityException.class)
+                .hasMessageContaining("cliente 1 no existe");
+    }
+
+    @Test
+    void savePedido_MsClientesCaido_ShouldFailClosedAndNotSave() {
+        when(clienteFeignClient.getContextoPedido(1, 1)).thenThrow(new RuntimeException("Connection refused"));
+
+        assertThatThrownBy(() -> pedidoService.savePedido(pedido))
+                .isInstanceOf(ExternalServiceUnavailableException.class);
+
+        verify(pedidoRepository, never()).save(any(Pedido.class));
     }
 }

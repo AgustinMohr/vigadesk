@@ -9,16 +9,22 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import isi.dan.ms.pedidos.dto.CrearPedidoRequest;
 import isi.dan.ms.pedidos.dto.EntregaRequest;
 import isi.dan.ms.pedidos.dto.EstadoUpdateRequest;
 import isi.dan.ms.pedidos.exception.ForbiddenException;
+import isi.dan.ms.pedidos.exception.UnprocessableEntityException;
 import isi.dan.ms.pedidos.modelo.Cliente;
+import isi.dan.ms.pedidos.modelo.DetallePedido;
+import isi.dan.ms.pedidos.modelo.Obra;
+import isi.dan.ms.pedidos.modelo.Producto;
 import isi.dan.ms.pedidos.modelo.Entrega;
 import isi.dan.ms.pedidos.modelo.EstadoPedido;
 import isi.dan.ms.pedidos.modelo.Pedido;
 import isi.dan.ms.pedidos.servicio.PedidoPdfService;
 import isi.dan.ms.pedidos.servicio.PedidoService;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -33,28 +39,55 @@ public class PedidoController {
 
     @PostMapping
     public ResponseEntity<Pedido> createPedido(
-            @RequestBody @Validated Pedido pedido,
+            @RequestBody @Valid CrearPedidoRequest request,
             @RequestHeader(value = "X-User-Rol", required = false) String rol,
             @RequestHeader(value = "X-User-ClienteId", required = false) Integer tokenClienteId,
             @RequestHeader(value = "X-User-Nombre", required = false) String userNombre,
             @RequestHeader(value = "X-User-Email", required = false) String userEmail,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+        Integer clienteId;
         if (isCliente(rol)) {
             if (tokenClienteId == null) {
                 throw new ForbiddenException("La sesion no tiene cliente asociado");
             }
-            Cliente cliente = pedido.getCliente();
-            if (cliente == null) {
-                cliente = new Cliente();
-                pedido.setCliente(cliente);
+            // El cliente sale siempre del token; el del cuerpo se ignora.
+            clienteId = tokenClienteId;
+        } else if (isAdmin(rol)) {
+            if (request.getClienteId() == null) {
+                throw new UnprocessableEntityException("El cliente es obligatorio");
             }
-            cliente.setId(tokenClienteId);
-        } else if (!isAdmin(rol)) {
+            clienteId = request.getClienteId();
+        } else {
             throw new ForbiddenException("No tenes permisos para crear pedidos");
         }
         Pedido savedPedido = pedidoService.savePedido(
-                pedido, rol, idempotencyKey, actor(userNombre, userEmail));
+                aPedido(request, clienteId), rol, idempotencyKey, actor(userNombre, userEmail));
         return ResponseEntity.ok(savedPedido);
+    }
+
+    /** Arma el pedido solo con lo que decide quien lo pide; el resto lo completa el servicio. */
+    private Pedido aPedido(CrearPedidoRequest request, Integer clienteId) {
+        Cliente cliente = new Cliente();
+        cliente.setId(clienteId);
+        Obra obra = new Obra();
+        obra.setId(request.getObraId());
+
+        List<DetallePedido> detalle = new ArrayList<>();
+        for (CrearPedidoRequest.Linea linea : request.getLineas()) {
+            Producto producto = new Producto();
+            producto.setId(linea.getProductoId());
+            DetallePedido d = new DetallePedido();
+            d.setProducto(producto);
+            d.setCantidad(linea.getCantidad());
+            detalle.add(d);
+        }
+
+        Pedido pedido = new Pedido();
+        pedido.setCliente(cliente);
+        pedido.setObra(obra);
+        pedido.setObservaciones(request.getObservaciones());
+        pedido.setDetalle(detalle);
+        return pedido;
     }
 
     private String actor(String userNombre, String userEmail) {
