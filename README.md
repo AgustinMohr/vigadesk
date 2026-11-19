@@ -115,7 +115,7 @@ flowchart LR
 | **Spring Cloud Gateway** | Valida el JWT, aplica autorización por rol, inyecta los headers `X-User-*` y resuelve el destino con `lb://` sobre Eureka. |
 | **Eureka** | Registro de servicios. Los nombres `ms-clientes`, `ms-productos` y `ms-pedidos` son el contrato de descubrimiento. |
 | **Microservicios** | Cada uno es dueño de su base de datos y no accede a la de otro. |
-| **RabbitMQ** | Broker para el descuento y la devolución de stock. |
+| **RabbitMQ** | Declara las colas `stock-update-queue` y `stock-return-queue` y sus consumidores en `ms-productos`. La reserva y la liberación de stock hoy son síncronas por Feign (ver [Comunicación asíncrona](#comunicación-asíncrona-rabbitmq)). |
 | **Prometheus / Grafana** | Recolección y visualización de métricas de Actuator. |
 
 **Flujo de una petición:** navegador → HAProxy → Next.js (página) → BFF `/api/*` → HAProxy → Gateway (valida JWT) → microservicio → su base de datos.
@@ -158,7 +158,10 @@ Todos los servicios Spring escuchan en el **puerto interno 8080** (Eureka en 876
 
 ### ms-pedidos
 
-- **Creación de pedidos:** valida cliente y productos, calcula el total con descuentos, compara el consumo con el máximo descubierto del cliente y reserva stock.
+- **Creación de pedidos:** valida cliente y productos, calcula el total con descuentos, compara el consumo con el máximo descubierto del cliente y reserva stock por Feign.
+  - Con stock, el pedido queda `EN_PREPARACION`.
+  - Sin stock (`409 STOCK_INSUFICIENTE` de `ms-productos`), queda `ACEPTADO` (pendiente de stock) con el evento de auditoría `PEDIDO_PENDIENTE_STOCK`. Un `ADMIN` puede reintentar con `POST /api/pedidos/{id}/reintentar-reserva`.
+  - Si `ms-productos` no responde o falla (timeout, 5xx), el pedido no se guarda y la API responde `503`. El reintento con la misma `Idempotency-Key` es seguro.
 - **Idempotencia:** admite una clave de idempotencia para que un reintento no duplique el pedido.
 - **Numeración:** secuencia propia (`SecuenciaService`).
 - **Entregas parciales:** `POST /api/pedidos/{id}/entregas`, con detalle por ítem.
@@ -311,7 +314,7 @@ flowchart LR
     P --> G[Grafana]
 ```
 
-Prometheus (`prometheus.yml`) raspa `/actuator/prometheus` de los cuatro servicios. Grafana trae el datasource de Prometheus y el dashboard `grafana/dashboards/spring-boot.json` provisionados.
+Actuator escucha en un puerto de gestión interno (`management.server.port`, 8081 por defecto) que no se publica ni se enruta por HAProxy ni por el Gateway. Prometheus (`prometheus.yml`) raspa `/actuator/prometheus` de los cuatro servicios por ese puerto. Grafana trae el datasource de Prometheus y el dashboard `grafana/dashboards/spring-boot.json` provisionados.
 
 ---
 

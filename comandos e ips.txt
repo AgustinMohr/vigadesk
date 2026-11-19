@@ -13,7 +13,7 @@ MySQL: http://localhost:3306
 PostgreSQL: http://localhost:5432
 MongoDB: http://localhost:27017
 Prometheus: http://localhost:9090
-Grafana: http://localhost:3000 (admin/admin)
+Grafana: http://localhost:3000 (usuario y contraseña de GRAFANA_ADMIN_USER / GRAFANA_ADMIN_PASSWORD en .env)
 
 Interfaz: http://localhost
-Backend Gateway: http://localhost:3080
+Backend Gateway: http://localhost:3080
