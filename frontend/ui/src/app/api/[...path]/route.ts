@@ -134,6 +134,14 @@ async function proxyToGateway (request: NextRequest, context: RouteContext) {
   if (auth) {
     headers['authorization'] = auth;
   }
+  // Lista blanca de headers opcionales. Idempotency-Key evita pedidos
+  // duplicados si el navegador reintenta el POST.
+  for (const name of ['idempotency-key', 'accept']) {
+    const value = request.headers.get(name);
+    if (value) {
+      headers[name] = value;
+    }
+  }
 
   // Reconstruye la petición que se enviará al gateway con los mismos datos
   // que llegaron del navegador (método, headers, body). `RequestInit` es el
