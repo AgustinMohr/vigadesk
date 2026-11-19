@@ -14,6 +14,7 @@
 import { useEffect, useState } from 'react';
 import {
   pedidoService,
+  type CrearPedidoInput,
   type EntregaInput,
   type Pedido,
   type SearchParams,
@@ -177,7 +178,7 @@ export default function PedidosPageClient ({
   };
 
   // Crea un pedido nuevo y refresca la lista
-  const handleFormSubmit = async (data: Partial<Pedido>, idempotencyKey: string) => {
+  const handleFormSubmit = async (data: CrearPedidoInput, idempotencyKey: string) => {
     const creado = await pedidoService.create(data, idempotencyKey);
     setShowForm(false);
     setAviso(avisoDeCreacion(creado));

@@ -157,7 +157,7 @@ Todos los servicios Spring escuchan en el **puerto interno 8080** (Eureka en 876
 - **Migraciones:** Flyway.
 
 ### ms-pedidos
-
+- **Creación de pedidos:** `POST /api/pedidos` recibe `{ clienteId?, obraId, observaciones?, lineas: [{ productoId, cantidad }] }`. `clienteId` solo lo usa un `ADMIN`; para `CLIENTE` se toma del token. El servidor fija estado, total, precios, usuario y datos del cliente, e ignora cualquier otro campo. La obra debe existir, estar `HABILITADA` y pertenecer al cliente (`422` si no). Luego valida los productos, calcula el total con descuentos, compara el consumo con el máximo descubierto del cliente (con bloqueo por cliente, así pedidos simultáneos no lo superan) y reserva stock por Feign.
 - **Creación de pedidos:** valida cliente y productos, calcula el total con descuentos, compara el consumo con el máximo descubierto del cliente y reserva stock por Feign.
   - Con stock, el pedido queda `EN_PREPARACION`.
   - Sin stock (`409 STOCK_INSUFICIENTE` de `ms-productos`), queda `ACEPTADO` (pendiente de stock) con el evento de auditoría `PEDIDO_PENDIENTE_STOCK`. Un `ADMIN` puede reintentar con `POST /api/pedidos/{id}/reintentar-reserva`.

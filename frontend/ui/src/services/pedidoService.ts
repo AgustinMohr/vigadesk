@@ -142,13 +142,25 @@ function buildSearchQuery (params: SearchParams): string {
 /**
  * Objeto con las operaciones del CRUD + búsqueda + cambio de estado.
  */
+/**
+ * Cuerpo de alta de un pedido (contrato de POST /api/pedidos). Solo lo que decide quien
+ * pide; el servidor fija estado, total, precios y datos del cliente. `clienteId` lo usa un
+ * ADMIN; para un CLIENTE el backend lo toma del token.
+ */
+export type CrearPedidoInput = {
+  clienteId?: number;
+  obraId: number;
+  observaciones?: string;
+  lineas: { productoId: number; cantidad: number }[];
+};
+
 export const pedidoService = {
   // GET /api/pedidos → lista completa de pedidos
   getAll: () => http.get<Pedido[]>(basePath),
 
   // POST /api/pedidos → crea un pedido con su detalle.
   // El Idempotency-Key evita duplicados si el navegador reintenta.
-  create: (pedido: Partial<Pedido>, idempotencyKey?: string) =>
+  create: (pedido: CrearPedidoInput, idempotencyKey?: string) =>
     http.post<Pedido>(
       basePath,
       pedido,

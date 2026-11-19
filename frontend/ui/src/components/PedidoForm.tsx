@@ -31,7 +31,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { Pedido, ClienteInfo, DetallePedido } from '@/services/pedidoService';
+import type { ClienteInfo, CrearPedidoInput } from '@/services/pedidoService';
 import type { Producto } from '@/services/productoService';
 import { clienteService } from '@/services/clienteService';
 import { productoService } from '@/services/productoService';
@@ -65,12 +65,12 @@ type LineItem = {
  * PROPS del modal de creación de pedido.
  *
  * @typedef {Object} PedidoFormProps
- * @property {(data: Partial<Pedido>) => Promise<void>} onSubmit - Callback
+ * @property {(data: CrearPedidoInput) => Promise<void>} onSubmit - Callback
  *   con el pedido armado; el padre persiste y cierra el modal.
  * @property {() => void} onCancel - Cierra el modal sin guardar.
  */
 type PedidoFormProps = {
-  onSubmit: (data: Partial<Pedido>, idempotencyKey: string) => Promise<void>;
+  onSubmit: (data: CrearPedidoInput, idempotencyKey: string) => Promise<void>;
   onCancel: () => void;
 };
 
@@ -294,46 +294,25 @@ export default function PedidoForm ({ onSubmit, onCancel }: PedidoFormProps) {
       return;
     }
 
-    // Resuelve la obra elegida (opcional): el backend de pedidos guarda un
-    // snapshot { id, direccion }; si no se eligió obra, el pedido queda sin ella.
+    // La obra es obligatoria: el servidor exige que exista, esté HABILITADA y sea del cliente.
     const obraElegida = obras.find((o) => o.id === Number(obraId));
-
-    // Transforma las líneas del form (LineItem) al formato que espera el
-    // backend (DetallePedido). El `!` final afirma que el producto existe
-    // (ya validamos que productId sea válido más arriba).
-    const detalle: DetallePedido[] = lineItems.map((item) => {
-      const prod = productos.find((p) => p.id === item.productoId)!;
-      return {
-        lineaId: '',
-        producto: {
-          id: prod.id!,
-          nombre: prod.nombre,
-          precio: prod.precio,
-          // Se copia el descuento promocional para que el backend calcule
-          // el precioFinal de la línea y el total aplicando la promoción.
-          descuentoPromocional: prod.descuentoPromocional,
-        },
-        cantidad: item.cantidad,
-      };
-    });
+    if (!obraElegida) {
+      setError('Debe seleccionar una obra.');
+      return;
+    }
 
     setSubmitting(true);
     try {
+      // Solo se envía lo que decide el usuario. Cliente (para CLIENTE sale del token),
+      // precios, descuentos, total y estado los fija el servidor.
       await onSubmit({
-        cliente: { id: cliente.id, nombre: cliente.nombre },
-        // Spread condicional: si hay obra elegida, se manda el snapshot
-        // { id, direccion }; si no, no se agrega la propiedad.
-        ...(obraElegida
-          ? { obra: { id: obraElegida.id!, direccion: obraElegida.direccion } }
-          : {}),
+        ...(isCliente ? {} : { clienteId: cliente.id }),
+        obraId: obraElegida.id!,
         observaciones: observaciones.trim() || undefined,
-        detalle,
-        // El backend asigna/calcula estos valores reales (nro de pedido,
-        // total con descuentos, validación de estado). Se mandan valores
-        // inocuos como "seed"; el backend es la fuente de verdad.
-        numeroPedido: 0,
-        total: 1,
-        estado: 'RECIBIDO', // estado inicial del flujo de pedidos
+        lineas: lineItems.map((item) => ({
+          productoId: item.productoId,
+          cantidad: item.cantidad,
+        })),
       }, idempotencyKey);
     } catch (err) {
       setError(getErrorMessage(err, 'Ocurrió un error al crear el pedido.'));
@@ -381,11 +360,11 @@ export default function PedidoForm ({ onSubmit, onCancel }: PedidoFormProps) {
             </select>
           </div>
 
-          {/* Selector de Obra (opcional): solo las obras HABILITADAS del
+          {/* Selector de Obra (obligatoria): solo las obras HABILITADAS del
               cliente del pedido. Deshabilitado hasta que haya cliente. */}
           <div>
             <label className='block text-sm font-medium text-slate-700'>
-              Obra <span className='text-xs font-normal text-slate-400'>(opcional)</span>
+              Obra <span className='text-red-500'>*</span>
             </label>
             <select
               value={obraId}
