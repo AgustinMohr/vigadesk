@@ -304,6 +304,29 @@ class PedidoControllerTest {
     }
 
     @Test
+    void testReintentarReserva_Admin_ShouldReturnUpdatedPedido() throws Exception {
+        Pedido enPreparacion = new Pedido();
+        enPreparacion.setId("pedido-1");
+        enPreparacion.setEstado(EstadoPedido.EN_PREPARACION);
+        Mockito.when(pedidoService.reintentarReserva(Mockito.eq("pedido-1"), Mockito.anyString()))
+                .thenReturn(enPreparacion);
+
+        mockMvc.perform(post("/api/pedidos/pedido-1/reintentar-reserva")
+                .header("X-User-Rol", "ADMIN")
+                .header("X-User-Nombre", "Admin"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("EN_PREPARACION"));
+    }
+
+    @Test
+    void testReintentarReserva_Cliente_ShouldReturnForbidden() throws Exception {
+        mockMvc.perform(post("/api/pedidos/pedido-1/reintentar-reserva")
+                .header("X-User-Rol", "CLIENTE")
+                .header("X-User-ClienteId", "1"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void testRegistrarEntrega_Cliente_ShouldReturnForbidden() throws Exception {
         isi.dan.ms.pedidos.dto.EntregaRequest request = new isi.dan.ms.pedidos.dto.EntregaRequest();
         request.setReceptor("Juan Obra");
