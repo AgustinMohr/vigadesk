@@ -64,6 +64,9 @@ class PedidoServiceTest {
     @Mock
     private ProductoFeignClient productoFeignClient;
 
+    @Mock
+    private CreditoService creditoService;
+
     @InjectMocks
     private PedidoService pedidoService;
 
@@ -103,6 +106,10 @@ class PedidoServiceTest {
         pedido.setDetalle(Collections.singletonList(detalle));
         pedido.setUsuario("payload-hacker");
 
+        lenient().when(creditoService.conBloqueo(any(), any())).thenAnswer(i -> {
+            java.util.function.Supplier<?> accion = i.getArgument(1);
+            return accion.get();
+        });
         lenient().when(secuenciaService.nextNumeroPedido()).thenReturn(1000);
         lenient().when(secuenciaService.nextNumeroRemito()).thenReturn(1);
         lenient().when(pedidoRepository.findByIdempotencyKey(anyString())).thenReturn(Optional.empty());
@@ -113,8 +120,8 @@ class PedidoServiceTest {
     private void stubCreditoOk() {
         when(clienteFeignClient.getMaximoDescubierto(1)).thenReturn(BigDecimal.valueOf(100000));
         when(clienteFeignClient.checkSaldo(any(), any())).thenReturn(true);
-        when(pedidoRepository.findByCliente_IdAndEstadoInActivos(any(), any()))
-                .thenReturn(Collections.emptyList());
+        when(creditoService.consumo(any(), any()))
+                .thenReturn(BigDecimal.ZERO);
     }
 
     private void stubStockOk() {
@@ -244,8 +251,8 @@ class PedidoServiceTest {
     @Test
     void savePedido_CreditExceeded_ShouldReturnRECHAZADO() {
         when(clienteFeignClient.getMaximoDescubierto(1)).thenReturn(BigDecimal.valueOf(3000));
-        when(pedidoRepository.findByCliente_IdAndEstadoInActivos(any(), any()))
-                .thenReturn(Collections.emptyList());
+        when(creditoService.consumo(any(), any()))
+                .thenReturn(BigDecimal.ZERO);
         when(clienteFeignClient.checkSaldo(any(), any())).thenReturn(false);
 
         Pedido result = pedidoService.savePedido(pedido);
@@ -259,8 +266,8 @@ class PedidoServiceTest {
         Pedido entregado = new Pedido();
         entregado.setTotal(BigDecimal.valueOf(96000));
         when(clienteFeignClient.getMaximoDescubierto(1)).thenReturn(BigDecimal.valueOf(100000));
-        when(pedidoRepository.findByCliente_IdAndEstadoInActivos(eq(1), any()))
-                .thenReturn(Collections.singletonList(entregado));
+        when(creditoService.consumo(eq(1), any()))
+                .thenReturn(entregado.getTotal());
         when(clienteFeignClient.checkSaldo(1, BigDecimal.valueOf(101000))).thenReturn(false);
 
         Pedido result = pedidoService.savePedido(pedido);

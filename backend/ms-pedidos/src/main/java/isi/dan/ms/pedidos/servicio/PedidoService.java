@@ -57,6 +57,9 @@ public class PedidoService {
     private SecuenciaService secuenciaService;
 
     @Autowired
+    private CreditoService creditoService;
+
+    @Autowired
     private ClienteFeignClient clienteFeignClient;
 
     @Autowired
@@ -108,12 +111,16 @@ public class PedidoService {
         pedido.setFecha(Instant.now());
         pedido.setNumeroPedido(secuenciaService.nextNumeroPedido());
 
+        // El control de credito y el guardado van bajo el bloqueo del cliente: dos pedidos
+        // simultaneos no pueden leer el mismo consumo y superar el maximo.
+        final BigDecimal totalPedido = total;
+        return creditoService.conBloqueo(pedido.getCliente().getId(),
+                () -> evaluarCreditoYGuardar(pedido, actor, effectiveKey, totalPedido));
+    }
+
+    private Pedido evaluarCreditoYGuardar(Pedido pedido, String actor, String effectiveKey, BigDecimal total) {
         BigDecimal maximoDescubierto = obtenerMaximoDescubierto(pedido.getCliente().getId());
-        BigDecimal gastado = pedidoRepository
-                .findByCliente_IdAndEstadoInActivos(pedido.getCliente().getId(), ESTADOS_QUE_CONSUMEN_CREDITO)
-                .stream()
-                .map(Pedido::getTotal)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal gastado = creditoService.consumo(pedido.getCliente().getId(), ESTADOS_QUE_CONSUMEN_CREDITO);
 
         if (!checkSaldo(pedido.getCliente().getId(), gastado.add(total))) {
             log.warn("Saldo insuficiente: gastado {}, nuevo {}, maximoDescubierto {}",
