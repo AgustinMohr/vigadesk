@@ -55,7 +55,7 @@ const basePath = '/api/productos';
  */
 export const productoService = {
   // GET /api/productos → lista completa
-  getAll: () => http.get<Producto[]>(basePath),
+  getAll: () => http.getAll<Producto>(basePath),
 
   // POST /api/productos → crea un producto (create siempre con Partial)
   create: (producto: Partial<Producto>) => http.post<Producto>(basePath, producto),

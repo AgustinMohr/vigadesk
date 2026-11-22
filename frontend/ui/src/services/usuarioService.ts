@@ -70,7 +70,7 @@ const basePath = '/api/usuarios';
  */
 export const usuarioService = {
   // GET /api/usuarios → lista completa de usuarios de clientes
-  getAll: () => http.get<UsuarioCliente[]>(basePath),
+  getAll: () => http.getAll<UsuarioCliente>(basePath),
 
   // POST /api/usuarios → crea un usuario (create siempre con Partial)
   create: (usuario: Partial<UsuarioCliente>) =>

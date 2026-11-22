@@ -64,7 +64,7 @@ const basePath = '/api/obras';
  */
 export const obraService = {
   // GET /api/obras → lista completa de obras
-  getAll: () => http.get<Obra[]>(basePath),
+  getAll: () => http.getAll<Obra>(basePath),
 
   // GET /api/obras/by-cliente/:clienteId → obras de un cliente específico
   // (lo usa el pedido para ofrecer solo las obras activas del cliente).

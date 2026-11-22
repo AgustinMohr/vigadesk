@@ -208,6 +208,30 @@ async function request<T> (path: string, options?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+/** Tamaño de página que se pide al backend (su máximo permitido). */
+const TAMANIO_PAGINA = 100;
+/** Tope de páginas por consulta: evita un bucle infinito si el backend ignorara `page`. */
+const MAX_PAGINAS = 500;
+
+/**
+ * Los listados del backend están paginados (`page`/`size`, máximo 100 por página). Las tablas del
+ * frontend filtran y ordenan en memoria, así que este helper pide las páginas una a una hasta
+ * traer todo el conjunto, sin que ninguna request supere el tamaño máximo.
+ *
+ * @param {string} path - Ruta del listado, con o sin query string.
+ * @returns {Promise<T[]>} Todos los elementos.
+ */
+async function getAllPages<T> (path: string): Promise<T[]> {
+  const separador = path.includes('?') ? '&' : '?';
+  const todos: T[] = [];
+  for (let page = 0; page < MAX_PAGINAS; page++) {
+    const pagina = await request<T[]>(`${path}${separador}page=${page}&size=${TAMANIO_PAGINA}`);
+    todos.push(...pagina);
+    if (pagina.length < TAMANIO_PAGINA) break;
+  }
+  return todos;
+}
+
 /**
  * Objeto exportado con métodos utilitarios para cada verbo HTTP tradicional.
  * Facilita el uso en los servicios sin tener que configurar manualmente el método o el JSON.stringify().
@@ -215,6 +239,9 @@ async function request<T> (path: string, options?: RequestInit): Promise<T> {
 export const http = {
   // Petición GET: Consulta de recursos
   get: <T>(path: string) => request<T>(path),
+
+  // GET de un listado paginado: trae todas las páginas (ver getAllPages)
+  getAll: <T>(path: string) => getAllPages<T>(path),
 
   // Petición POST: Creación de un nuevo recurso
   post: <T>(path: string, body: unknown, headers?: Record<string, string>) =>

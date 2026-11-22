@@ -156,7 +156,7 @@ export type CrearPedidoInput = {
 
 export const pedidoService = {
   // GET /api/pedidos → lista completa de pedidos
-  getAll: () => http.get<Pedido[]>(basePath),
+  getAll: () => http.getAll<Pedido>(basePath),
 
   // POST /api/pedidos → crea un pedido con su detalle.
   // El Idempotency-Key evita duplicados si el navegador reintenta.
@@ -172,7 +172,7 @@ export const pedidoService = {
 
   // GET /api/pedidos/search?filtros → búsqueda filtrada por query string
   search: (params: SearchParams) =>
-    http.get<Pedido[]>(`${basePath}/search${buildSearchQuery(params)}`),
+    http.getAll<Pedido>(`${basePath}/search${buildSearchQuery(params)}`),
 
   // PATCH /api/pedidos/:id/estado → actualiza SOLO el estado del pedido
   updateEstado: (id: string, estado: string) =>

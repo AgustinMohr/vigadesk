@@ -47,7 +47,7 @@ const basePath = '/api/clientes';
  */
 export const clienteService = {
   // GET /api/clientes → lista completa de clientes
-  getAll: () => http.get<Cliente[]>(basePath),
+  getAll: () => http.getAll<Cliente>(basePath),
 
   // POST /api/clientes → crea un cliente; el body puede ser parcial
   create: (cliente: Partial<Cliente>) => http.post<Cliente>(basePath, cliente),

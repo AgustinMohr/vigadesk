@@ -261,6 +261,12 @@ Para el rol `CLIENTE`, `ms-pedidos` usa `X-User-ClienteId` y limita las consulta
 - **Tiempo de respuesta:** si el email no existe se compara la contraseña contra un hash de relleno, para que usuario inexistente y contraseña incorrecta tarden lo mismo.
 - Los contadores están **en memoria** (no se agrega Redis solo para esto): se reinician al reiniciar el servicio y, con varias instancias, el límite es por instancia. Un atacante puede bloquear 60 segundos el login de un usuario concreto fallando a propósito; es el costo de proteger las cuentas.
 
+### Búsquedas y paginación
+
+- Los textos de búsqueda (`clienteNombre`, `nombre`, `codigo`) tienen un máximo de 100 caracteres (400 si lo superan) y se toman como literales: en Mongo se escapan con `Pattern.quote` y en SQL se escapan `%` y `_` del `LIKE`. Una expresión regular enviada como texto no se interpreta.
+- Los listados (`GET` de clientes, obras, usuarios, productos y pedidos, y las búsquedas de productos y pedidos) aceptan `page` (desde 0) y `size` (por defecto y máximo 100). La respuesta sigue siendo una lista; el total de elementos viaja en la cabecera `X-Total-Count`. El orden es estable: por id, y los pedidos por fecha descendente.
+- Los pedidos tienen índices `(cliente._id, estado)` y `fecha`. El frontend trae todas las páginas con `http.getAll`, porque sus tablas filtran y ordenan en memoria.
+
 ### Otras medidas
 
 - Ningún secreto está en el repositorio. Todo se lee de variables de entorno (`.env.example`) y Compose falla si falta una obligatoria (`${VAR:?}`).
