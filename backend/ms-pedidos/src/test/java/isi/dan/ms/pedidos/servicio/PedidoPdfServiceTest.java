@@ -10,7 +10,9 @@ import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
+
+import com.lowagie.text.pdf.PdfReader;
+import com.lowagie.text.pdf.parser.PdfTextExtractor;
 
 import isi.dan.ms.pedidos.modelo.Cliente;
 import isi.dan.ms.pedidos.modelo.DetallePedido;
@@ -29,11 +31,7 @@ class PedidoPdfServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new PedidoPdfService();
-        ReflectionTestUtils.setField(service, "corralonNombre", "Corralon Test");
-        ReflectionTestUtils.setField(service, "corralonCuit", "30-00000000-0");
-        ReflectionTestUtils.setField(service, "corralonDireccion", "Calle 123");
-        ReflectionTestUtils.setField(service, "corralonTelefono", "111-222");
+        service = new PedidoPdfService("Corralon Test", "30-00000000-0", "Calle 123", "111-222");
 
         Producto producto = new Producto();
         producto.setId(1L);
@@ -79,19 +77,52 @@ class PedidoPdfServiceTest {
         entrega.setItems(new ArrayList<>(List.of(item)));
     }
 
-    @Test
-    void generarPedido_ShouldReturnPdf() {
-        byte[] pdf = service.generarPedido(pedido);
-
-        assertThat(new String(pdf, 0, 4, StandardCharsets.US_ASCII)).isEqualTo("%PDF");
-        assertThat(pdf.length).isGreaterThan(500);
+    /** Extrae el texto de todas las paginas: el PDF se verifica por su contenido, no por su tamaño. */
+    private static String textoDe(byte[] pdf) throws java.io.IOException {
+        PdfReader lector = new PdfReader(pdf);
+        try {
+            PdfTextExtractor extractor = new PdfTextExtractor(lector);
+            StringBuilder texto = new StringBuilder();
+            for (int pagina = 1; pagina <= lector.getNumberOfPages(); pagina++) {
+                texto.append(extractor.getTextFromPage(pagina)).append('\n');
+            }
+            return texto.toString().replaceAll("\\s+", " ");
+        } finally {
+            lector.close();
+        }
     }
 
     @Test
-    void generarRemito_ShouldReturnPdf() {
+    void generarPedido_ShouldBeAPdfWithTheOrderData() throws Exception {
+        byte[] pdf = service.generarPedido(pedido);
+
+        assertThat(new String(pdf, 0, 4, StandardCharsets.US_ASCII)).isEqualTo("%PDF");
+        String texto = textoDe(pdf);
+        assertThat(texto).contains("Corralon Test", "30-00000000-0", "Calle 123", "111-222")
+                .contains("PEDIDO N\u00b0 1001")
+                .contains("Constructora Test", "Obra Test")
+                .contains("Arena (M3)")
+                .contains("TOTAL:");
+    }
+
+    @Test
+    void generarRemito_ShouldBeAPdfWithTheDeliveryData() throws Exception {
         byte[] pdf = service.generarRemito(pedido, entrega);
 
         assertThat(new String(pdf, 0, 4, StandardCharsets.US_ASCII)).isEqualTo("%PDF");
-        assertThat(pdf.length).isGreaterThan(500);
+        String texto = textoDe(pdf);
+        assertThat(texto).contains("Corralon Test", "Constructora Test", "Obra Test")
+                .contains("2001")
+                .contains("Juan Obra")
+                .contains("Arena");
+    }
+
+    @Test
+    void generarPedido_ConTextoConCaracteresEspeciales_ShouldNotBreak() throws Exception {
+        pedido.getCliente().setNombre("Obras <&> \"Sur\" S.A.");
+
+        byte[] pdf = service.generarPedido(pedido);
+
+        assertThat(textoDe(pdf)).contains("Obras <&> \"Sur\" S.A.");
     }
 }

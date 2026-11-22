@@ -34,17 +34,21 @@ public class PedidoPdfService {
     private static final DateTimeFormatter DATE_FORMAT =
             DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(ZoneId.systemDefault());
 
-    @Value("${corralon.nombre:Corralon de Materiales}")
-    private String corralonNombre;
+    private final String corralonNombre;
+    private final String corralonCuit;
+    private final String corralonDireccion;
+    private final String corralonTelefono;
 
-    @Value("${corralon.cuit:30-00000000-0}")
-    private String corralonCuit;
-
-    @Value("${corralon.direccion:Direccion del corralon}")
-    private String corralonDireccion;
-
-    @Value("${corralon.telefono:000-000-0000}")
-    private String corralonTelefono;
+    public PedidoPdfService(
+            @Value("${corralon.nombre:Corralon de Materiales}") String corralonNombre,
+            @Value("${corralon.cuit:30-00000000-0}") String corralonCuit,
+            @Value("${corralon.direccion:Direccion del corralon}") String corralonDireccion,
+            @Value("${corralon.telefono:000-000-0000}") String corralonTelefono) {
+        this.corralonNombre = corralonNombre;
+        this.corralonCuit = corralonCuit;
+        this.corralonDireccion = corralonDireccion;
+        this.corralonTelefono = corralonTelefono;
+    }
 
     public byte[] generarPedido(Pedido pedido) {
         return generar(documento -> {
