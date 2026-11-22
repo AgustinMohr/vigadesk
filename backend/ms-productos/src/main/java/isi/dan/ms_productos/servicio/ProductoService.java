@@ -32,7 +32,7 @@ public class ProductoService {
         for (StockUpdateDTO item : items) {
             validarItemStock(item);
             Producto producto = productoRepository.findByIdAndHabilitadoTrue(item.getIdProducto())
-                    .orElseThrow(() -> new RuntimeException("Producto no encontrado: " + item.getIdProducto()));
+                    .orElseThrow(() -> new ProductoNotFoundException(item.getIdProducto()));
             if (producto.getStockActual().compareTo(item.getCantidad()) < 0) {
                 log.warn("Stock insuficiente para producto {}: disponible {}, requerido {}",
                         producto.getId(), producto.getStockActual(), item.getCantidad());
@@ -132,7 +132,7 @@ public class ProductoService {
     public Producto actualizarDescuento(Long id, DescuentoDTO descuento, String actor) {
         validarDescuento(descuento.getDescuentoPromocional());
         Producto producto = productoRepository.findByIdAndHabilitadoTrue(id)
-                .orElseThrow(() -> new RuntimeException("Producto no encontrado: " + id));
+                .orElseThrow(() -> new ProductoNotFoundException(id));
         producto.setDescuentoPromocional(descuento.getDescuentoPromocional());
         marcarAuditoria(producto, actor);
         return productoRepository.save(producto);

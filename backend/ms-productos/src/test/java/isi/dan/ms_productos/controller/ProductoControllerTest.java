@@ -223,7 +223,7 @@ class ProductoControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(asJsonString(provision)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.cantidad").exists());
+                .andExpect(jsonPath("$.errors.cantidad").exists());
     }
 
     @Test
@@ -255,7 +255,7 @@ class ProductoControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(asJsonString(descuento)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.descuentoPromocional").exists());
+                .andExpect(jsonPath("$.errors.descuentoPromocional").exists());
     }
 
     @Test
@@ -267,7 +267,7 @@ class ProductoControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(asJsonString(descuento)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.descuentoPromocional").exists());
+                .andExpect(jsonPath("$.errors.descuentoPromocional").exists());
     }
 
     private static String asJsonString(final Object obj) {

@@ -256,7 +256,7 @@ class ProductoServiceTest {
 
         assertThatThrownBy(() -> productoService.checkStock(Collections.singletonList(item)))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("Producto no encontrado: 99");
+                .hasMessageContaining("Producto 99 no encontrado");
     }
 
     @Test
@@ -364,7 +364,7 @@ class ProductoServiceTest {
 
         assertThatThrownBy(() -> productoService.actualizarDescuento(99L, descuento))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("Producto no encontrado: 99");
+                .hasMessageContaining("Producto 99 no encontrado");
     }
 
     @Test
