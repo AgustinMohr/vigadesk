@@ -163,4 +163,46 @@ class ProductoRepositoryPostgresTest {
         pool.shutdown();
         return resultados;
     }
+
+    private isi.dan.ms_productos.servicio.ProductoService servicioReal() {
+        isi.dan.ms_productos.servicio.ProductoService servicio = new isi.dan.ms_productos.servicio.ProductoService();
+        org.springframework.test.util.ReflectionTestUtils.setField(servicio, "productoRepository", repository);
+        return servicio;
+    }
+
+    @Test
+    void busquedaPorNombre_ComodinesDeLike_ShouldMatchLiterally() {
+        Producto con = crearProducto("LIT-1", "1.000");
+        con.setNombre("Descuento 50% oferta_especial");
+        repository.save(con);
+        Producto sin = crearProducto("LIT-2", "1.000");
+        sin.setNombre("Descuento 500 ofertaXespecial");
+        repository.save(sin);
+        var servicio = servicioReal();
+
+        assertThat(servicio.searchProductos("50%", null, null, null, null, null, null, null).getContent())
+                .extracting(Producto::getCodigo).containsExactly("LIT-1");
+        assertThat(servicio.searchProductos("oferta_especial", null, null, null, null, null, null, null).getContent())
+                .extracting(Producto::getCodigo).containsExactly("LIT-1");
+        assertThat(servicio.searchProductos("%", null, null, null, null, null, null, null).getContent())
+                .extracting(Producto::getCodigo).containsExactly("LIT-1");
+        assertThat(servicio.searchProductos("\\", null, null, null, null, null, null, null).getContent()).isEmpty();
+    }
+
+    @Test
+    void listado_ShouldPaginateWithStableOrderAndTotal() {
+        for (int i = 0; i < 25; i++) {
+            crearProducto(String.format("PAG-%02d", i), "1.000");
+        }
+        var servicio = servicioReal();
+
+        var primera = servicio.searchProductos("Producto PAG", null, null, null, null, null, 0, 10);
+        var ultima = servicio.searchProductos("Producto PAG", null, null, null, null, null, 2, 10);
+
+        assertThat(primera.getTotalElements()).isEqualTo(25);
+        assertThat(primera.getContent()).hasSize(10);
+        assertThat(ultima.getContent()).hasSize(5);
+        assertThat(primera.getContent()).extracting(Producto::getCodigo).first().isEqualTo("PAG-00");
+        assertThat(ultima.getContent()).extracting(Producto::getCodigo).last().isEqualTo("PAG-24");
+    }
 }

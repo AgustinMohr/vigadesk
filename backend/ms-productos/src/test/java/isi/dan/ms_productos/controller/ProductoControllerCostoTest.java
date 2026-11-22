@@ -50,10 +50,10 @@ class ProductoControllerCostoTest {
         producto.setStockActual(BigDecimal.valueOf(100));
         producto.setStockMinimo(BigDecimal.valueOf(10));
         producto.setCategoria(Categoria.CEMENTOS);
-        Mockito.when(productoService.getAllProductos()).thenReturn(Collections.singletonList(producto));
         Mockito.when(productoService.getProductoById(1L)).thenReturn(producto);
         Mockito.when(productoService.searchProductos(Mockito.any(), Mockito.any(), Mockito.any(),
-                Mockito.any(), Mockito.any(), Mockito.any())).thenReturn(Collections.singletonList(producto));
+                Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any()))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(Collections.singletonList(producto)));
     }
 
     @Test

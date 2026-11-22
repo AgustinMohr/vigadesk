@@ -7,10 +7,15 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import dan.common.web.ParametrosConsulta;
 import isi.dan.ms_productos.dao.ProductoRepository;
 import isi.dan.ms_productos.dto.DescuentoDTO;
 import isi.dan.ms_productos.dto.ProvisionDTO;
@@ -138,10 +143,6 @@ public class ProductoService {
         return productoRepository.save(producto);
     }
 
-    public List<Producto> getAllProductos() {
-        return productoRepository.findByHabilitadoTrue();
-    }
-
     public Producto getProductoById(Long id) throws ProductoNotFoundException {
         return productoRepository.findByIdAndHabilitadoTrue(id)
                 .orElseThrow(() -> new ProductoNotFoundException(id));
@@ -198,18 +199,27 @@ public class ProductoService {
         }
     }
 
-    public List<Producto> searchProductos(String nombre, String codigo,
+    /**
+     * Busca productos activos con paginacion (orden por id). Los textos tienen longitud maxima y se tratan como
+     * literales: los comodines de LIKE (% y _) se escapan.
+     */
+    public Page<Producto> searchProductos(String nombreBuscado, String codigoBuscado,
                                            BigDecimal precioMin, BigDecimal precioMax,
-                                           BigDecimal stockMin, BigDecimal stockMax) {
+                                           BigDecimal stockMin, BigDecimal stockMax,
+                                           Integer page, Integer size) {
+        String nombre = ParametrosConsulta.texto(nombreBuscado, "nombre");
+        String codigo = ParametrosConsulta.texto(codigoBuscado, "codigo");
+        Pageable pageable = PageRequest.of(ParametrosConsulta.pagina(page), ParametrosConsulta.tamanio(size),
+                Sort.by("id"));
         Specification<Producto> spec = Specification.where((root, query, cb) ->
                 cb.isTrue(root.get("habilitado")));
-        if (nombre != null && !nombre.isBlank()) {
-            spec = spec.and((root, query, cb) ->
-                    cb.like(cb.lower(root.get("nombre")), "%" + nombre.toLowerCase() + "%"));
+        if (nombre != null) {
+            String patron = "%" + ParametrosConsulta.escaparLike(nombre.toLowerCase()) + "%";
+            spec = spec.and((root, query, cb) -> cb.like(cb.lower(root.get("nombre")), patron, '\\'));
         }
-        if (codigo != null && !codigo.isBlank()) {
-            spec = spec.and((root, query, cb) ->
-                    cb.like(cb.lower(root.get("codigo")), "%" + codigo.toLowerCase() + "%"));
+        if (codigo != null) {
+            String patron = "%" + ParametrosConsulta.escaparLike(codigo.toLowerCase()) + "%";
+            spec = spec.and((root, query, cb) -> cb.like(cb.lower(root.get("codigo")), patron, '\\'));
         }
         if (precioMin != null) {
             spec = spec.and((root, query, cb) ->
@@ -227,6 +237,6 @@ public class ProductoService {
             spec = spec.and((root, query, cb) ->
                     cb.lessThanOrEqualTo(root.get("stockActual"), stockMax));
         }
-        return productoRepository.findAll(spec);
+        return productoRepository.findAll(spec, pageable);
     }
 }

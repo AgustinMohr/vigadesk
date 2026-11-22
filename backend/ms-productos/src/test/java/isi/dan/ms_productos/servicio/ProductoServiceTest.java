@@ -19,6 +19,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 
 import isi.dan.ms_productos.dao.ProductoRepository;
@@ -108,16 +110,6 @@ class ProductoServiceTest {
         Producto result = productoService.procesarProvision(provision, "Deposito");
 
         assertThat(result.getStockActual()).isEqualByComparingTo(new BigDecimal("102.500"));
-    }
-
-    @Test
-    void getAllProductos_ShouldReturnAll() {
-        when(productoRepository.findByHabilitadoTrue()).thenReturn(Collections.singletonList(producto));
-
-        List<Producto> result = productoService.getAllProductos();
-
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).getNombre()).isEqualTo("Cemento Portland");
     }
 
     @Test
@@ -440,42 +432,68 @@ class ProductoServiceTest {
 
     @Test
     void searchProductos_NoFilters_ShouldReturnAllHabilitados() {
-        when(productoRepository.findAll(any(Specification.class)))
-                .thenReturn(Collections.singletonList(producto));
+        when(productoRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(Collections.singletonList(producto)));
 
-        List<Producto> result = productoService.searchProductos(null, null, null, null, null, null);
+        List<Producto> result = productoService.searchProductos(null, null, null, null, null, null, null, null).getContent();
 
         assertThat(result).hasSize(1);
     }
 
     @Test
     void searchProductos_ByNombreYCodigo_ShouldFilter() {
-        when(productoRepository.findAll(any(Specification.class)))
-                .thenReturn(Collections.singletonList(producto));
+        when(productoRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(Collections.singletonList(producto)));
 
-        List<Producto> result = productoService.searchProductos("cemento", "C-1", null, null, null, null);
+        List<Producto> result = productoService.searchProductos("cemento", "C-1", null, null, null, null, null, null).getContent();
 
         assertThat(result).hasSize(1);
     }
 
     @Test
     void searchProductos_ByRangoDePrecioYStock_ShouldFilter() {
-        when(productoRepository.findAll(any(Specification.class)))
-                .thenReturn(Collections.singletonList(producto));
+        when(productoRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(Collections.singletonList(producto)));
 
         List<Producto> result = productoService.searchProductos(
                 null, null, BigDecimal.valueOf(100), BigDecimal.valueOf(10000),
-                BigDecimal.valueOf(5), BigDecimal.valueOf(200));
+                BigDecimal.valueOf(5), BigDecimal.valueOf(200), null, null).getContent();
 
         assertThat(result).hasSize(1);
     }
 
     @Test
-    void searchProductos_WithBlankFilters_ShouldIgnoreBlank() {
-        when(productoRepository.findAll(any(Specification.class)))
-                .thenReturn(Collections.singletonList(producto));
+    void searchProductos_ParametrosInvalidos_ShouldThrowIllegalArgument() {
+        assertThatThrownBy(() -> productoService.searchProductos("x".repeat(101), null, null, null, null, null, null, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> productoService.searchProductos(null, "x".repeat(101), null, null, null, null, null, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> productoService.searchProductos(null, null, null, null, null, null, 0, 101))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> productoService.searchProductos(null, null, null, null, null, null, -1, 10))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 
-        List<Producto> result = productoService.searchProductos("  ", "  ", null, null, null, null);
+    @Test
+    void searchProductos_ShouldPassPageableSortedById() {
+        when(productoRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(Collections.singletonList(producto)));
+
+        productoService.searchProductos(null, null, null, null, null, null, 2, 10);
+
+        org.mockito.ArgumentCaptor<Pageable> captor = org.mockito.ArgumentCaptor.forClass(Pageable.class);
+        verify(productoRepository).findAll(any(Specification.class), captor.capture());
+        assertThat(captor.getValue().getPageNumber()).isEqualTo(2);
+        assertThat(captor.getValue().getPageSize()).isEqualTo(10);
+        assertThat(captor.getValue().getSort().getOrderFor("id")).isNotNull();
+    }
+
+    @Test
+    void searchProductos_WithBlankFilters_ShouldIgnoreBlank() {
+        when(productoRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(Collections.singletonList(producto)));
+
+        List<Producto> result = productoService.searchProductos("  ", "  ", null, null, null, null, null, null).getContent();
 
         assertThat(result).hasSize(1);
     }

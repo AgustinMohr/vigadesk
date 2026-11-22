@@ -17,6 +17,8 @@ import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -56,10 +58,12 @@ class ProductoControllerTest {
 
     @Test
     void testGetAll() throws Exception {
-        Mockito.when(productoService.getAllProductos()).thenReturn(Collections.singletonList(producto));
+        Mockito.when(productoService.searchProductos(null, null, null, null, null, null, null, null))
+                .thenReturn(new PageImpl<>(Collections.singletonList(producto), PageRequest.of(0, 100), 1));
 
         mockMvc.perform(get("/api/productos"))
                 .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", "1"))
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$[0].nombre").value("Cemento Portland"));
     }
@@ -126,10 +130,20 @@ class ProductoControllerTest {
     }
 
     @Test
+    void testGetAll_TamanioInvalido_ShouldReturn400() throws Exception {
+        Mockito.when(productoService.searchProductos(null, null, null, null, null, null, null, 500))
+                .thenThrow(new IllegalArgumentException("size debe estar entre 1 y 100"));
+
+        mockMvc.perform(get("/api/productos").param("size", "500"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void testSearch() throws Exception {
         Mockito.when(productoService.searchProductos(
-                        Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any()))
-                .thenReturn(Collections.singletonList(producto));
+                        Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(),
+                        Mockito.any(), Mockito.any()))
+                .thenReturn(new PageImpl<>(Collections.singletonList(producto)));
 
         mockMvc.perform(get("/api/productos/search")
                 .param("nombre", "cemento")

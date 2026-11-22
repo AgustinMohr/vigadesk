@@ -2,10 +2,12 @@ package isi.dan.ms_productos.controller;
 
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import dan.common.web.ParametrosConsulta;
 import isi.dan.ms_productos.aop.LogExecutionTime;
 import isi.dan.ms_productos.dto.DescuentoDTO;
 import isi.dan.ms_productos.dto.ImportResult;
@@ -56,11 +58,11 @@ public class ProductoController {
 
     @GetMapping
     @LogExecutionTime
-    public List<Producto> getAllProductos(
+    public ResponseEntity<List<Producto>> getAllProductos(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
             @RequestHeader(value = "X-User-Rol", required = false) String rol) {
-        return productoService.getAllProductos().stream()
-                .map(producto -> vistaSegunRol(producto, rol))
-                .toList();
+        return buscar(null, null, null, null, null, null, page, size, rol);
     }
 
     @GetMapping("/{id}")
@@ -83,17 +85,26 @@ public class ProductoController {
 
     @GetMapping("/search")
     @LogExecutionTime
-    public List<Producto> searchProductos(
+    public ResponseEntity<List<Producto>> searchProductos(
             @RequestParam(required = false) String nombre,
             @RequestParam(required = false) String codigo,
             @RequestParam(required = false) BigDecimal precioMin,
             @RequestParam(required = false) BigDecimal precioMax,
             @RequestParam(required = false) BigDecimal stockMin,
             @RequestParam(required = false) BigDecimal stockMax,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
             @RequestHeader(value = "X-User-Rol", required = false) String rol) {
-        return productoService.searchProductos(nombre, codigo, precioMin, precioMax, stockMin, stockMax).stream()
-                .map(producto -> vistaSegunRol(producto, rol))
-                .toList();
+        return buscar(nombre, codigo, precioMin, precioMax, stockMin, stockMax, page, size, rol);
+    }
+
+    private ResponseEntity<List<Producto>> buscar(String nombre, String codigo, BigDecimal precioMin,
+            BigDecimal precioMax, BigDecimal stockMin, BigDecimal stockMax, Integer page, Integer size, String rol) {
+        Page<Producto> resultado = productoService.searchProductos(
+                nombre, codigo, precioMin, precioMax, stockMin, stockMax, page, size);
+        return ResponseEntity.ok()
+                .header(ParametrosConsulta.CABECERA_TOTAL, String.valueOf(resultado.getTotalElements()))
+                .body(resultado.getContent().stream().map(producto -> vistaSegunRol(producto, rol)).toList());
     }
 
     @DeleteMapping("/{id}")
