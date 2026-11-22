@@ -1,9 +1,13 @@
 package isi.dan.msclientes.servicios;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import dan.common.web.ParametrosConsulta;
 import isi.dan.msclientes.dao.ClienteRepository;
 import isi.dan.msclientes.dao.ObraRepository;
 import dan.common.error.SolicitudNoProcesableException;
@@ -26,8 +30,10 @@ public class ObraService {
     @Autowired
     private ClienteRepository clienteRepository;
 
-    public List<Obra> findAll() {
-        return obraRepository.findByHabilitadoTrue();
+    /** Listado paginado (orden por id) de registros activos. */
+    public Page<Obra> findAll(Integer page, Integer size) {
+        return obraRepository.findByHabilitadoTrue(PageRequest.of(ParametrosConsulta.pagina(page),
+                ParametrosConsulta.tamanio(size), Sort.by("id")));
     }
 
     public Optional<Obra> findById(Integer id) {

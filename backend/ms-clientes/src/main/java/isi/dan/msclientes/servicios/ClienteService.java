@@ -7,8 +7,12 @@ import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import dan.common.web.ParametrosConsulta;
 import isi.dan.msclientes.dao.ClienteRepository;
 import isi.dan.msclientes.dao.ObraRepository;
 import isi.dan.msclientes.dao.PagoRepository;
@@ -32,8 +36,10 @@ public class ClienteService {
     @Value("${cliente.maximo-descubierto.default:10000}")
     private BigDecimal maximoDescubiertoDefault;
 
-    public List<Cliente> findAll() {
-        return clienteRepository.findByHabilitadoTrue();
+    /** Listado paginado (orden por id) de registros activos. */
+    public Page<Cliente> findAll(Integer page, Integer size) {
+        return clienteRepository.findByHabilitadoTrue(PageRequest.of(ParametrosConsulta.pagina(page),
+                ParametrosConsulta.tamanio(size), Sort.by("id")));
     }
 
     public Optional<Cliente> findById(Integer id) {

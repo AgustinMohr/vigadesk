@@ -11,6 +11,7 @@ import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -60,7 +61,7 @@ class UsuarioControllerTest {
 
     @Test
     void getAll_ShouldReturnUsuarios() throws Exception {
-        Mockito.when(usuarioService.findAll()).thenReturn(Collections.singletonList(usuarioConCliente()));
+        Mockito.when(usuarioService.findAll(null, null)).thenReturn(new PageImpl<>(Collections.singletonList(usuarioConCliente())));
 
         mockMvc.perform(get("/api/usuarios"))
                 .andExpect(status().isOk())

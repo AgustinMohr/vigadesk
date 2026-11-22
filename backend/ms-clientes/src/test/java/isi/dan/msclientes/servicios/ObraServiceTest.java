@@ -18,6 +18,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import isi.dan.msclientes.dao.ClienteRepository;
 import isi.dan.msclientes.dao.ObraRepository;
 import isi.dan.msclientes.model.Cliente;
@@ -55,9 +57,9 @@ class ObraServiceTest {
 
     @Test
     void findAll_ShouldReturnAllObras() {
-        when(obraRepository.findByHabilitadoTrue()).thenReturn(Collections.singletonList(obra));
+        when(obraRepository.findByHabilitadoTrue(any(Pageable.class))).thenReturn(new PageImpl<>(Collections.singletonList(obra)));
 
-        List<Obra> result = obraService.findAll();
+        List<Obra> result = obraService.findAll(null, null).getContent();
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getDireccion()).isEqualTo("Test Obra");

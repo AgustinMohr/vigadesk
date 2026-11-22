@@ -4,10 +4,12 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import dan.common.web.ParametrosConsulta;
 import isi.dan.msclientes.aop.LogExecutionTime;
 import isi.dan.msclientes.exception.ForbiddenException;
 import isi.dan.msclientes.exception.ObraNotFoundException;
@@ -24,16 +26,21 @@ public class ObraController {
 
     @GetMapping
     @LogExecutionTime
-    public List<Obra> getAll(
+    public ResponseEntity<List<Obra>> getAll(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
             @RequestHeader(value = "X-User-Rol", required = false) String rol,
             @RequestHeader(value = "X-User-ClienteId", required = false) Integer tokenClienteId) {
         if (isCliente(rol)) {
-            if (tokenClienteId == null) {
-                return List.of();
-            }
-            return obraService.findByClienteId(tokenClienteId);
+            List<Obra> propias = tokenClienteId == null ? List.of() : obraService.findByClienteId(tokenClienteId);
+            return conTotal(propias, propias.size());
         }
-        return obraService.findAll();
+        Page<Obra> resultado = obraService.findAll(page, size);
+        return conTotal(resultado.getContent(), resultado.getTotalElements());
+    }
+
+    private static <T> ResponseEntity<List<T>> conTotal(List<T> contenido, long total) {
+        return ResponseEntity.ok().header(ParametrosConsulta.CABECERA_TOTAL, String.valueOf(total)).body(contenido);
     }
 
     @GetMapping("/sin-asignar")

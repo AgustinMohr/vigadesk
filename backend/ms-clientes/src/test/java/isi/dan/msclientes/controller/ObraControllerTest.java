@@ -12,6 +12,7 @@ import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -43,7 +44,7 @@ public class ObraControllerTest {
 
     @Test
     void testGetAll() throws Exception {
-        Mockito.when(obraService.findAll()).thenReturn(Collections.singletonList(obra));
+        Mockito.when(obraService.findAll(null, null)).thenReturn(new PageImpl<>(Collections.singletonList(obra)));
 
         mockMvc.perform(get("/api/obras"))
                 .andExpect(status().isOk())

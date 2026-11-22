@@ -10,10 +10,14 @@ import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import dan.common.error.DemasiadosIntentosException;
 import dan.common.security.FailedAttemptLimiter;
+import dan.common.web.ParametrosConsulta;
 import isi.dan.msclientes.dao.UsuarioRepository;
 import isi.dan.msclientes.model.UsuarioCliente;
 
@@ -38,8 +42,10 @@ public class UsuarioService {
     private FailedAttemptLimiter limiter;
     private String hashDeRelleno;
 
-    public List<UsuarioCliente> findAll() {
-        return usuarioRepository.findByHabilitadoTrue();
+    /** Listado paginado (orden por id) de registros activos. */
+    public Page<UsuarioCliente> findAll(Integer page, Integer size) {
+        return usuarioRepository.findByHabilitadoTrue(PageRequest.of(ParametrosConsulta.pagina(page),
+                ParametrosConsulta.tamanio(size), Sort.by("id")));
     }
 
     public Optional<UsuarioCliente> findById(Integer id) {

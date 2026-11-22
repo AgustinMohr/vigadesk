@@ -53,6 +53,23 @@ class ClienteRepositoryTest {
     }
 
     @Test
+    void findByHabilitadoTrue_Paginado_ShouldReturnPagesWithTotalAndSkipDisabled() {
+        for (int i = 0; i < 12; i++) {
+            clienteRepository.save(crearCliente("Pag " + i, "pag" + i + "@mail.com"));
+        }
+        Cliente borrado = clienteRepository.save(crearCliente("Borrado", "borrado2@mail.com"));
+        borrado.setHabilitado(false);
+        clienteRepository.save(borrado);
+        long activos = clienteRepository.findByHabilitadoTrue().size();
+
+        var segunda = clienteRepository.findByHabilitadoTrue(
+                org.springframework.data.domain.PageRequest.of(1, 5, org.springframework.data.domain.Sort.by("id")));
+
+        assertThat(segunda.getTotalElements()).isEqualTo(activos);
+        assertThat(segunda.getContent()).hasSize(5).doesNotContain(borrado);
+    }
+
+    @Test
     void findByIdAndHabilitadoTrue_WhenDisabled_ShouldReturnEmpty() {
         Cliente borrado = clienteRepository.save(crearCliente("Borrado", "borrado2@mail.com"));
         borrado.setHabilitado(false);

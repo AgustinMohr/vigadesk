@@ -3,6 +3,7 @@ package isi.dan.msclientes.controller;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -13,8 +14,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import dan.common.web.ParametrosConsulta;
 import isi.dan.msclientes.aop.LogExecutionTime;
 import isi.dan.msclientes.dto.LoginRequest;
 import isi.dan.msclientes.dto.LoginResponse;
@@ -35,8 +38,13 @@ public class UsuarioController {
 
     @GetMapping
     @LogExecutionTime
-    public List<UsuarioCliente> getAll() {
-        return usuarioService.findAll();
+    public ResponseEntity<List<UsuarioCliente>> getAll(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
+        Page<UsuarioCliente> resultado = usuarioService.findAll(page, size);
+        return ResponseEntity.ok()
+                .header(ParametrosConsulta.CABECERA_TOTAL, String.valueOf(resultado.getTotalElements()))
+                .body(resultado.getContent());
     }
 
     @GetMapping("/{id}")

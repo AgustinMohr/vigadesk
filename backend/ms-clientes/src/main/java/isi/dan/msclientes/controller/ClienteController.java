@@ -1,10 +1,12 @@
 package isi.dan.msclientes.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import dan.common.web.ParametrosConsulta;
 import isi.dan.msclientes.aop.LogExecutionTime;
 import isi.dan.msclientes.dto.ContextoPedidoDTO;
 import isi.dan.msclientes.dto.ImportResult;
@@ -32,18 +34,22 @@ public class ClienteController {
 
     @GetMapping
     @LogExecutionTime
-    public List<Cliente> getAll(
+    public ResponseEntity<List<Cliente>> getAll(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
             @RequestHeader(value = "X-User-Rol", required = false) String rol,
             @RequestHeader(value = "X-User-ClienteId", required = false) Integer clienteId) {
         if (isCliente(rol)) {
-            if (clienteId == null) {
-                return List.of();
-            }
-            return clienteService.findById(clienteId)
-                    .map(cliente -> List.of(cliente))
-                    .orElseGet(List::of);
+            List<Cliente> propio = clienteId == null ? List.of()
+                    : clienteService.findById(clienteId).map(cliente -> List.of(cliente)).orElseGet(List::of);
+            return conTotal(propio, propio.size());
         }
-        return clienteService.findAll();
+        Page<Cliente> resultado = clienteService.findAll(page, size);
+        return conTotal(resultado.getContent(), resultado.getTotalElements());
+    }
+
+    private static <T> ResponseEntity<List<T>> conTotal(List<T> contenido, long total) {
+        return ResponseEntity.ok().header(ParametrosConsulta.CABECERA_TOTAL, String.valueOf(total)).body(contenido);
     }
 
     @GetMapping("/{id}")

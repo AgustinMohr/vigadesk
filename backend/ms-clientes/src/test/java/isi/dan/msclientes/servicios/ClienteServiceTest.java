@@ -18,6 +18,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import isi.dan.msclientes.dao.ClienteRepository;
@@ -60,10 +62,30 @@ class ClienteServiceTest {
     }
 
     @Test
-    void findAll_ShouldReturnAllClientes() {
-        when(clienteRepository.findByHabilitadoTrue()).thenReturn(Collections.singletonList(cliente));
+    void findAll_ShouldPassPageAndSizeSortedById() {
+        when(clienteRepository.findByHabilitadoTrue(any(Pageable.class))).thenReturn(new PageImpl<>(Collections.singletonList(cliente)));
 
-        List<Cliente> result = clienteService.findAll();
+        clienteService.findAll(3, 25);
+
+        org.mockito.ArgumentCaptor<Pageable> captor = org.mockito.ArgumentCaptor.forClass(Pageable.class);
+        org.mockito.Mockito.verify(clienteRepository).findByHabilitadoTrue(captor.capture());
+        assertThat(captor.getValue().getPageNumber()).isEqualTo(3);
+        assertThat(captor.getValue().getPageSize()).isEqualTo(25);
+        assertThat(captor.getValue().getSort().getOrderFor("id")).isNotNull();
+    }
+
+    @Test
+    void findAll_ParametrosInvalidos_ShouldThrowIllegalArgument() {
+        assertThatThrownBy(() -> clienteService.findAll(0, 101)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> clienteService.findAll(0, 0)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> clienteService.findAll(-1, 10)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void findAll_ShouldReturnAllClientes() {
+        when(clienteRepository.findByHabilitadoTrue(any(Pageable.class))).thenReturn(new PageImpl<>(Collections.singletonList(cliente)));
+
+        List<Cliente> result = clienteService.findAll(null, null).getContent();
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getNombre()).isEqualTo("Test Cliente");

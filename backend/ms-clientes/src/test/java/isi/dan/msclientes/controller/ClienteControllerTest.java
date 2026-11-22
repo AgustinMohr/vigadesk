@@ -13,6 +13,7 @@ import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -49,12 +50,23 @@ public class ClienteControllerTest {
 
     @Test
     void testGetAll() throws Exception {
-        Mockito.when(clienteService.findAll()).thenReturn(Collections.singletonList(cliente));
+        Mockito.when(clienteService.findAll(null, null)).thenReturn(new PageImpl<>(Collections.singletonList(cliente)));
 
         mockMvc.perform(get("/api/clientes"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(header().string("X-Total-Count", "1"))
                 .andExpect(jsonPath("$[0].nombre").value("Test Cliente"));
+    }
+
+    @Test
+    void testGetAll_TamanioInvalido_ShouldReturn400() throws Exception {
+        Mockito.when(clienteService.findAll(null, 500))
+                .thenThrow(new IllegalArgumentException("size debe estar entre 1 y 100"));
+
+        mockMvc.perform(get("/api/clientes").param("size", "500"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("size debe estar entre 1 y 100"));
     }
 
     @Test
