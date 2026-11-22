@@ -4,7 +4,7 @@
 
 **Plataforma distribuida de gestión de clientes, obras, productos y pedidos para una empresa de materiales de construcción.**
 
-Microservicios · Persistencia políglota · JWT y roles · Mensajería con RabbitMQ · Observabilidad con Prometheus y Grafana
+Microservicios · Persistencia políglota · JWT y roles · Observabilidad con Prometheus y Grafana
 
 ![Java](https://img.shields.io/badge/Java-17-ED8B00?logo=openjdk&logoColor=white)
 ![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.2.5-6DB33F?logo=springboot&logoColor=white)
@@ -16,7 +16,6 @@ Microservicios · Persistencia políglota · JWT y roles · Mensajería con Rabb
 ![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?logo=mysql&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-8.3-47A248?logo=mongodb&logoColor=white)
-![RabbitMQ](https://img.shields.io/badge/RabbitMQ-3.13-FF6600?logo=rabbitmq&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker_Compose-2496ED?logo=docker&logoColor=white)
 ![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?logo=prometheus&logoColor=white)
 ![Grafana](https://img.shields.io/badge/Grafana-F46800?logo=grafana&logoColor=white)
@@ -82,7 +81,6 @@ flowchart LR
         MONGO[(MongoDB)]
     end
 
-    RABBIT{{RabbitMQ}}
 
     HAP -- "UI" --> NEXT
     NEXT --- BFF
@@ -98,7 +96,6 @@ flowchart LR
 
     PED -- "Feign" --> CLI
     PED -- "Feign" --> PRO
-    RABBIT -- "stock-update-queue / stock-return-queue" --> PRO
 
     CLI -. registro .-> EU
     PRO -. registro .-> EU
@@ -115,7 +112,6 @@ flowchart LR
 | **Spring Cloud Gateway** | Valida el JWT, aplica autorización por rol, inyecta los headers `X-User-*` y resuelve el destino con `lb://` sobre Eureka. |
 | **Eureka** | Registro de servicios. Los nombres `ms-clientes`, `ms-productos` y `ms-pedidos` son el contrato de descubrimiento. |
 | **Microservicios** | Cada uno es dueño de su base de datos y no accede a la de otro. |
-| **RabbitMQ** | Declara las colas `stock-update-queue` y `stock-return-queue` y sus consumidores en `ms-productos`. La reserva y la liberación de stock hoy son síncronas por Feign (ver [Comunicación asíncrona](#comunicación-asíncrona-rabbitmq)). |
 | **Prometheus / Grafana** | Recolección y visualización de métricas de Actuator. |
 
 **Flujo de una petición:** navegador → HAProxy → Next.js (página) → BFF `/api/*` → HAProxy → Gateway (valida JWT) → microservicio → su base de datos.
@@ -153,7 +149,6 @@ Todos los servicios Spring escuchan en el **puerto interno 8080** (Eureka en 876
 - **Productos:** CRUD, búsqueda, importación masiva (`POST /api/productos/import`) y descuentos por producto.
 - **Catálogo:** categorías (`GET /api/categorias`) y unidades de medida (`UNIDAD`, `BOLSA`, `KG`, `METRO`, `LITRO`…).
 - **Stock:** `stock/check`, `stock/reserve`, `stock/release` y `provision` (reposición).
-- **Mensajería:** consume `stock-update-queue` (descuento) y `stock-return-queue` (devolución).
 - **Migraciones:** Flyway.
 
 ### ms-pedidos
@@ -205,22 +200,11 @@ Flujo principal: `RECIBIDO → ACEPTADO → EN_PREPARACION → ENTREGA_PARCIAL �
 
 Hoy la **reserva y liberación de stock** al crear, cancelar o borrar un pedido se hace con estas llamadas Feign.
 
-### Comunicación asíncrona (RabbitMQ)
+### Mensajería
 
-```mermaid
-flowchart LR
-    PED[ms-pedidos<br/>declara las colas] --> Q1[(stock-update-queue)]
-    PED --> Q2[(stock-return-queue)]
-    Q1 -- "@RabbitListener" --> PRO[ms-productos]
-    Q2 -- "@RabbitListener" --> PRO
-    PRO --> PG[(PostgreSQL)]
-```
+El sistema **no usa un broker de mensajes**. La reserva y la liberación de stock son llamadas síncronas por Feign, y así el resultado (stock suficiente o no) se conoce al crear el pedido.
 
-- `ms-pedidos` declara las colas durables `stock-update-queue` y `stock-return-queue` (`RabbitMQConfig`).
-- `ms-productos` las consume con `@RabbitListener`. El mensaje es un texto `idProducto;cantidad`.
-- Si el mensaje es inválido o el stock no alcanza, se rechaza sin reencolar (`AmqpRejectAndDontRequeueException`).
-
-> **Nota:** en el código actual de `ms-pedidos` no hay un publicador que envíe a esas colas. El consumidor y las colas están implementados. La reserva y liberación pasan por Feign.
+> **Decisión R2.12 (2026-11):** se retiró RabbitMQ. Nadie publicaba en las colas `stock-update-queue` y `stock-return-queue`, y sus consumidores descontaban stock sin idempotencia, lo que era un segundo camino para alterarlo. Si una función futura necesita eventos de dominio (por ejemplo notificaciones), se vuelve a incorporar un broker con mensajes JSON, `messageId`, cola de mensajes fallidos y consumidor idempotente. Detalle en `openspec/changes/archive/2026-11-22-retirar-rabbitmq/`.
 
 ### Persistencia políglota
 
@@ -299,9 +283,9 @@ Next.js 16 (App Router), React 19, TypeScript 5, Tailwind CSS 4 y React Compiler
 ### Docker
 
 - **Dockerfiles multietapa** (dependencias → build → runtime) con usuario no-root y `HEALTHCHECK`.
-- **`docker-compose.yml`:** RabbitMQ, Eureka, las tres bases, los tres microservicios, Gateway, Prometheus y Grafana.
+- **`docker-compose.yml`:** Eureka, las tres bases, los tres microservicios, Gateway, Prometheus y Grafana.
 - **`docker-compose.frontend.yml`:** Next.js y HAProxy.
-- **Arranque ordenado:** los microservicios usan `depends_on` con `condition: service_healthy` sobre RabbitMQ y su base de datos.
+- **Arranque ordenado:** los microservicios usan `depends_on` con `condition: service_healthy` sobre su base de datos.
 - **Red:** ambos archivos usan la red externa `backend-net`, que se crea una vez.
 - **`docker-compose.prod.yml`:** overlay que no publica puertos de bases, broker, microservicios, Eureka ni observabilidad.
 
@@ -348,13 +332,12 @@ Reemplazá todos los valores `__SET__` y `__SET_MIN_64_CHARS__`. Variables defin
 | MySQL | `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD` |
 | PostgreSQL | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` |
 | MongoDB | `MONGO_INITDB_ROOT_USERNAME`, `MONGO_INITDB_ROOT_PASSWORD` |
-| RabbitMQ | `RABBITMQ_USERNAME`, `RABBITMQ_PASSWORD` |
 | Seguridad | `JWT_SECRET` (mínimo 64 caracteres), `JWT_EXPIRATION_SECONDS` |
 | Grafana | `GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD` |
 | Datos del PDF | `CORRALON_NOMBRE`, `CORRALON_CUIT`, `CORRALON_DIRECCION`, `CORRALON_TELEFONO` |
 | Frontend | `HAPROXY_URL`, `SSR_FETCH_URL` |
 
-> **Importante:** `MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD`, `POSTGRES_PASSWORD`, `MONGO_INITDB_ROOT_PASSWORD`, `RABBITMQ_USERNAME`, `RABBITMQ_PASSWORD`, `JWT_SECRET` y `GRAFANA_ADMIN_PASSWORD` son obligatorias. Sin ellas `docker compose` aborta. No uses los mismos valores fuera de desarrollo local.
+> **Importante:** `MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD`, `POSTGRES_PASSWORD`, `MONGO_INITDB_ROOT_PASSWORD`, `JWT_SECRET` y `GRAFANA_ADMIN_PASSWORD` son obligatorias. Sin ellas `docker compose` aborta. No uses los mismos valores fuera de desarrollo local.
 
 ### 3. Crear la red
 
@@ -384,12 +367,11 @@ docker compose -f docker-compose.frontend.yml up -d --build
 | Aplicación (HAProxy) | http://localhost/ |
 | API Gateway | http://localhost:3080 |
 | Eureka | http://localhost:8761 |
-| RabbitMQ Management | http://localhost:15672 |
 | Prometheus | http://localhost:9090 |
 | Grafana | http://localhost:3000 |
 | `ms-clientes` / `ms-productos` / `ms-pedidos` | http://localhost:6080 / :6180 / :6280 |
 
-Las credenciales de RabbitMQ y Grafana son las que definiste en `.env`.
+Las credenciales de Grafana son las que definiste en `.env`.
 
 En el primer arranque, `ms-clientes` carga datos de ejemplo de desarrollo mediante `DataInitializer`, incluido un usuario `ADMIN`. Sus credenciales están en ese archivo. Cambialas antes de cualquier uso real.
 
@@ -495,7 +477,6 @@ TypeScript strict, ESLint con `neostandard` y React Compiler.
 | Backend | Java 17, Spring Boot 3.2.5, Spring Cloud 2023.0.2 (Gateway, Eureka, OpenFeign), Spring Data JPA, Spring Data MongoDB, Spring AMQP, Flyway, Lombok, jjwt 0.12.6, OpenPDF 1.3.30 |
 | Frontend | Next.js 16, React 19, TypeScript 5, Tailwind CSS 4 |
 | Datos | MySQL 8.0, PostgreSQL 17, MongoDB 8.3 |
-| Mensajería | RabbitMQ 3.13 |
 | Infraestructura | Docker, Docker Compose, HAProxy 3.0 |
 | Observabilidad | Spring Actuator, Micrometer, Prometheus 3.14, Grafana 11.3 |
 | Testing | JUnit 5, Mockito, AssertJ, `@WebMvcTest`, Testcontainers, JaCoCo 0.8.12 |
