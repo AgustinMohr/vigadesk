@@ -1,7 +1,8 @@
 package isi.dan.ms.pedidos.exception;
 
-public class ForbiddenException extends RuntimeException {
+import dan.common.error.AccesoDenegadoException;
 
+public class ForbiddenException extends AccesoDenegadoException {
     public ForbiddenException(String message) {
         super(message);
     }

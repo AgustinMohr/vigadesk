@@ -1,7 +1,8 @@
 package isi.dan.ms.pedidos.exception;
 
-public class ConflictException extends RuntimeException {
+import dan.common.error.ConflictoException;
 
+public class ConflictException extends ConflictoException {
     public ConflictException(String message) {
         super(message);
     }
