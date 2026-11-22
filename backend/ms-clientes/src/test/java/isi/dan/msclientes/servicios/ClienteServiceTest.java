@@ -239,7 +239,7 @@ class ClienteServiceTest {
 
         assertThatThrownBy(() -> clienteService.checkSaldo(99, BigDecimal.valueOf(50000)))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("Cliente no encontrado: 99");
+                .hasMessageContaining("Cliente 99 no encontrado");
     }
 
     @Test
@@ -257,7 +257,7 @@ class ClienteServiceTest {
 
         assertThatThrownBy(() -> clienteService.getMaximoDescubierto(99))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("Cliente no encontrado: 99");
+                .hasMessageContaining("Cliente 99 no encontrado");
     }
 
     @Test

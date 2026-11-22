@@ -13,6 +13,7 @@ import isi.dan.msclientes.dao.ClienteRepository;
 import isi.dan.msclientes.dao.ObraRepository;
 import isi.dan.msclientes.dao.PagoRepository;
 import isi.dan.msclientes.dto.ContextoPedidoDTO;
+import isi.dan.msclientes.exception.ClienteNotFoundException;
 import isi.dan.msclientes.model.Cliente;
 import isi.dan.msclientes.model.Pago;
 
@@ -86,7 +87,7 @@ public class ClienteService {
             return false;
         }
         Cliente cliente = clienteRepository.findByIdAndHabilitadoTrue(idCliente)
-                .orElseThrow(() -> new RuntimeException("Cliente no encontrado: " + idCliente));
+                .orElseThrow(() -> new ClienteNotFoundException("Cliente " + idCliente + " no encontrado"));
         BigDecimal credito = maximoDescubiertoDe(cliente)
                 .add(totalPagos(idCliente))
                 .subtract(saldoInicialDe(cliente));
@@ -95,7 +96,7 @@ public class ClienteService {
 
     public BigDecimal getMaximoDescubierto(Integer idCliente) {
         Cliente cliente = clienteRepository.findByIdAndHabilitadoTrue(idCliente)
-                .orElseThrow(() -> new RuntimeException("Cliente no encontrado: " + idCliente));
+                .orElseThrow(() -> new ClienteNotFoundException("Cliente " + idCliente + " no encontrado"));
         return maximoDescubiertoDe(cliente);
     }
 

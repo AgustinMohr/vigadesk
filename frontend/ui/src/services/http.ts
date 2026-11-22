@@ -1,4 +1,4 @@
-import { ApiError } from '@/lib/http/api-error';
+import { ApiError, parseErrorBody } from '@/lib/http/api-error';
 
 // ==============================================================
 // CLIENTE HTTP GENÉRICO (la base de todos los services)
@@ -109,6 +109,34 @@ async function parseErrorDetails (response: Response): Promise<unknown> {
 }
 
 /**
+ * Arma el ApiError de una respuesta no OK. Los microservicios responden con
+ * `{ timestamp, status, code, message, path, errors? }`:
+ *  - 4xx (salvo 401): se muestra el `message` del servidor, que es texto pensado para el usuario
+ *    (y, si es una validación, los errores por campo).
+ *  - 401 y 5xx: texto genérico por status; un 5xx nunca trae detalle interno y no se muestra.
+ * Si el cuerpo no tiene ese formato (por ejemplo un error del proxy), se usa el genérico.
+ *
+ * @param {number} status - Código HTTP de la respuesta.
+ * @param {string} path - Ruta que falló.
+ * @param {unknown} details - Cuerpo JSON de la respuesta, si lo había.
+ * @returns {ApiError} El error estructurado.
+ */
+function buildApiError (status: number, path: string, details: unknown): ApiError {
+  const body = parseErrorBody(details);
+  const usarMensajeDelServidor = status >= 400 && status < 500 && status !== 401 && body.message;
+  const message = usarMensajeDelServidor
+    ? withFieldErrors(body.message!, body.errors)
+    : describeStatus(status, path);
+  return new ApiError(status, message, details, path, body.code, body.errors);
+}
+
+function withFieldErrors (message: string, errors?: Record<string, string>): string {
+  if (!errors) return message;
+  const lista = Object.entries(errors).map(([campo, detalle]) => `${campo}: ${detalle}`);
+  return lista.length > 0 ? `${message} (${lista.join('; ')})` : message;
+}
+
+/**
  * Función central asíncrona que realiza las peticiones HTTP mediante `fetch`.
  * Utiliza Genéricos `<T>` para tipar automáticamente el JSON que devuelve el servidor.
  *
@@ -172,7 +200,7 @@ async function request<T> (path: string, options?: RequestInit): Promise<T> {
   // mostrar el mensaje amigable con getErrorMessage.
   if (!response.ok) {
     const details = await parseErrorDetails(response);
-    throw new ApiError(response.status, describeStatus(response.status, path), details, path);
+    throw buildApiError(response.status, path, details);
   }
 
   // 6. Deserialización del cuerpo de la respuesta:
@@ -232,7 +260,7 @@ export const http = {
     }
     if (!response.ok) {
       const details = await parseErrorDetails(response);
-      throw new ApiError(response.status, describeStatus(response.status, path), details, path);
+      throw buildApiError(response.status, path, details);
     }
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
@@ -264,7 +292,7 @@ export const http = {
     }
     if (!response.ok) {
       const details = await parseErrorDetails(response);
-      throw new ApiError(response.status, describeStatus(response.status, path), details, path);
+      throw buildApiError(response.status, path, details);
     }
     return response.json() as Promise<T>;
   },

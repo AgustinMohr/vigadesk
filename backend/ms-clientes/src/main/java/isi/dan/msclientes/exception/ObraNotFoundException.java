@@ -1,7 +1,8 @@
 package isi.dan.msclientes.exception;
 
-public class ObraNotFoundException extends RuntimeException {
+import dan.common.error.RecursoNoEncontradoException;
 
+public class ObraNotFoundException extends RecursoNoEncontradoException {
     public ObraNotFoundException(String message) {
         super(message);
     }

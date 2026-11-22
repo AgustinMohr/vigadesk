@@ -113,7 +113,7 @@ class ObraServiceTest {
 
         assertThatThrownBy(() -> obraService.save(obra))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("Cliente no encontrado: 99");
+                .hasMessageContaining("Cliente 99 no encontrado");
     }
 
     @Test
@@ -188,7 +188,7 @@ class ObraServiceTest {
 
         assertThatThrownBy(() -> obraService.asignarCliente(99, 1))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("Obra no encontrada: 99");
+                .hasMessageContaining("Obra 99 no encontrada");
     }
 
     @Test
@@ -198,7 +198,7 @@ class ObraServiceTest {
 
         assertThatThrownBy(() -> obraService.asignarCliente(1, 99))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("Cliente no encontrado: 99");
+                .hasMessageContaining("Cliente 99 no encontrado");
     }
 
     @Test
@@ -251,6 +251,6 @@ class ObraServiceTest {
 
         assertThatThrownBy(() -> obraService.cambiarEstado(99, EstadoObra.FINALIZADA))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("Obra no encontrada: 99");
+                .hasMessageContaining("Obra 99 no encontrada");
     }
 }

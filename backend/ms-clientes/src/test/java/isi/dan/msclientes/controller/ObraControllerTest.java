@@ -123,11 +123,11 @@ public class ObraControllerTest {
     }
 
     @Test
-    void testAsignarCliente_BadRequest() throws Exception {
-        Mockito.when(obraService.asignarCliente(99, 1)).thenThrow(new RuntimeException("Not found"));
+    void testAsignarCliente_ObraInexistente_ShouldReturnNotFound() throws Exception {
+        Mockito.when(obraService.asignarCliente(99, 1)).thenThrow(new isi.dan.msclientes.exception.ObraNotFoundException("Obra 99 no encontrada"));
 
         mockMvc.perform(put("/api/obras/99/asignar-cliente/1"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -151,14 +151,14 @@ public class ObraControllerTest {
     }
 
     @Test
-    void testCambiarEstado_ServiceError() throws Exception {
+    void testCambiarEstado_ReglaDeNegocio_ShouldReturnUnprocessable() throws Exception {
         Mockito.when(obraService.cambiarEstado(1, EstadoObra.HABILITADA))
-                .thenThrow(new RuntimeException("No se puede habilitar"));
+                .thenThrow(new dan.common.error.SolicitudNoProcesableException("No se puede habilitar"));
 
         mockMvc.perform(patch("/api/obras/1/estado")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"estado\": \"HABILITADA\"}"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isUnprocessableEntity());
     }
 
     @Test
@@ -180,14 +180,14 @@ public class ObraControllerTest {
     }
 
     @Test
-    void testCreate_ServiceError() throws Exception {
+    void testCreate_ClienteInexistente_ShouldReturnNotFound() throws Exception {
         Mockito.when(obraService.save(Mockito.any(Obra.class)))
-                .thenThrow(new RuntimeException("Cliente no encontrado: 99"));
+                .thenThrow(new isi.dan.msclientes.exception.ClienteNotFoundException("Cliente 99 no encontrado"));
 
         mockMvc.perform(post("/api/obras")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(asJsonString(obra)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isNotFound());
     }
 
     @Test

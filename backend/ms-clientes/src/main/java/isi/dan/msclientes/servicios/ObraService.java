@@ -6,6 +6,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import isi.dan.msclientes.dao.ClienteRepository;
 import isi.dan.msclientes.dao.ObraRepository;
+import dan.common.error.SolicitudNoProcesableException;
+import isi.dan.msclientes.exception.ClienteNotFoundException;
+import isi.dan.msclientes.exception.ObraNotFoundException;
 import isi.dan.msclientes.model.Cliente;
 import isi.dan.msclientes.model.EstadoObra;
 import isi.dan.msclientes.model.Obra;
@@ -36,7 +39,7 @@ public class ObraService {
         if (obra.getCliente() != null) {
             Integer clienteId = obra.getCliente().getId();
             Cliente cliente = clienteRepository.findByIdAndHabilitadoTrue(clienteId)
-                    .orElseThrow(() -> new RuntimeException("Cliente no encontrado: " + clienteId));
+                    .orElseThrow(() -> new ClienteNotFoundException("Cliente " + clienteId + " no encontrado"));
             obra.setCliente(cliente);
             obra.setEstado(resolverEstadoInicial(cliente));
         }
@@ -66,9 +69,9 @@ public class ObraService {
     @Transactional
     public Obra asignarCliente(Integer obraId, Integer clienteId) {
         Obra obra = obraRepository.findByIdAndHabilitadoTrue(obraId)
-                .orElseThrow(() -> new RuntimeException("Obra no encontrada: " + obraId));
+                .orElseThrow(() -> new ObraNotFoundException("Obra " + obraId + " no encontrada"));
         Cliente cliente = clienteRepository.findByIdAndHabilitadoTrue(clienteId)
-                .orElseThrow(() -> new RuntimeException("Cliente no encontrado: " + clienteId));
+                .orElseThrow(() -> new ClienteNotFoundException("Cliente " + clienteId + " no encontrado"));
         obra.setCliente(cliente);
         obra.setEstado(resolverEstadoInicial(cliente));
         return obraRepository.save(obra);
@@ -77,10 +80,10 @@ public class ObraService {
     @Transactional
     public Obra cambiarEstado(Integer obraId, EstadoObra nuevoEstado) {
         Obra obra = obraRepository.findByIdAndHabilitadoTrue(obraId)
-                .orElseThrow(() -> new RuntimeException("Obra no encontrada: " + obraId));
+                .orElseThrow(() -> new ObraNotFoundException("Obra " + obraId + " no encontrada"));
 
         if (obra.getCliente() == null) {
-            throw new RuntimeException("La obra debe tener un cliente asignado para cambiar su estado");
+            throw new SolicitudNoProcesableException("La obra debe tener un cliente asignado para cambiar su estado");
         }
 
         switch (nuevoEstado) {
@@ -97,7 +100,7 @@ public class ObraService {
                 break;
 
             default:
-                throw new RuntimeException("Estado no valido: " + nuevoEstado);
+                throw new IllegalArgumentException("Estado no valido: " + nuevoEstado);
         }
 
         return obraRepository.save(obra);
