@@ -1,19 +1,19 @@
 package dan.ms.tp.dangateway.security;
 
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 
+import dan.common.security.AccessMatrix;
+import dan.common.security.PathNormalizer;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
@@ -28,8 +28,6 @@ import reactor.core.publisher.Mono;
 @Component
 public class JwtAuthFilter implements GlobalFilter, Ordered {
 
-    private static final List<String> SERVICE_PREFIXES = List.of("/clientes", "/productos", "/pedidos");
-
     private final String secret;
 
     public JwtAuthFilter(@Value("${jwt.secret}") String secret) {
@@ -40,7 +38,7 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String path = exchange.getRequest().getPath().value();
 
-        if (isWhitelisted(path)) {
+        if (AccessMatrix.isPublicAtGateway(path)) {
             return chain.filter(exchange);
         }
 
@@ -64,7 +62,7 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             }
 
             String rol = claims.get("rol", String.class);
-            if (!isAuthorized(exchange.getRequest().getMethod(), stripServicePrefix(canonicalPath), rol)) {
+            if (!AccessMatrix.isAuthorized(rol, exchange.getRequest().getMethod().name(), AccessMatrix.sinPrefijoDeServicio(canonicalPath))) {
                 return forbidden(exchange);
             }
 
@@ -89,81 +87,6 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
     @Override
     public int getOrder() {
         return -100;
-    }
-
-    /**
-     * Routes that do not require authentication.
-     */
-    private boolean isWhitelisted(String path) {
-        return isHealthCheck(path) || isLoginPath(path);
-    }
-
-    /**
-     * Only the liveness endpoint is exposed without authentication, so HAProxy,
-     * Prometheus and Eureka can probe the gateway. Everything else under
-     * {@code /actuator/*} stays behind auth.
-     */
-    private boolean isHealthCheck(String path) {
-        return path.equals("/actuator/health");
-    }
-
-    /**
-     * The login endpoint is the only public route. Match the exact paths the
-     * gateway can receive: direct and prefixed by the clients service route.
-     */
-    private boolean isLoginPath(String path) {
-        return path.equals("/api/usuarios/login") || path.equals("/clientes/api/usuarios/login");
-    }
-
-    /**
-     * Autorizacion por rol. El gateway es la unica puerta de entrada del
-     * trafico de usuarios; los microservicios confian en los headers X-User-*.
-     * ADMIN puede todo. CLIENTE/GUEST solo lectura propia y alta de pedidos.
-     */
-    private boolean isAuthorized(HttpMethod method, String normalized, String rol) {
-        if ("ADMIN".equalsIgnoreCase(rol)) {
-            return true;
-        }
-        if (normalized.startsWith("/actuator")) {
-            return false;
-        }
-        if (normalized.startsWith("/api/usuarios")) {
-            return false;
-        }
-        if ("GUEST".equalsIgnoreCase(rol)) {
-            // El invitado solo puede ver el catalogo publico. Nunca clientes,
-            // obras, pedidos ni pagos.
-            return isSafeMethod(method)
-                    && (normalized.startsWith("/api/productos") || normalized.startsWith("/api/categorias"));
-        }
-        if (isSafeMethod(method)) {
-            return true;
-        }
-        return HttpMethod.POST.equals(method)
-                && (normalized.equals("/api/pedidos") || normalized.equals("/api/pedidos/"));
-    }
-
-    private boolean isSafeMethod(HttpMethod method) {
-        return HttpMethod.GET.equals(method)
-                || HttpMethod.HEAD.equals(method)
-                || HttpMethod.OPTIONS.equals(method);
-    }
-
-    /**
-     * Las rutas /clientes/**, /productos/** y /pedidos/** llegan al microservicio sin
-     * el prefijo (RewritePath). Se aplican las mismas reglas que al path sin prefijo,
-     * incluido /actuator, que un CLIENTE o GUEST nunca debe alcanzar por esa via.
-     */
-    private String stripServicePrefix(String path) {
-        for (String prefix : SERVICE_PREFIXES) {
-            if (path.equals(prefix)) {
-                return "/";
-            }
-            if (path.startsWith(prefix + "/")) {
-                return path.substring(prefix.length());
-            }
-        }
-        return path;
     }
 
     private Mono<Void> badRequest(ServerWebExchange exchange) {
