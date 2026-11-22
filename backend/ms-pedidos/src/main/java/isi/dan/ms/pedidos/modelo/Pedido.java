@@ -18,6 +18,9 @@ import java.util.List;
 // uno sparse compuesto igual indexaria los pedidos sin clave y los repetiria por cliente.
 @CompoundIndex(name = "cliente_idempotencyKey", def = "{'cliente._id': 1, 'idempotencyKey': 1}", unique = true,
         partialFilter = "{'idempotencyKey': {'$type': 'string'}}")
+// Indices de las busquedas: por cliente y estado (listado del cliente, consumo de credito) y por fecha (orden).
+@CompoundIndex(name = "cliente_estado", def = "{'cliente._id': 1, 'estado': 1}")
+@CompoundIndex(name = "fecha_desc", def = "{'fecha': -1}")
 @Document(collection = "pedidos")
 @Data
 @NoArgsConstructor

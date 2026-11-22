@@ -11,9 +11,6 @@ import isi.dan.ms.pedidos.modelo.Pedido;
 
 public interface PedidoRepository extends MongoRepository<Pedido, String> {
 
-    @Query("{'habilitado': {'$ne': false}}")
-    List<Pedido> findAllActivos();
-
     @Query("{'_id': ?0, 'habilitado': {'$ne': false}}")
     Optional<Pedido> findByIdActivo(String id);
 

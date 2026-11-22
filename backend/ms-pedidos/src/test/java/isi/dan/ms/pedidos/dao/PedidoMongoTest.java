@@ -158,10 +158,68 @@ class PedidoMongoTest {
         pedidoRepository.save(pedido(1, "Constructora Norte", EstadoPedido.CANCELADO, null));
         pedidoRepository.save(pedido(2, "Obras Sur", EstadoPedido.ACEPTADO, null));
 
-        assertThat(pedidoService.searchPedidos("norte", null, null)).hasSize(2);
-        assertThat(pedidoService.searchPedidos("norte", EstadoPedido.ACEPTADO, null)).hasSize(1);
-        assertThat(pedidoService.searchPedidos(null, EstadoPedido.ACEPTADO, 2)).hasSize(1);
-        assertThat(pedidoService.searchPedidos(null, null, null)).hasSize(3);
+        assertThat(pedidoService.buscarPedidos("norte", null, null, null, null).getContent()).hasSize(2);
+        assertThat(pedidoService.buscarPedidos("norte", EstadoPedido.ACEPTADO, null, null, null).getContent()).hasSize(1);
+        assertThat(pedidoService.buscarPedidos(null, EstadoPedido.ACEPTADO, 2, null, null).getContent()).hasSize(1);
+        assertThat(pedidoService.buscarPedidos(null, null, null, null, null).getContent()).hasSize(3);
+    }
+
+    @Test
+    void buscarPedidos_NombreConMetacaracteresRegex_ShouldMatchLiterally() {
+        pedidoRepository.save(pedido(1, "Constructora (Norte) S.A.", EstadoPedido.ACEPTADO, null));
+        pedidoRepository.save(pedido(2, "Constructora Norte SXA", EstadoPedido.ACEPTADO, null));
+
+        // sin escapar, "." coincidiria con cualquier caracter y los parentesis serian un grupo
+        assertThat(pedidoService.buscarPedidos("(Norte) S.A.", null, null, null, null).getContent())
+                .extracting(p -> p.getCliente().getId()).containsExactly(1);
+        assertThat(pedidoService.buscarPedidos(".*", null, null, null, null).getContent()).isEmpty();
+    }
+
+    @Test
+    void buscarPedidos_RegexCatastrofica_ShouldReturnQuicklyWithoutMatches() {
+        pedidoRepository.save(pedido(1, "a".repeat(60) + "!", EstadoPedido.ACEPTADO, null));
+
+        long inicio = System.nanoTime();
+        var resultado = pedidoService.buscarPedidos("(a+)+$", null, null, null, null);
+        long ms = (System.nanoTime() - inicio) / 1_000_000;
+
+        assertThat(resultado.getContent()).isEmpty();
+        assertThat(ms).as("tiempo de la busqueda (ms)").isLessThan(2_000);
+    }
+
+    @Test
+    void buscarPedidos_ShouldPaginateAndReportTheTotal() {
+        for (int i = 0; i < 25; i++) {
+            pedidoRepository.save(pedido(1, "Constructora Norte", EstadoPedido.ACEPTADO, null));
+        }
+
+        var primera = pedidoService.buscarPedidos(null, null, null, 0, 10);
+        var tercera = pedidoService.buscarPedidos(null, null, null, 2, 10);
+        var fueraDeRango = pedidoService.buscarPedidos(null, null, null, 5, 10);
+
+        assertThat(primera.getContent()).hasSize(10);
+        assertThat(primera.getTotalElements()).isEqualTo(25);
+        assertThat(tercera.getContent()).hasSize(5);
+        assertThat(fueraDeRango.getContent()).isEmpty();
+        assertThat(primera.getContent()).extracting(Pedido::getId)
+                .doesNotContainAnyElementsOf(tercera.getContent().stream().map(Pedido::getId).toList());
+    }
+
+    @Test
+    void indices_BusquedaPorClienteYEstadoYOrdenPorFecha_ShouldUseAnIndex() {
+        pedidoRepository.save(pedido(1, "Constructora Norte", EstadoPedido.ACEPTADO, null));
+        var coleccion = mongoTemplate.getCollection("pedidos");
+
+        var porClienteYEstado = coleccion.find(new org.bson.Document("cliente._id", 1).append("estado", "ACEPTADO"))
+                .explain().toJson();
+        var porFecha = coleccion.find(new org.bson.Document()).sort(new org.bson.Document("fecha", -1))
+                .explain().toJson();
+
+        assertThat(porClienteYEstado).contains("IXSCAN").doesNotContain("COLLSCAN");
+        assertThat(porFecha).contains("IXSCAN").contains("fecha_desc").doesNotContain("COLLSCAN");
+        assertThat(mongoTemplate.indexOps(Pedido.class).getIndexInfo())
+                .extracting(org.springframework.data.mongodb.core.index.IndexInfo::getName)
+                .contains("cliente_estado", "fecha_desc");
     }
 
     @Test

@@ -77,12 +77,36 @@ class PedidoControllerTest {
 
     @Test
     void testGetAll() throws Exception {
-        Mockito.when(pedidoService.getAllPedidos()).thenReturn(Collections.singletonList(pedido));
+        Mockito.when(pedidoService.buscarPedidos(null, null, null, null, null)).thenReturn(pagina(pedido));
 
         mockMvc.perform(get("/api/pedidos"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(header().string("X-Total-Count", "1"))
                 .andExpect(jsonPath("$[0].id").value("pedido-1"));
+    }
+
+    private static org.springframework.data.domain.Page<Pedido> pagina(Pedido... pedidos) {
+        return new org.springframework.data.domain.PageImpl<>(java.util.List.of(pedidos));
+    }
+
+    @Test
+    void testSearch_PasaPageYSize() throws Exception {
+        Mockito.when(pedidoService.buscarPedidos(null, null, null, 2, 10)).thenReturn(pagina(pedido));
+
+        mockMvc.perform(get("/api/pedidos").param("page", "2").param("size", "10"))
+                .andExpect(status().isOk());
+        Mockito.verify(pedidoService).buscarPedidos(null, null, null, 2, 10);
+    }
+
+    @Test
+    void testSearch_ParametroInvalido_ShouldReturn400() throws Exception {
+        Mockito.when(pedidoService.buscarPedidos(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.eq(500)))
+                .thenThrow(new IllegalArgumentException("size debe estar entre 1 y 100"));
+
+        mockMvc.perform(get("/api/pedidos").param("size", "500"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("size debe estar entre 1 y 100"));
     }
 
     @Test
@@ -107,8 +131,8 @@ class PedidoControllerTest {
 
     @Test
     void testSearch() throws Exception {
-        Mockito.when(pedidoService.searchPedidos(Mockito.any(), Mockito.any(), Mockito.any()))
-                .thenReturn(Collections.singletonList(pedido));
+        Mockito.when(pedidoService.buscarPedidos(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any()))
+                .thenReturn(pagina(pedido));
 
         mockMvc.perform(get("/api/pedidos/search")
                 .param("estado", "ENTREGADO")
@@ -185,8 +209,8 @@ class PedidoControllerTest {
 
     @Test
     void testGetAll_Cliente_UsesOwnClienteId() throws Exception {
-        Mockito.when(pedidoService.searchPedidos(null, null, 7))
-                .thenReturn(Collections.singletonList(pedido));
+        Mockito.when(pedidoService.buscarPedidos(null, null, 7, null, null))
+                .thenReturn(pagina(pedido));
 
         mockMvc.perform(get("/api/pedidos")
                 .header("X-User-Rol", "CLIENTE")
@@ -197,8 +221,8 @@ class PedidoControllerTest {
 
     @Test
     void testSearch_Cliente_ForcesOwnClienteId() throws Exception {
-        Mockito.when(pedidoService.searchPedidos(null, EstadoPedido.ENTREGADO, 7))
-                .thenReturn(Collections.singletonList(pedido));
+        Mockito.when(pedidoService.buscarPedidos(null, EstadoPedido.ENTREGADO, 7, null, null))
+                .thenReturn(pagina(pedido));
 
         mockMvc.perform(get("/api/pedidos/search")
                 .param("estado", "ENTREGADO")
@@ -207,7 +231,7 @@ class PedidoControllerTest {
                 .header("X-User-ClienteId", "7"))
                 .andExpect(status().isOk());
 
-        Mockito.verify(pedidoService).searchPedidos(null, EstadoPedido.ENTREGADO, 7);
+        Mockito.verify(pedidoService).buscarPedidos(null, EstadoPedido.ENTREGADO, 7, null, null);
     }
 
     @Test

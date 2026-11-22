@@ -29,6 +29,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.data.domain.Page;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Query;
 
@@ -555,15 +556,6 @@ class PedidoServiceTest {
     }
 
     @Test
-    void getAllPedidos_ShouldReturnAll() {
-        when(pedidoRepository.findAllActivos()).thenReturn(Collections.singletonList(pedido));
-
-        List<Pedido> result = pedidoService.getAllPedidos();
-
-        assertThat(result).hasSize(1);
-    }
-
-    @Test
     void getPedidoById_WhenExists_ShouldReturn() {
         when(pedidoRepository.findByIdActivo("1")).thenReturn(Optional.of(pedido));
 
@@ -635,40 +627,59 @@ class PedidoServiceTest {
     }
 
     @Test
-    void searchPedidos_ByClienteId_ShouldReturnPedidos() {
+    void buscarPedidos_ByClienteId_ShouldReturnPedidos() {
         when(mongoTemplate.find(any(Query.class), eq(Pedido.class))).thenReturn(Collections.singletonList(pedido));
+        when(mongoTemplate.count(any(Query.class), eq(Pedido.class))).thenReturn(1L);
 
-        List<Pedido> result = pedidoService.searchPedidos(null, null, 1);
+        Page<Pedido> result = pedidoService.buscarPedidos(null, null, 1, null, null);
 
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).getCliente().getId()).isEqualTo(1);
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        assertThat(result.getContent().get(0).getCliente().getId()).isEqualTo(1);
     }
 
     @Test
-    void searchPedidos_ByEstado_ShouldReturnPedidos() {
+    void buscarPedidos_SinFiltros_ShouldUseDefaultPageAndSortByFechaDesc() {
         when(mongoTemplate.find(any(Query.class), eq(Pedido.class))).thenReturn(Collections.singletonList(pedido));
 
-        List<Pedido> result = pedidoService.searchPedidos(null, EstadoPedido.ENTREGADO, null);
+        pedidoService.buscarPedidos(null, null, null, null, null);
 
-        assertThat(result).hasSize(1);
+        org.mockito.ArgumentCaptor<Query> captor = org.mockito.ArgumentCaptor.forClass(Query.class);
+        verify(mongoTemplate).find(captor.capture(), eq(Pedido.class));
+        assertThat(captor.getValue().getLimit()).isEqualTo(100);
+        assertThat(captor.getValue().getSkip()).isZero();
+        assertThat(captor.getValue().getSortObject().get("fecha")).isEqualTo(-1);
     }
 
     @Test
-    void searchPedidos_ByClienteNombre_ShouldReturnPedidos() {
-        when(mongoTemplate.find(any(Query.class), eq(Pedido.class))).thenReturn(Collections.singletonList(pedido));
+    void buscarPedidos_Pagina_ShouldApplySkipAndLimit() {
+        pedidoService.buscarPedidos(null, EstadoPedido.ENTREGADO, null, 2, 10);
 
-        List<Pedido> result = pedidoService.searchPedidos("Constructora", null, null);
-
-        assertThat(result).hasSize(1);
+        org.mockito.ArgumentCaptor<Query> captor = org.mockito.ArgumentCaptor.forClass(Query.class);
+        verify(mongoTemplate).find(captor.capture(), eq(Pedido.class));
+        assertThat(captor.getValue().getLimit()).isEqualTo(10);
+        assertThat(captor.getValue().getSkip()).isEqualTo(20);
     }
 
     @Test
-    void searchPedidos_SinFiltros_ShouldReturnPedidos() {
-        when(mongoTemplate.find(any(Query.class), eq(Pedido.class))).thenReturn(Collections.singletonList(pedido));
+    void buscarPedidos_NombreConRegex_ShouldBeQuotedAsLiteral() {
+        pedidoService.buscarPedidos("(a+)+$", null, null, null, null);
 
-        List<Pedido> result = pedidoService.searchPedidos(null, null, null);
+        org.mockito.ArgumentCaptor<Query> captor = org.mockito.ArgumentCaptor.forClass(Query.class);
+        verify(mongoTemplate).find(captor.capture(), eq(Pedido.class));
+        java.util.regex.Pattern regex = (java.util.regex.Pattern) captor.getValue().getQueryObject().get("cliente.nombre");
+        assertThat(regex.pattern()).isEqualTo(java.util.regex.Pattern.quote("(a+)+$"));
+    }
 
-        assertThat(result).hasSize(1);
+    @Test
+    void buscarPedidos_ParametrosInvalidos_ShouldThrowIllegalArgument() {
+        assertThatThrownBy(() -> pedidoService.buscarPedidos("x".repeat(101), null, null, null, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> pedidoService.buscarPedidos(null, null, null, 0, 101))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> pedidoService.buscarPedidos(null, null, null, -1, 10))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(mongoTemplate, never()).find(any(Query.class), eq(Pedido.class));
     }
 
     private ContextoPedidoDTO contextoObra(Integer obraClienteId, String estado) {

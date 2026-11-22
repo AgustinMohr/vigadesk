@@ -3,12 +3,14 @@ package isi.dan.ms.pedidos.controller;
 import jakarta.validation.Valid;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import dan.common.web.ParametrosConsulta;
 import isi.dan.ms.pedidos.dto.CrearPedidoRequest;
 import isi.dan.ms.pedidos.dto.EntregaRequest;
 import isi.dan.ms.pedidos.dto.EstadoUpdateRequest;
@@ -115,36 +117,43 @@ public class PedidoController {
     }
 
     @GetMapping
-    public List<Pedido> getAllPedidos(
+    public ResponseEntity<List<Pedido>> getAllPedidos(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
             @RequestHeader(value = "X-User-Rol", required = false) String rol,
             @RequestHeader(value = "X-User-ClienteId", required = false) Integer tokenClienteId) {
-        if (isCliente(rol)) {
-            if (tokenClienteId == null) {
-                return List.of();
-            }
-            return pedidoService.searchPedidos(null, null, tokenClienteId);
-        }
-        return pedidoService.getAllPedidos();
+        return buscar(null, null, null, page, size, rol, tokenClienteId);
     }
 
     @GetMapping("/search")
-    public List<Pedido> searchPedidos(
+    public ResponseEntity<List<Pedido>> searchPedidos(
             @RequestParam(required = false) String clienteNombre,
             @RequestParam(required = false) String estado,
             @RequestParam(required = false) Integer clienteId,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
             @RequestHeader(value = "X-User-Rol", required = false) String rol,
             @RequestHeader(value = "X-User-ClienteId", required = false) Integer tokenClienteId) {
         EstadoPedido estadoEnum = (estado != null && !estado.isBlank())
                 ? EstadoPedido.valueOf(estado.toUpperCase())
                 : null;
+        return buscar(clienteNombre, estadoEnum, clienteId, page, size, rol, tokenClienteId);
+    }
+
+    /** Un CLIENTE solo ve sus pedidos, sin importar el clienteId pedido. El total viaja en X-Total-Count. */
+    private ResponseEntity<List<Pedido>> buscar(String clienteNombre, EstadoPedido estado, Integer clienteId,
+            Integer page, Integer size, String rol, Integer tokenClienteId) {
         Integer effectiveClienteId = clienteId;
         if (isCliente(rol)) {
             if (tokenClienteId == null) {
-                return List.of();
+                return ResponseEntity.ok().header(ParametrosConsulta.CABECERA_TOTAL, "0").body(List.of());
             }
             effectiveClienteId = tokenClienteId;
         }
-        return pedidoService.searchPedidos(clienteNombre, estadoEnum, effectiveClienteId);
+        Page<Pedido> resultado = pedidoService.buscarPedidos(clienteNombre, estado, effectiveClienteId, page, size);
+        return ResponseEntity.ok()
+                .header(ParametrosConsulta.CABECERA_TOTAL, String.valueOf(resultado.getTotalElements()))
+                .body(resultado.getContent());
     }
 
     @GetMapping("/{id}")

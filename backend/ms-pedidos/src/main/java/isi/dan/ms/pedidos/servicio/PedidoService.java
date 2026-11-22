@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -16,12 +17,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 
 import feign.FeignException;
+import dan.common.web.ParametrosConsulta;
 import isi.dan.ms.pedidos.dao.PedidoRepository;
 import isi.dan.ms.pedidos.dto.ContextoPedidoDTO;
 import isi.dan.ms.pedidos.dto.EntregaItemRequest;
@@ -473,10 +480,6 @@ public class PedidoService {
         return rol == null || rol.isBlank() ? "ADMIN" : rol;
     }
 
-    public List<Pedido> getAllPedidos() {
-        return pedidoRepository.findAllActivos();
-    }
-
     public Pedido getPedidoById(String id) {
         return pedidoRepository.findByIdActivo(id)
                 .orElseThrow(() -> new PedidoNotFoundException(id));
@@ -579,19 +582,29 @@ public class PedidoService {
         return descuento;
     }
 
-    public List<Pedido> searchPedidos(String clienteNombre, EstadoPedido estado, Integer clienteId) {
+    /**
+     * Busca pedidos activos con paginacion. El texto del nombre se trata como literal (se escapa para que no
+     * actue como expresion regular) y tiene longitud maxima. El orden es fecha descendente.
+     */
+    public Page<Pedido> buscarPedidos(String clienteNombre, EstadoPedido estado, Integer clienteId,
+            Integer page, Integer size) {
+        String nombre = ParametrosConsulta.texto(clienteNombre, "clienteNombre");
+        Pageable pageable = PageRequest.of(ParametrosConsulta.pagina(page), ParametrosConsulta.tamanio(size),
+                Sort.by(Sort.Direction.DESC, "fecha").and(Sort.by("id")));
+
         Criteria criteria = new Criteria();
         criteria.and("habilitado").ne(false);
         if (clienteId != null) {
             criteria.and("cliente._id").is(clienteId);
         }
-        if (clienteNombre != null && !clienteNombre.isBlank()) {
-            criteria.and("cliente.nombre").regex(clienteNombre, "i");
+        if (nombre != null) {
+            criteria.and("cliente.nombre").regex(Pattern.quote(nombre), "i");
         }
         if (estado != null) {
             criteria.and("estado").is(estado.name());
         }
-        Query query = new Query(criteria);
-        return mongoTemplate.find(query, Pedido.class);
+        long total = mongoTemplate.count(new Query(criteria), Pedido.class);
+        List<Pedido> contenido = mongoTemplate.find(new Query(criteria).with(pageable), Pedido.class);
+        return new PageImpl<>(contenido, pageable, total);
     }
 }
