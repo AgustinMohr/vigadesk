@@ -3,7 +3,7 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 import lombok.Data;
@@ -14,6 +14,10 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
+// La clave de idempotencia es unica por cliente, no global. El indice es parcial (solo pedidos con clave):
+// uno sparse compuesto igual indexaria los pedidos sin clave y los repetiria por cliente.
+@CompoundIndex(name = "cliente_idempotencyKey", def = "{'cliente._id': 1, 'idempotencyKey': 1}", unique = true,
+        partialFilter = "{'idempotencyKey': {'$type': 'string'}}")
 @Document(collection = "pedidos")
 @Data
 @NoArgsConstructor
@@ -29,8 +33,10 @@ public class Pedido {
     private String usuario;
     private String observaciones;
 
-    @Indexed(unique = true, sparse = true)
     private String idempotencyKey;
+
+    /** Huella del payload que creo el pedido: la misma clave con otro payload es un conflicto. */
+    private String idempotencyHash;
 
     @NotNull(message = "El cliente es obligatorio")
     private Cliente cliente;

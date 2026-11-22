@@ -123,7 +123,7 @@ class PedidoServiceTest {
         });
         lenient().when(secuenciaService.nextNumeroPedido()).thenReturn(1000);
         lenient().when(secuenciaService.nextNumeroRemito()).thenReturn(1);
-        lenient().when(pedidoRepository.findByIdempotencyKey(anyString())).thenReturn(Optional.empty());
+        lenient().when(pedidoRepository.findByClienteIdAndIdempotencyKey(any(), anyString())).thenReturn(Optional.empty());
         lenient().when(productoFeignClient.getProducto(anyLong(), anyString())).thenReturn(productoReal);
         lenient().when(pedidoRepository.save(any(Pedido.class))).thenAnswer(i -> i.getArgument(0));
     }
@@ -234,7 +234,7 @@ class PedidoServiceTest {
         Pedido existente = new Pedido();
         existente.setId("pedido-existente");
         existente.setTotal(BigDecimal.valueOf(123));
-        when(pedidoRepository.findByIdempotencyKey("key-1")).thenReturn(Optional.of(existente));
+        when(pedidoRepository.findByClienteIdAndIdempotencyKey(eq(1), eq("key-1"))).thenReturn(Optional.of(existente));
 
         Pedido result = pedidoService.savePedido(pedido, "CLIENTE", "key-1", "Juan Perez");
 
@@ -246,7 +246,7 @@ class PedidoServiceTest {
     void savePedido_ConcurrentDuplicateKey_ShouldReleaseDuplicateReservation() {
         Pedido existente = new Pedido();
         existente.setId("pedido-existente");
-        when(pedidoRepository.findByIdempotencyKey("key-1"))
+        when(pedidoRepository.findByClienteIdAndIdempotencyKey(eq(1), eq("key-1")))
                 .thenReturn(Optional.empty(), Optional.of(existente));
         stubCreditoOk();
         stubStockOk();
@@ -757,5 +757,91 @@ class PedidoServiceTest {
                 .isInstanceOf(ExternalServiceUnavailableException.class);
 
         verify(pedidoRepository, never()).save(any(Pedido.class));
+    }
+
+    private Pedido pedidoIgualAlDeSetUp() {
+        Producto p = new Producto();
+        p.setId(1L);
+        DetallePedido d = new DetallePedido();
+        d.setProducto(p);
+        d.setCantidad(BigDecimal.valueOf(5));
+        Cliente c = new Cliente();
+        c.setId(1);
+        Obra o = new Obra();
+        o.setId(1);
+        Pedido nuevo = new Pedido();
+        nuevo.setCliente(c);
+        nuevo.setObra(o);
+        nuevo.setDetalle(Collections.singletonList(d));
+        return nuevo;
+    }
+
+    @Test
+    void savePedido_MismaClaveYMismoPayload_ShouldDevolverElPedidoGuardadoSinCrearOtro() {
+        stubCreditoOk();
+        stubStockOk();
+        Pedido primero = pedidoService.savePedido(pedido, "CLIENTE", "key-9", "Juan");
+        assertThat(primero.getIdempotencyHash()).isNotBlank();
+        when(pedidoRepository.findByClienteIdAndIdempotencyKey(1, "key-9")).thenReturn(Optional.of(primero));
+
+        Pedido segundo = pedidoService.savePedido(pedidoIgualAlDeSetUp(), "CLIENTE", "key-9", "Juan");
+
+        assertThat(segundo).isSameAs(primero);
+        verify(pedidoRepository, org.mockito.Mockito.times(1)).save(any(Pedido.class));
+    }
+
+    @Test
+    void savePedido_MismaClaveYOtroPayload_ShouldThrowConflictAndNotCreate() {
+        stubCreditoOk();
+        stubStockOk();
+        Pedido primero = pedidoService.savePedido(pedido, "CLIENTE", "key-9", "Juan");
+        when(pedidoRepository.findByClienteIdAndIdempotencyKey(1, "key-9")).thenReturn(Optional.of(primero));
+        Pedido otro = pedidoIgualAlDeSetUp();
+        otro.getDetalle().get(0).setCantidad(BigDecimal.valueOf(6));
+
+        assertThatThrownBy(() -> pedidoService.savePedido(otro, "CLIENTE", "key-9", "Juan"))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("Idempotency-Key");
+
+        verify(pedidoRepository, org.mockito.Mockito.times(1)).save(any(Pedido.class));
+    }
+
+    @Test
+    void savePedido_CantidadEquivalente_ShouldTratarseComoMismoPayload() {
+        stubCreditoOk();
+        stubStockOk();
+        Pedido primero = pedidoService.savePedido(pedido, "CLIENTE", "key-9", "Juan");
+        when(pedidoRepository.findByClienteIdAndIdempotencyKey(1, "key-9")).thenReturn(Optional.of(primero));
+        Pedido igual = pedidoIgualAlDeSetUp();
+        igual.getDetalle().get(0).setCantidad(new BigDecimal("5.00"));
+
+        assertThat(pedidoService.savePedido(igual, "CLIENTE", "key-9", "Juan")).isSameAs(primero);
+    }
+
+    @Test
+    void savePedido_ClaveExistenteSinHuella_ShouldReutilizarseComoAntes() {
+        Pedido anterior = new Pedido();
+        anterior.setId("viejo");
+        when(pedidoRepository.findByClienteIdAndIdempotencyKey(1, "key-viejo")).thenReturn(Optional.of(anterior));
+
+        assertThat(pedidoService.savePedido(pedidoIgualAlDeSetUp(), "CLIENTE", "key-viejo", "Juan"))
+                .isSameAs(anterior);
+    }
+
+    @Test
+    void savePedido_AltaConcurrenteConOtroPayload_ShouldLiberarReservaYThrowConflict() {
+        Pedido existente = new Pedido();
+        existente.setId("ganador");
+        existente.setIdempotencyHash("huella-de-otro-payload");
+        when(pedidoRepository.findByClienteIdAndIdempotencyKey(eq(1), eq("key-1")))
+                .thenReturn(Optional.empty(), Optional.of(existente));
+        stubCreditoOk();
+        stubStockOk();
+        when(pedidoRepository.save(any(Pedido.class))).thenThrow(new DuplicateKeyException("idempotencyKey"));
+
+        assertThatThrownBy(() -> pedidoService.savePedido(pedido, "CLIENTE", "key-1", "Juan"))
+                .isInstanceOf(ConflictException.class);
+
+        verify(productoFeignClient).releaseStock(any());
     }
 }

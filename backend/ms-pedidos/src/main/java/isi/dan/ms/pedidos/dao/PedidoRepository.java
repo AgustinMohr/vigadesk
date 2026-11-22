@@ -20,5 +20,6 @@ public interface PedidoRepository extends MongoRepository<Pedido, String> {
     @Query("{'cliente._id': ?0, 'estado': {'$in': ?1}, 'habilitado': {'$ne': false}}")
     List<Pedido> findByCliente_IdAndEstadoInActivos(Integer clienteId, List<EstadoPedido> estados);
 
-    Optional<Pedido> findByIdempotencyKey(String idempotencyKey);
+    @Query("{'cliente._id': ?0, 'idempotencyKey': ?1}")
+    Optional<Pedido> findByClienteIdAndIdempotencyKey(Integer clienteId, String idempotencyKey);
 }

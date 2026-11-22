@@ -49,8 +49,10 @@ import isi.dan.ms.pedidos.servicio.SecuenciaService;
  */
 @DataMongoTest
 @Testcontainers(disabledWithoutDocker = true)
-@TestPropertySource(properties = "spring.data.mongodb.auto-index-creation=true")
-@Import({ PedidoService.class, SecuenciaService.class, CreditoService.class })
+@TestPropertySource(properties = { "spring.data.mongodb.auto-index-creation=true",
+        "pedidos.limpiar-indices-anteriores=true" })
+@Import({ PedidoService.class, SecuenciaService.class, CreditoService.class,
+        isi.dan.ms.pedidos.conf.LimpiezaIndicesMongo.class })
 class PedidoMongoTest {
 
     @Container
@@ -103,15 +105,15 @@ class PedidoMongoTest {
     }
 
     @Test
-    void idempotencyKey_Duplicate_ShouldBeRejectedByUniqueIndex() {
+    void idempotencyKey_DuplicateForSameCliente_ShouldBeRejectedByUniqueIndex() {
         pedidoRepository.save(pedido(1, "Acme", EstadoPedido.ACEPTADO, "clave-1"));
 
-        assertThatThrownBy(() -> pedidoRepository.save(pedido(2, "Otra", EstadoPedido.ACEPTADO, "clave-1")))
+        assertThatThrownBy(() -> pedidoRepository.save(pedido(1, "Acme", EstadoPedido.ACEPTADO, "clave-1")))
                 .isInstanceOf(DuplicateKeyException.class);
     }
 
     @Test
-    void idempotencyKey_Null_ShouldAllowManyPedidosBecauseIndexIsSparse() {
+    void idempotencyKey_Null_ShouldAllowManyPedidosOfTheSameClienteBecauseIndexIsPartial() {
         pedidoRepository.save(pedido(1, "Acme", EstadoPedido.ACEPTADO, null));
         pedidoRepository.save(pedido(1, "Acme", EstadoPedido.ACEPTADO, null));
 
@@ -119,12 +121,13 @@ class PedidoMongoTest {
     }
 
     @Test
-    void findByIdempotencyKey_ShouldReturnTheSavedPedido() {
+    void findByClienteIdAndIdempotencyKey_ShouldReturnTheSavedPedidoOnlyForItsCliente() {
         Pedido guardado = pedidoRepository.save(pedido(1, "Acme", EstadoPedido.ACEPTADO, "clave-2"));
 
-        assertThat(pedidoRepository.findByIdempotencyKey("clave-2"))
+        assertThat(pedidoRepository.findByClienteIdAndIdempotencyKey(1, "clave-2"))
                 .get().extracting(Pedido::getId).isEqualTo(guardado.getId());
-        assertThat(pedidoRepository.findByIdempotencyKey("no-existe")).isEmpty();
+        assertThat(pedidoRepository.findByClienteIdAndIdempotencyKey(1, "no-existe")).isEmpty();
+        assertThat(pedidoRepository.findByClienteIdAndIdempotencyKey(2, "clave-2")).isEmpty();
     }
 
     @Test
@@ -308,5 +311,75 @@ class PedidoMongoTest {
         obra.setId(1);
         p.setObra(obra);
         return p;
+    }
+
+    @Autowired
+    private isi.dan.ms.pedidos.conf.LimpiezaIndicesMongo limpiezaIndices;
+
+    @Test
+    void idempotencyKey_SameValueForDifferentClientes_ShouldBeAllowed() {
+        pedidoRepository.save(pedido(1, "Acme", EstadoPedido.ACEPTADO, "compartida"));
+        pedidoRepository.save(pedido(2, "Otra", EstadoPedido.ACEPTADO, "compartida"));
+
+        assertThat(pedidoRepository.count()).isEqualTo(2);
+    }
+
+    @Test
+    void savePedido_MismaClaveYOtroPayload_ShouldThrowConflictWithRealMongo() {
+        stubContextoYProducto();
+        pedidoService.savePedido(pedidoNuevo(), "ADMIN", "clave-pago", "test");
+        Pedido otro = pedidoNuevo();
+        otro.getDetalle().get(0).setCantidad(BigDecimal.valueOf(2));
+
+        assertThatThrownBy(() -> pedidoService.savePedido(otro, "ADMIN", "clave-pago", "test"))
+                .isInstanceOf(isi.dan.ms.pedidos.exception.ConflictException.class);
+        assertThat(pedidoRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    void savePedido_MismaClaveYMismoPayload_ShouldDevolverElMismoPedidoWithRealMongo() {
+        stubContextoYProducto();
+        Pedido primero = pedidoService.savePedido(pedidoNuevo(), "ADMIN", "clave-igual", "test");
+        Pedido segundo = pedidoService.savePedido(pedidoNuevo(), "ADMIN", "clave-igual", "test");
+
+        assertThat(segundo.getId()).isEqualTo(primero.getId());
+        assertThat(pedidoRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    void limpiezaIndices_ShouldEliminarElIndiceGlobalAnteriorYConservarElCompuesto() {
+        mongoTemplate.indexOps(Pedido.class).ensureIndex(
+                new org.springframework.data.mongodb.core.index.Index()
+                        .on("idempotencyKey", org.springframework.data.domain.Sort.Direction.ASC)
+                        .named("idempotencyKey").unique().sparse());
+
+        limpiezaIndices.eliminarIndiceGlobalAnterior();
+
+        List<String> nombres = mongoTemplate.indexOps(Pedido.class).getIndexInfo().stream()
+                .map(org.springframework.data.mongodb.core.index.IndexInfo::getName).toList();
+        assertThat(nombres).doesNotContain("idempotencyKey").contains("cliente_idempotencyKey");
+        // Con el indice global fuera, otro cliente puede usar la misma clave
+        pedidoRepository.save(pedido(1, "Acme", EstadoPedido.ACEPTADO, "k"));
+        pedidoRepository.save(pedido(2, "Otra", EstadoPedido.ACEPTADO, "k"));
+        assertThat(pedidoRepository.count()).isEqualTo(2);
+    }
+
+    private void stubContextoYProducto() {
+        Producto real = new Producto();
+        real.setId(1L);
+        real.setNombre("Cemento");
+        real.setPrecio(BigDecimal.valueOf(1000));
+        org.mockito.Mockito.when(productoFeignClient.getProducto(org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.anyString())).thenReturn(real);
+        org.mockito.Mockito.when(clienteFeignClient.getMaximoDescubierto(1)).thenReturn(BigDecimal.valueOf(100000));
+        org.mockito.Mockito.when(clienteFeignClient.checkSaldo(org.mockito.ArgumentMatchers.eq(1),
+                org.mockito.ArgumentMatchers.any(BigDecimal.class))).thenReturn(true);
+        ContextoPedidoDTO contexto = new ContextoPedidoDTO();
+        contexto.setClienteId(1);
+        contexto.setClienteNombre("Acme");
+        contexto.setObraId(1);
+        contexto.setObraClienteId(1);
+        contexto.setObraEstado("HABILITADA");
+        org.mockito.Mockito.when(clienteFeignClient.getContextoPedido(1, 1)).thenReturn(contexto);
     }
 }

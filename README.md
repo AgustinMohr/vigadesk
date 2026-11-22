@@ -162,7 +162,10 @@ Todos los servicios Spring escuchan en el **puerto interno 8080** (Eureka en 876
   - Con stock, el pedido queda `EN_PREPARACION`.
   - Sin stock (`409 STOCK_INSUFICIENTE` de `ms-productos`), queda `ACEPTADO` (pendiente de stock) con el evento de auditoría `PEDIDO_PENDIENTE_STOCK`. Un `ADMIN` puede reintentar con `POST /api/pedidos/{id}/reintentar-reserva`.
   - Si `ms-productos` no responde o falla (timeout, 5xx), el pedido no se guarda y la API responde `503`. El reintento con la misma `Idempotency-Key` es seguro.
-- **Idempotencia:** admite una clave de idempotencia para que un reintento no duplique el pedido.
+- **Idempotencia:** el header `Idempotency-Key` (hasta 128 caracteres) es opcional pero recomendado; el formulario del frontend siempre lo envía. La clave se acota por cliente: dos clientes pueden usar el mismo valor.
+  - Misma clave y mismo pedido (cliente, obra, observaciones y líneas; el orden de las líneas no importa): devuelve el pedido ya creado, sin repetir la reserva de stock.
+  - Misma clave con un pedido distinto: `409`. Hay que usar una clave nueva.
+  - Sin el header, cada request crea un pedido nuevo (se genera una clave aleatoria): no hay protección contra reintentos.
 - **Numeración:** secuencia propia (`SecuenciaService`).
 - **Entregas parciales:** `POST /api/pedidos/{id}/entregas`, con detalle por ítem.
 - **Auditoría:** cada acción relevante se registra y se consulta en `/api/pedidos/{id}/auditoria`.

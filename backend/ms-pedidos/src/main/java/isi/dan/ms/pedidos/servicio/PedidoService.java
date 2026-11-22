@@ -76,14 +76,17 @@ public class PedidoService {
 
     public Pedido savePedido(Pedido pedido, String rol, String idempotencyKey, String actor) {
         String effectiveKey = normalizarIdempotencyKey(idempotencyKey);
-        Optional<Pedido> existente = pedidoRepository.findByIdempotencyKey(effectiveKey);
+        validarPedido(pedido);
+        // La huella se calcula sobre lo que mando quien pide, antes de que el servidor complete datos.
+        String huella = huellaDe(pedido);
+        Optional<Pedido> existente = pedidoRepository
+                .findByClienteIdAndIdempotencyKey(pedido.getCliente().getId(), effectiveKey);
         if (existente.isPresent()) {
-            log.info("Pedido idempotente reutilizado con key {}", effectiveKey);
-            return existente.get();
+            return reutilizar(existente.get(), huella, effectiveKey);
         }
 
-        validarPedido(pedido);
         completarClienteYObra(pedido);
+        pedido.setIdempotencyHash(huella);
         pedido.setIdempotencyKey(effectiveKey);
         pedido.setUsuario(actor);
         inicializarColecciones(pedido);
@@ -273,7 +276,8 @@ public class PedidoService {
         try {
             return pedidoRepository.save(pedido);
         } catch (DuplicateKeyException e) {
-            Optional<Pedido> existente = pedidoRepository.findByIdempotencyKey(idempotencyKey);
+            Optional<Pedido> existente = pedidoRepository
+                    .findByClienteIdAndIdempotencyKey(pedido.getCliente().getId(), idempotencyKey);
             if (existente.isPresent()) {
                 log.info("Alta concurrente detectada; se devuelve pedido existente para key {}", idempotencyKey);
                 if (pedido.getEstado() == EstadoPedido.EN_PREPARACION) {
@@ -284,7 +288,7 @@ public class PedidoService {
                                 pedido.getNumeroPedido(), releaseError);
                     }
                 }
-                return existente.get();
+                return reutilizar(existente.get(), pedido.getIdempotencyHash(), idempotencyKey);
             }
             throw e;
         } catch (RuntimeException e) {
@@ -421,6 +425,36 @@ public class PedidoService {
         } catch (Exception e) {
             throw new ExternalServiceUnavailableException(
                     "No se pudo validar el credito del cliente " + clienteId, e);
+        }
+    }
+
+    /** Misma clave y mismo payload: devuelve el pedido ya creado. Misma clave y otro payload: 409. */
+    private Pedido reutilizar(Pedido existente, String huella, String idempotencyKey) {
+        // Los pedidos anteriores a la huella no la tienen: se reutilizan como antes.
+        if (existente.getIdempotencyHash() != null && !existente.getIdempotencyHash().equals(huella)) {
+            throw new ConflictException(
+                    "La Idempotency-Key ya se uso con un pedido distinto. Use una clave nueva para un pedido nuevo");
+        }
+        log.info("Pedido idempotente reutilizado con key {}", idempotencyKey);
+        return existente;
+    }
+
+    /** Huella SHA-256 del payload (cliente, obra, observaciones y lineas), independiente del orden de lineas. */
+    private String huellaDe(Pedido pedido) {
+        List<String> lineas = pedido.getDetalle().stream()
+                .map(d -> d.getProducto().getId() + ":" + d.getCantidad().stripTrailingZeros().toPlainString())
+                .sorted()
+                .collect(Collectors.toList());
+        String canonico = pedido.getCliente().getId()
+                + "|" + (pedido.getObra() == null ? "" : pedido.getObra().getId())
+                + "|" + (pedido.getObservaciones() == null ? "" : pedido.getObservaciones().trim())
+                + "|" + String.join(",", lineas);
+        try {
+            byte[] digest = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(canonico.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            return java.util.HexFormat.of().formatHex(digest);
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 no disponible", e);
         }
     }
 
