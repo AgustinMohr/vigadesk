@@ -9,7 +9,7 @@ Que hace:
   1. Levanta el stack y espera healthchecks.
   2. Genera secretos nuevos (base62, sin caracteres problematicos para URIs).
   3. Backup fresco de MySQL, PostgreSQL y MongoDB en ops/backups/.
-  4. Rota password de MySQL, PostgreSQL, MongoDB, RabbitMQ y Grafana.
+  4. Rota password de MySQL, PostgreSQL, MongoDB y Grafana.
   5. Actualiza .env despues de cada rotacion (backup .env.bak.<ts>).
   6. Recrea los servicios consumidores con las nuevas credenciales.
   7. Rota JWT al final: invalida todas las sesiones activas.
@@ -96,17 +96,16 @@ function Start-And-Wait([string[]]$services) {
       'mysql' { 'mysql-db' }
       'pg-dan' { 'pg-dan-db' }
       'mongo-db' { 'mongo-db' }
-      'rabbitmq' { 'rabbitmq' }
       default { $s }
     }
     Wait-Healthy $name
   }
 }
 
-Write-Host '[1/9] Levantando infraestructura...'
-Start-And-Wait 'mysql', 'pg-dan', 'mongo-db', 'rabbitmq'
+Write-Host '[1/8] Levantando infraestructura...'
+Start-And-Wait 'mysql', 'pg-dan', 'mongo-db'
 
-Write-Host '[2/9] Verificando .env y generando secretos...'
+Write-Host '[2/8] Verificando .env y generando secretos...'
 $mysqlUser = Get-EnvValue 'MYSQL_USER'
 $mysqlDb = Get-EnvValue 'MYSQL_DATABASE'
 $mysqlRootOld = Get-EnvValue 'MYSQL_ROOT_PASSWORD'
@@ -115,24 +114,21 @@ $pgDb = Get-EnvValue 'POSTGRES_DB'
 $pgOld = Get-EnvValue 'POSTGRES_PASSWORD'
 $mongoUser = Get-EnvValue 'MONGO_INITDB_ROOT_USERNAME'
 $mongoOld = Get-EnvValue 'MONGO_INITDB_ROOT_PASSWORD'
-$rabbitUser = Get-EnvValue 'RABBITMQ_USERNAME'
 Assert-Name $mysqlUser 'MYSQL_USER'
 Assert-Name $mysqlDb 'MYSQL_DATABASE'
 Assert-Name $pgUser 'POSTGRES_USER'
 Assert-Name $pgDb 'POSTGRES_DB'
 Assert-Name $mongoUser 'MONGO_INITDB_ROOT_USERNAME'
-Assert-Name $rabbitUser 'RABBITMQ_USERNAME'
 if ($mongoOld -notmatch '^[A-Za-z0-9]+$') { throw 'El password actual de Mongo debe ser alfanumerico para construir la URI' }
 
 $newMysqlApp = New-Secret 40
 $newMysqlRoot = New-Secret 40
 $newPg = New-Secret 40
 $newMongo = New-Secret 40
-$newRabbit = New-Secret 40
 $newGrafana = New-Secret 32
 $newJwt = New-Secret 64
 
-Write-Host '[3/9] Backup fresco de bases...'
+Write-Host '[3/8] Backup fresco de bases...'
 New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
 
 Invoke-Docker @('compose', 'exec', '-T', 'mysql', 'sh', '-c', 'mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines --triggers "$MYSQL_DATABASE" > /tmp/rot-mysql.sql')
@@ -151,7 +147,7 @@ foreach ($f in @('mysql.sql', 'postgres.dump', 'mongo.gz')) {
 Copy-Item $envFile (Join-Path $root ".env.bak.$stamp")
 Write-Host "      Backups en $backupDir"
 
-Write-Host '[4/9] Rotando MySQL...'
+Write-Host '[4/8] Rotando MySQL...'
 $appEsc = $newMysqlApp.Replace("'", "''")
 $rootEsc = $newMysqlRoot.Replace("'", "''")
 $sql = "ALTER USER IF EXISTS '$mysqlUser'@'%' IDENTIFIED BY '$appEsc'; ALTER USER IF EXISTS 'root'@'%' IDENTIFIED BY '$rootEsc'; ALTER USER IF EXISTS 'root'@'localhost' IDENTIFIED BY '$rootEsc'; FLUSH PRIVILEGES;"
@@ -161,7 +157,7 @@ Set-EnvValue 'MYSQL_ROOT_PASSWORD' $newMysqlRoot
 Invoke-Docker @('compose', 'up', '-d', '--force-recreate', 'ms-clientes')
 Wait-Healthy 'ms-clientes' 120
 
-Write-Host '[5/9] Rotando PostgreSQL...'
+Write-Host '[5/8] Rotando PostgreSQL...'
 $pgEsc = $newPg.Replace("'", "''")
 $sql = "ALTER ROLE $pgUser PASSWORD '$pgEsc'"
 Invoke-Docker @('compose', 'exec', '-T', '-e', "PGPASSWORD=$pgOld", 'pg-dan', 'psql', '-h', '127.0.0.1', '-U', $pgUser, '-d', 'postgres', '-c', $sql)
@@ -169,7 +165,7 @@ Set-EnvValue 'POSTGRES_PASSWORD' $newPg
 Invoke-Docker @('compose', 'up', '-d', '--force-recreate', 'ms-productos')
 Wait-Healthy 'ms-productos' 120
 
-Write-Host '[6/9] Rotando MongoDB...'
+Write-Host '[6/8] Rotando MongoDB...'
 $mongoUri = "mongodb://${mongoUser}:${mongoOld}@localhost:27017/admin"
 $mongoJson = ConvertTo-Json $newMongo -Compress
 $js = "db.changeUserPassword('$mongoUser', $mongoJson)"
@@ -179,13 +175,7 @@ Set-EnvValue 'MONGO_INITDB_ROOT_PASSWORD' $newMongo
 Invoke-Docker @('compose', 'up', '-d', '--force-recreate', 'ms-pedidos')
 Wait-Healthy 'ms-pedidos' 120
 
-Write-Host '[7/9] Rotando RabbitMQ...'
-Invoke-Docker @('compose', 'exec', '-T', 'rabbitmq', 'rabbitmqctl', 'change_password', $rabbitUser, $newRabbit)
-Set-EnvValue 'RABBITMQ_PASSWORD' $newRabbit
-Invoke-Docker @('compose', 'up', '-d', '--force-recreate', 'ms-clientes', 'ms-productos', 'ms-pedidos')
-foreach ($c in @('ms-clientes', 'ms-productos', 'ms-pedidos')) { Wait-Healthy $c 150 }
-
-Write-Host '[8/9] Rotando Grafana y JWT...'
+Write-Host '[7/8] Rotando Grafana y JWT...'
 $grafanaUser = $null
 try { $grafanaUser = Get-EnvValue 'GRAFANA_ADMIN_USER' } catch { $grafanaUser = 'admin' }
 Set-EnvValue 'GRAFANA_ADMIN_USER' $grafanaUser
@@ -203,7 +193,7 @@ Invoke-Docker @('compose', 'up', '-d', '--force-recreate', 'ms-clientes', 'ms-ga
 Wait-Healthy 'ms-clientes' 150
 Wait-Healthy 'ms-gateway' 120
 
-Write-Host '[9/9] Verificando...'
+Write-Host '[8/8] Verificando...'
 $health = $null
 try { $health = (Invoke-WebRequest -UseBasicParsing 'http://localhost:3080/actuator/health' -TimeoutSec 15).StatusCode } catch { $health = 'ERROR' }
 if ($health -ne 200) { throw "Gateway health devolvio $health" }
@@ -214,8 +204,6 @@ if ($LASTEXITCODE -ne 0) { throw 'Autenticacion MySQL con la nueva password fall
 if ($LASTEXITCODE -ne 0) { throw 'Autenticacion PostgreSQL con la nueva password fallo' }
 & docker exec mongo-db mongosh "mongodb://${mongoUser}:${newMongo}@localhost:27017/admin" --quiet --eval 'print(1)' | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'Autenticacion MongoDB con la nueva password fallo' }
-& docker compose exec -T rabbitmq rabbitmqctl authenticate_user $rabbitUser $newRabbit | Out-Null
-if ($LASTEXITCODE -ne 0) { throw 'Autenticacion RabbitMQ con la nueva password fallo' }
 
 Write-Host ''
 Write-Host 'Rotacion completada.'
