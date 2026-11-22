@@ -69,6 +69,11 @@ jobs:
           docker compose config -q
           docker compose -f docker-compose.yml -f docker-compose.prod.yml config -q
           docker compose -f docker-compose.frontend.yml config -q
+      - name: Build de las imagenes de backend (contexto = raiz del repo)
+        run: |
+          for m in dan-gateway ms-clientes ms-productos ms-pedidos; do
+            docker build -f backend/$m/Dockerfile -t vigadesk-$m:ci .
+          done
       - name: gitleaks
         uses: gitleaks/gitleaks-action@v2
         env:

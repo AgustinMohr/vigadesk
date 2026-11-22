@@ -17,8 +17,8 @@ services:
   ms-clientes:
     image: ms-clientes:latest
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: backend/ms-clientes/Dockerfile
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-dandb}
       SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-danuser}

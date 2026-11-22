@@ -19,8 +19,8 @@ services:
     image: ms-pedidos:latest
     container_name: ms-pedidos
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: backend/ms-pedidos/Dockerfile
     environment:
       SPRING_DATA_MONGODB_HOST: mongo-db
       SPRING_DATA_MONGODB_PORT: 27017

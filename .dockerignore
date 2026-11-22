@@ -1,0 +1,21 @@
+# Contexto de build de los microservicios: la raiz del repo (necesitan backend/dan-common).
+# Se deja afuera todo lo que no entra a una imagen de backend.
+.git
+.github
+.idea
+*.iml
+**/target
+**/node_modules
+frontend
+docs
+ops
+openspec
+.env
+.env.*
+!.env.example
+*.md
+*.log
+backend/*/docker-compose.yml
+backend/*/.mvn
+backend/*/mvnw
+backend/*/mvnw.cmd

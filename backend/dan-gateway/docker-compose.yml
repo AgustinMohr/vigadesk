@@ -4,8 +4,8 @@ services:
     image: ms-gateway:latest
     container_name: ms-gateway
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: backend/dan-gateway/Dockerfile
     environment:
       SPRING_EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/
     ports:

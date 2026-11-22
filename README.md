@@ -410,11 +410,12 @@ docker compose --env-file .env -f docker-compose.frontend.yml up -d
 ### Backend
 
 ```bash
-mvn test                              # los 5 módulos, desde la raíz
+mvn test                              # los 6 módulos, desde la raíz
 mvn test -pl :ms-clientes -am         # un módulo
-cd backend/ms-clientes && ./mvnw test # con el wrapper
+# El wrapper de un módulo solo sirve si dan-common ya está instalado: mvn install -pl :dan-common
 ```
 
+- **Reglas de acceso:** viven en `dan-common` (`AccessMatrix`) y las usan el Gateway y los tres microservicios. Se prueban una sola vez en `dan-common`; el Gateway conserva sus pruebas de `JwtAuthFilter` como regresión. Las imágenes de los servicios se construyen con la raíz del repo como contexto (`docker build -f backend/ms-pedidos/Dockerfile .`).
 - **Herramientas:** JUnit 5, Mockito, AssertJ y `@WebMvcTest`.
 - **Cobertura temática:** servicios, controladores, manejo global de excepciones, `JwtAuthFilter` del Gateway y repositorios.
 - **Testcontainers:** los tests de repositorio de `ms-clientes` corren contra un MySQL real. Requieren Docker y, si no está disponible, se omiten (`@Testcontainers(disabledWithoutDocker = true)`). El `pom.xml` fija `api.version=1.40` por compatibilidad con Docker moderno.
@@ -448,6 +449,7 @@ TypeScript strict, ESLint con `neostandard` y React Compiler.
 ```
 .
 ├── backend/
+│   ├── dan-common/            # Módulo compartido: matriz de acceso, normalizador de rutas y filtro de roles
 │   ├── dan-eureka-srv/        # Service discovery
 │   ├── dan-gateway/           # API Gateway + JWT
 │   ├── ms-clientes/           # Clientes, obras, usuarios, pagos (MySQL)
