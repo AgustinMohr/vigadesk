@@ -10,7 +10,6 @@ import java.util.Optional;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,11 +21,14 @@ import isi.dan.msclientes.model.Cliente;
 @Service
 public class ClienteImportService {
 
-    @Autowired
-    private ClienteRepository clienteRepository;
+    private final ClienteRepository clienteRepository;
+    private final BigDecimal maximoDescubiertoDefault;
 
-    @Value("${cliente.maximo-descubierto.default:10000}")
-    private BigDecimal maximoDescubiertoDefault;
+    public ClienteImportService(ClienteRepository clienteRepository,
+            @Value("${cliente.maximo-descubierto.default:10000}") BigDecimal maximoDescubiertoDefault) {
+        this.clienteRepository = clienteRepository;
+        this.maximoDescubiertoDefault = maximoDescubiertoDefault;
+    }
 
     @Transactional
     public ImportResult importar(InputStream csv) {

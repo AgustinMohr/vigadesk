@@ -3,6 +3,7 @@ package isi.dan.ms_productos.servicio;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -81,5 +82,59 @@ class ProductoImportServiceTest {
                         + "C1,Cemento,BOLSA,,1,1\n"), "Admin"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("precio");
+    }
+
+    @Test
+    void importar_ArchivoVacio_ShouldImportNothing() {
+        ImportResult result = service.importar(csv(""), "Admin");
+
+        assertThat(result.getCreados()).isZero();
+        verify(productoRepository, never()).save(any());
+    }
+
+    @Test
+    void importar_ComillasSinCerrar_ShouldFailWithReadableMessage() {
+        assertThatThrownBy(() -> service.importar(csv("nombre,precio\n\"Cemento sin cerrar,100\n"), "Admin"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("No se pudo leer el CSV de productos");
+    }
+
+    @Test
+    void importar_PrecioNoNumerico_ShouldReportTheColumn() {
+        assertThatThrownBy(() -> service.importar(csv("nombre,precio\nCemento,caro\n"), "Admin"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("precio no es un numero valido");
+    }
+
+    @Test
+    void importar_PrecioNegativo_ShouldBeRejected() {
+        assertThatThrownBy(() -> service.importar(csv("nombre,precio\nCemento,-1\n"), "Admin"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("precio no puede ser negativo");
+    }
+
+    @Test
+    void importar_StockNegativo_ShouldBeRejected() {
+        assertThatThrownBy(() -> service.importar(csv("nombre,precio,stockActual\nCemento,10,-3\n"), "Admin"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("stockActual no puede ser negativo");
+    }
+
+    @Test
+    void importar_BytesQueNoSonUnCsv_ShouldNotSaveAnything() {
+        ImportResult result = service.importar(new ByteArrayInputStream(new byte[] { 0, 1, 2, (byte) 0xff, 0 }), "Admin");
+
+        // el contenido se toma como un encabezado sin filas: no hay nada que guardar
+        assertThat(result.getCreados()).isZero();
+        verify(productoRepository, never()).save(any());
+    }
+
+    @Test
+    void importar_ColumnasDeMas_ShouldIgnoreTheUnknownOnes() {
+        when(productoRepository.save(any(Producto.class))).thenAnswer(i -> i.getArgument(0));
+
+        ImportResult result = service.importar(csv("nombre,precio\nCemento,100,sobrante,otro\n"), "Admin");
+
+        assertThat(result.getCreados()).isEqualTo(1);
     }
 }
