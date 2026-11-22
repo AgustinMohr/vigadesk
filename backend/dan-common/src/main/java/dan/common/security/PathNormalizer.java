@@ -1,4 +1,4 @@
-package isi.dan.ms.pedidos.security;
+package dan.common.security;
 
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -25,7 +25,7 @@ import java.util.regex.Pattern;
  *       secuencias invalidas y {@code ..} que sale de la raiz.</li>
  * </ul>
  */
-final class PathNormalizer {
+public final class PathNormalizer {
 
     private static final Pattern PERCENT_ESCAPE = Pattern.compile("%[0-9a-fA-F]{2}");
 
@@ -35,7 +35,7 @@ final class PathNormalizer {
     /**
      * @return el path canonico, o {@code null} si el path no es seguro de interpretar.
      */
-    static String normalize(String rawPath) {
+    public static String normalize(String rawPath) {
         if (rawPath == null || rawPath.isEmpty() || rawPath.charAt(0) != '/') {
             return null;
         }

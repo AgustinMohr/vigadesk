@@ -11,6 +11,7 @@
     <description>Parent POM for VigaDesk microservices</description>
 
     <modules>
+        <module>backend/dan-common</module>
         <module>backend/dan-eureka-srv</module>
         <module>backend/dan-gateway</module>
         <module>backend/ms-clientes</module>
@@ -26,6 +27,11 @@
          report-aggregate (ver <build>) pueda leer el jacoco.exec y las
          clases de cada módulo del reactor y fusionarlos en una sola página. -->
     <dependencies>
+        <dependency>
+            <groupId>dan</groupId>
+            <artifactId>dan-common</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
         <dependency>
             <groupId>dan.ms</groupId>
             <artifactId>eureka-srv</artifactId>

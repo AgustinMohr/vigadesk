@@ -1,4 +1,4 @@
-package isi.dan.ms.pedidos.security;
+package dan.common.security;
 
 import java.io.IOException;
 
@@ -12,8 +12,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 /**
- * Autorizacion por rol para ms-pedidos. El gateway propaga X-User-Rol.
- * Un CLIENTE puede consultar y crear pedidos; el resto de mutaciones es ADMIN.
+ * Autorizacion por rol para los microservicios que ya pasaron por el gateway. El gateway valida el JWT
+ * y propaga {@code X-User-Rol}; sin ese header no se atiende. Las reglas viven en {@link AccessMatrix}.
  */
 public class RoleAuthorizationFilter extends OncePerRequestFilter {
 
@@ -32,7 +32,7 @@ public class RoleAuthorizationFilter extends OncePerRequestFilter {
             write(response, HttpStatus.BAD_REQUEST, "Ruta invalida");
             return;
         }
-        if (!isAuthorized(request.getMethod(), path, rol)) {
+        if (!AccessMatrix.isAuthorized(rol, request.getMethod(), path)) {
             write(response, HttpStatus.FORBIDDEN, "No tenes permisos para esta operacion");
             return;
         }
@@ -41,27 +41,7 @@ public class RoleAuthorizationFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        String path = request.getRequestURI();
-        if ("OPTIONS".equals(request.getMethod())) {
-            return true;
-        }
-        return path.equals("/actuator/health") || path.startsWith("/actuator/health/");
-    }
-
-    private boolean isAuthorized(String method, String path, String rol) {
-        if ("ADMIN".equalsIgnoreCase(rol)) {
-            return true;
-        }
-        if ("GUEST".equalsIgnoreCase(rol)) {
-            return false;
-        }
-        if (path.startsWith("/actuator")) {
-            return false;
-        }
-        if ("GET".equals(method) || "HEAD".equals(method)) {
-            return true;
-        }
-        return "POST".equals(method) && (path.equals("/api/pedidos") || path.equals("/api/pedidos/"));
+        return AccessMatrix.skipsRoleFilter(request.getMethod(), request.getRequestURI());
     }
 
     private void write(HttpServletResponse response, HttpStatus status, String message) throws IOException {

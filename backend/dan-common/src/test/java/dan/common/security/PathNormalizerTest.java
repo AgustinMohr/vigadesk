@@ -1,4 +1,4 @@
-package isi.dan.ms.pedidos.security;
+package dan.common.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
