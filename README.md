@@ -253,6 +253,14 @@ sequenceDiagram
 
 Para el rol `CLIENTE`, `ms-pedidos` usa `X-User-ClienteId` y limita las consultas a los pedidos del cliente. Los endpoints Feign `saldo` y `maximo-descubierto` de `ms-clientes` están exentos del filtro para no romper la comunicación entre servicios.
 
+### Login: contraseñas y límite de intentos
+
+- **Política de contraseñas:** mínimo de 12 caracteres al crear un usuario o cambiar su contraseña (`400` si es más corta). Es la misma longitud que exige la contraseña del administrador inicial.
+- **Límite por usuario (`ms-clientes`):** más de 5 intentos fallidos en 60 segundos para un mismo email responden `429` (`TOO_MANY_REQUESTS`) hasta que el primer fallo salga de la ventana, incluso con la contraseña correcta. Se aplica igual exista o no la cuenta, así no revela cuáles existen. Un login correcto reinicia el contador. Se configura con `login.max-failures` y `login.window-seconds`.
+- **Límite por IP (Gateway):** más de 30 respuestas `401` en 60 segundos desde una misma IP responden `429` con `Retry-After`, sin llegar a `ms-clientes` (`login.ip-max-failures`, `login.ip-window-seconds`). El navegador llega a través del BFF de Next.js y HAProxy, así que el Gateway ve una IP compartida por todos los usuarios: el umbral es alto a propósito y funciona como freno global, no como límite fino. No se confía en `X-Forwarded-For` salvo que se active `login.trust-forwarded-for=true`, porque un cliente puede falsearlo.
+- **Tiempo de respuesta:** si el email no existe se compara la contraseña contra un hash de relleno, para que usuario inexistente y contraseña incorrecta tarden lo mismo.
+- Los contadores están **en memoria** (no se agrega Redis solo para esto): se reinician al reiniciar el servicio y, con varias instancias, el límite es por instancia. Un atacante puede bloquear 60 segundos el login de un usuario concreto fallando a propósito; es el costo de proteger las cuentas.
+
 ### Otras medidas
 
 - Ningún secreto está en el repositorio. Todo se lee de variables de entorno (`.env.example`) y Compose falla si falta una obligatoria (`${VAR:?}`).

@@ -97,6 +97,11 @@ export default function UsuarioForm ({
       setError('La contraseña es obligatoria al crear el usuario.');
       return;
     }
+    // Política de contraseñas del backend: al menos 12 caracteres (al crear, o si se cambia al editar).
+    if (password.trim() && password.trim().length < 12) {
+      setError('La contraseña debe tener al menos 12 caracteres.');
+      return;
+    }
 
     // Resuelve el objeto Cliente completo a partir del id seleccionado.
     // `.find()` recorre el array de clientes y devuelve el primero que
@@ -193,7 +198,7 @@ export default function UsuarioForm ({
               type='password' // el navegador enmascara los caracteres
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder={isEditing ? 'Dejar vacía para conservar' : ''}
+              placeholder={isEditing ? 'Dejar vacía para conservar' : 'Mínimo 12 caracteres'}
               className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
             />
           </div>

@@ -47,7 +47,7 @@ class UsuarioServiceTest {
         usuario.setId(1);
         usuario.setNombre("Juan Perez");
         usuario.setEmail("juan@constructorasur.com");
-        usuario.setPassword("juan123");
+        usuario.setPassword("juan-password-123");
         usuario.setCliente(cliente);
     }
 
@@ -83,7 +83,7 @@ class UsuarioServiceTest {
     @Test
     void save_WhenEmailLibre_ShouldReturnSavedUsuario() {
         when(usuarioRepository.existsByEmailAndHabilitadoTrue("juan@constructorasur.com")).thenReturn(false);
-        when(passwordEncoder.encode("juan123")).thenReturn("hashed123");
+        when(passwordEncoder.encode("juan-password-123")).thenReturn("hashed123");
         when(usuarioRepository.save(any(UsuarioCliente.class))).thenReturn(usuario);
 
         UsuarioCliente result = usuarioService.save(usuario);
@@ -112,16 +112,16 @@ class UsuarioServiceTest {
         UsuarioCliente result = usuarioService.update(usuario, nuevo);
 
         assertThat(result.getNombre()).isEqualTo("Juan Carlos Perez");
-        assertThat(result.getPassword()).isEqualTo("juan123");
+        assertThat(result.getPassword()).isEqualTo("juan-password-123");
     }
 
     @Test
     void update_ShouldEncodeNewPasswordWhenProvided() {
         when(usuarioRepository.save(any(UsuarioCliente.class))).thenReturn(usuario);
-        when(passwordEncoder.encode("nuevo-pass")).thenReturn("hashed-nuevo");
+        when(passwordEncoder.encode("nuevo-pass-1234")).thenReturn("hashed-nuevo");
 
         UsuarioCliente nuevo = new UsuarioCliente();
-        nuevo.setPassword("nuevo-pass");
+        nuevo.setPassword("nuevo-pass-1234");
 
         UsuarioCliente result = usuarioService.update(usuario, nuevo);
 
@@ -157,9 +157,9 @@ class UsuarioServiceTest {
     void validarLogin_WhenCredencialesCorrectas_ShouldReturnUsuario() {
         when(usuarioRepository.findByEmailAndHabilitadoTrue("juan@constructorasur.com"))
                 .thenReturn(Optional.of(usuario));
-        when(passwordEncoder.matches("juan123", "juan123")).thenReturn(true);
+        when(passwordEncoder.matches("juan-password-123", "juan-password-123")).thenReturn(true);
 
-        Optional<UsuarioCliente> result = usuarioService.validarLogin("juan@constructorasur.com", "juan123");
+        Optional<UsuarioCliente> result = usuarioService.validarLogin("juan@constructorasur.com", "juan-password-123");
 
         assertThat(result).isPresent();
         assertThat(result.get().getCliente().getId()).isEqualTo(1);

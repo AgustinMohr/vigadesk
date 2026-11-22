@@ -144,6 +144,26 @@ class UsuarioControllerTest {
     }
 
     @Test
+    void login_DemasiadosIntentos_ShouldReturn429WithStandardErrorBody() throws Exception {
+        Mockito.when(usuarioService.validarLogin("juan@constructorasur.com", "mal"))
+                .thenThrow(new dan.common.error.DemasiadosIntentosException(
+                        "Demasiados intentos fallidos. Intenta de nuevo en 42 segundos"));
+
+        LoginRequest login = new LoginRequest();
+        login.setEmail("juan@constructorasur.com");
+        login.setPassword("mal");
+
+        mockMvc.perform(post("/api/usuarios/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(MAPPER.writeValueAsString(login)))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.status").value(429))
+                .andExpect(jsonPath("$.code").value("TOO_MANY_REQUESTS"))
+                .andExpect(jsonPath("$.message").value("Demasiados intentos fallidos. Intenta de nuevo en 42 segundos"))
+                .andExpect(jsonPath("$.path").value("/api/usuarios/login"));
+    }
+
+    @Test
     void login_CredencialesInvalidas_ShouldReturn401() throws Exception {
         Mockito.when(usuarioService.validarLogin("juan@constructorasur.com", "mal"))
                 .thenReturn(Optional.empty());
