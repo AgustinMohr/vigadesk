@@ -1,12 +1,12 @@
 package isi.dan.ms_productos.servicio;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -28,8 +28,13 @@ import isi.dan.ms_productos.modelo.UnidadMedida;
 @Service
 public class ProductoService {
 
-    @Autowired
-    private ProductoRepository productoRepository;
+    private final ProductoRepository productoRepository;
+    private final Clock clock;
+
+    public ProductoService(ProductoRepository productoRepository, Clock clock) {
+        this.productoRepository = productoRepository;
+        this.clock = clock;
+    }
 
     Logger log = LoggerFactory.getLogger(ProductoService.class);
 
@@ -56,7 +61,7 @@ public class ProductoService {
         for (StockUpdateDTO item : items) {
             validarItemStock(item);
             int actualizados = productoRepository.descontarStock(
-                    item.getIdProducto(), item.getCantidad(), "ms-pedidos", Instant.now());
+                    item.getIdProducto(), item.getCantidad(), "ms-pedidos", Instant.now(clock));
             if (actualizados == 0) {
                 throw new InsufficientStockException(
                         "Stock insuficiente para el producto ID " + item.getIdProducto());
@@ -70,7 +75,7 @@ public class ProductoService {
         for (StockUpdateDTO item : items) {
             validarItemStock(item);
             int actualizados = productoRepository.reponerStock(
-                    item.getIdProducto(), item.getCantidad(), "ms-pedidos", Instant.now());
+                    item.getIdProducto(), item.getCantidad(), "ms-pedidos", Instant.now(clock));
             if (actualizados == 0) {
                 throw new ProductoNotFoundException(item.getIdProducto());
             }
@@ -151,7 +156,7 @@ public class ProductoService {
     public void deleteProducto(Long id) {
         productoRepository.findByIdAndHabilitadoTrue(id).ifPresent(producto -> {
             producto.setHabilitado(false);
-            producto.setFechaBorrado(Instant.now());
+            producto.setFechaBorrado(Instant.now(clock));
             productoRepository.save(producto);
         });
     }
@@ -184,7 +189,7 @@ public class ProductoService {
 
     private void marcarAuditoria(Producto producto, String actor) {
         producto.setActualizadoPor(actor);
-        producto.setFechaActualizacion(Instant.now());
+        producto.setFechaActualizacion(Instant.now(clock));
     }
 
     private void validarDescuento(BigDecimal descuento) {

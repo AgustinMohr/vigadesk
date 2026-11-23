@@ -9,6 +9,9 @@ import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
@@ -17,6 +20,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import isi.dan.ms_productos.dao.ProductoRepository;
@@ -30,6 +34,11 @@ class ProductoImportServiceTest {
 
     @Mock
     private ProductoRepository productoRepository;
+
+    private static final Instant AHORA = Instant.parse("2026-03-10T12:00:00Z");
+
+    @Spy
+    private Clock clock = Clock.fixed(AHORA, ZoneOffset.UTC);
 
     @InjectMocks
     private ProductoImportService service;
@@ -56,6 +65,7 @@ class ProductoImportServiceTest {
         assertThat(producto.getCategoria()).isEqualTo(Categoria.CEMENTOS);
         assertThat(producto.getCosto()).isEqualByComparingTo(BigDecimal.valueOf(800));
         assertThat(producto.getActualizadoPor()).isEqualTo("Admin");
+        assertThat(producto.getFechaActualizacion()).isEqualTo(AHORA);
     }
 
     @Test

@@ -5,13 +5,13 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.Optional;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,8 +24,13 @@ import isi.dan.ms_productos.modelo.UnidadMedida;
 @Service
 public class ProductoImportService {
 
-    @Autowired
-    private ProductoRepository productoRepository;
+    private final ProductoRepository productoRepository;
+    private final Clock clock;
+
+    public ProductoImportService(ProductoRepository productoRepository, Clock clock) {
+        this.productoRepository = productoRepository;
+        this.clock = clock;
+    }
 
     @Transactional
     public ImportResult importar(InputStream csv, String actor) {
@@ -79,7 +84,7 @@ public class ProductoImportService {
                 }
                 producto.setHabilitado(true);
                 producto.setActualizadoPor(actor);
-                producto.setFechaActualizacion(Instant.now());
+                producto.setFechaActualizacion(Instant.now(clock));
 
                 productoRepository.save(producto);
                 if (existente.isPresent()) {

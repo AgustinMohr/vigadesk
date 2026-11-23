@@ -165,9 +165,7 @@ class ProductoRepositoryPostgresTest {
     }
 
     private isi.dan.ms_productos.servicio.ProductoService servicioReal() {
-        isi.dan.ms_productos.servicio.ProductoService servicio = new isi.dan.ms_productos.servicio.ProductoService();
-        org.springframework.test.util.ReflectionTestUtils.setField(servicio, "productoRepository", repository);
-        return servicio;
+        return new isi.dan.ms_productos.servicio.ProductoService(repository, java.time.Clock.systemUTC());
     }
 
     @Test
