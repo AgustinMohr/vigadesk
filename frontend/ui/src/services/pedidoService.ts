@@ -16,6 +16,7 @@
 // ==============================================================
 
 import { http } from './http';
+import type { EstadoPedido } from '@/lib/domain/pedido';
 
 /** Info mínima del cliente dentro de un pedido (denormalizada). */
 export type ClienteInfo = {
@@ -92,7 +93,7 @@ export type Pedido = {
   cliente: ClienteInfo;
   obra?: ObraInfo;
   total?: number;
-  estado: string;
+  estado: EstadoPedido;
   detalle: DetallePedido[];
   entregas?: Entrega[];
   auditoria?: Array<{
@@ -110,7 +111,7 @@ export type Pedido = {
  */
 export type SearchParams = {
   clienteNombre?: string;
-  estado?: string;
+  estado?: EstadoPedido;
   clienteId?: number;
 };
 
@@ -175,7 +176,7 @@ export const pedidoService = {
     http.getAll<Pedido>(`${basePath}/search${buildSearchQuery(params)}`),
 
   // PATCH /api/pedidos/:id/estado → actualiza SOLO el estado del pedido
-  updateEstado: (id: string, estado: string) =>
+  updateEstado: (id: string, estado: EstadoPedido) =>
     http.patch<Pedido>(`${basePath}/${id}/estado`, { estado }),
 
   // POST /api/pedidos/:id/reintentar-reserva → ADMIN: reintenta reservar stock

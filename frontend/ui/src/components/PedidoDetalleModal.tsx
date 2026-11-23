@@ -19,6 +19,7 @@ import { http } from '@/services/http';
 import Button from './Button';
 import Modal from './Modal';
 import { useFeedback } from './Feedback';
+import { claseDeEstadoPedido } from '@/lib/domain/pedido';
 
 /**
  * PROPS del modal de detalle de pedido.
@@ -30,17 +31,6 @@ import { useFeedback } from './Feedback';
 type PedidoDetalleModalProps = {
   pedido: Pedido;
   onClose: () => void;
-};
-
-// Mapa estado → colores de la pill (misma paleta que PedidoTable).
-const estadoColors: Record<string, string> = {
-  RECIBIDO: 'text-yellow-700 bg-yellow-100',
-  ACEPTADO: 'text-blue-700 bg-blue-100',
-  EN_PREPARACION: 'text-indigo-700 bg-indigo-100',
-  ENTREGA_PARCIAL: 'text-purple-700 bg-purple-100',
-  ENTREGADO: 'text-green-700 bg-green-100',
-  CANCELADO: 'text-red-700 bg-red-100',
-  RECHAZADO: 'text-gray-700 bg-gray-100',
 };
 
 /**
@@ -114,7 +104,7 @@ export default function PedidoDetalleModal ({
           {/* Pill con color según el estado; fallback para estados nuevos */}
           <span
             className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium mt-0.5 ${
-                estadoColors[pedido.estado] ?? 'text-slate-700 bg-slate-100'
+                claseDeEstadoPedido(pedido.estado)
               }`}
           >
             {pedido.estado}

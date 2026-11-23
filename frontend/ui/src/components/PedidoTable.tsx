@@ -21,24 +21,13 @@ import type { Pedido } from '@/services/pedidoService';
 import Button from './Button';
 import { useSort } from '@/hooks/useSort';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { claseDeEstadoPedido, ESTADOS_CANCELABLES, ESTADOS_CON_ENTREGA } from '@/lib/domain/pedido';
 
 // Constantes de clases Tailwind para encabezados (izquierda y derecha).
 const thClass =
   'px-4 py-3 text-left font-medium text-slate-600 cursor-pointer select-none hover:text-slate-900';
 const thClassRight =
   'px-4 py-3 text-right font-medium text-slate-600 cursor-pointer select-none hover:text-slate-900';
-
-// Mapa estado → colores de la "pill". Como los estados los define el
-// backend, el `??` en el uso garantiza un color neutro si llega uno nuevo.
-const estadoColors: Record<string, string> = {
-  RECIBIDO: 'text-yellow-700 bg-yellow-100',
-  ACEPTADO: 'text-blue-700 bg-blue-100',
-  EN_PREPARACION: 'text-indigo-700 bg-indigo-100',
-  ENTREGA_PARCIAL: 'text-purple-700 bg-purple-100',
-  ENTREGADO: 'text-green-700 bg-green-100',
-  CANCELADO: 'text-red-700 bg-red-100',
-  RECHAZADO: 'text-gray-700 bg-gray-100',
-};
 
 /**
  * Formatea una fecha ISO (string) a texto legible es-AR con hora.
@@ -194,7 +183,7 @@ export default function PedidoTable ({
                           protege contra estados desconocidos del backend. */}
                       <span
                         className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      estadoColors[pedido.estado] ?? 'text-slate-700 bg-slate-100'
+                      claseDeEstadoPedido(pedido.estado)
                     }`}
                       >
                         {pedido.estado}
@@ -217,7 +206,7 @@ export default function PedidoTable ({
                             EN_PREPARACION: en RECIBIDO aún no lo toma el
                             admin y en ENTREGADO/CANCELADO/RECHAZADO el flujo
                             ya terminó (no hay adónde avanzar). */}
-                        {isAdmin && (pedido.estado === 'EN_PREPARACION' || pedido.estado === 'ENTREGA_PARCIAL') && (
+                        {isAdmin && ESTADOS_CON_ENTREGA.includes(pedido.estado) && (
                           <Button variant='secondary' onClick={() => onEntregar(pedido)}>
                             Entregar
                           </Button>
@@ -227,7 +216,7 @@ export default function PedidoTable ({
                             Reintentar reserva
                           </Button>
                         )}
-                        {isAdmin && (pedido.estado === 'ACEPTADO' || pedido.estado === 'EN_PREPARACION') && (
+                        {isAdmin && ESTADOS_CANCELABLES.includes(pedido.estado) && (
                           <Button variant='secondary' onClick={() => onUpdateEstado(pedido)}>
                             Estado
                           </Button>

@@ -31,8 +31,7 @@ import { useFetch } from '@/hooks/useFetch';
 import FetchError from '@/components/FetchError';
 import { getErrorMessage } from '@/lib/http/api-error';
 import Field from '@/components/Field';
-
-const ESTADOS_PEDIDO = ['RECIBIDO', 'ACEPTADO', 'EN_PREPARACION', 'ENTREGA_PARCIAL', 'ENTREGADO', 'CANCELADO', 'RECHAZADO'];
+import { ESTADOS_PEDIDO, esEstadoPedido, type EstadoPedido } from '@/lib/domain/pedido';
 
 type Aviso = { tipo: 'ok' | 'warn' | 'error'; texto: string };
 
@@ -79,7 +78,7 @@ export default function PedidosPageClient () {
     const params: SearchParams = {};
     if (clienteId != null) params.clienteId = clienteId;
     if (searchCliente.trim()) params.clienteNombre = searchCliente.trim();
-    if (searchEstado) params.estado = searchEstado;
+    if (esEstadoPedido(searchEstado)) params.estado = searchEstado;
     return params;
   };
 
@@ -157,7 +156,7 @@ export default function PedidosPageClient () {
   };
 
   // Actualiza estado (ej: ACEPTADO → EN_PREPARACION → ENTREGADO, o CANCELADO)
-  const handleEstadoSubmit = async (nuevoEstado: string) => {
+  const handleEstadoSubmit = async (nuevoEstado: EstadoPedido) => {
     if (!estadoPedido) return;
     await pedidoService.updateEstado(estadoPedido.id!, nuevoEstado);
     setEstadoPedido(null);

@@ -12,6 +12,7 @@
 'use client';
 
 import { useState } from 'react';
+import type { EstadoPedido } from '@/lib/domain/pedido';
 import Button from './Button';
 import Modal from './Modal';
 import { getErrorMessage } from '@/lib/http/api-error';
@@ -23,18 +24,18 @@ import Field from './Field';
  * @typedef {Object} PedidoEstadoModalProps
  * @property {number} [pedidoNumero] - Contexto visual: el número del pedido
  *   (opcional; solo para mostrar "Pedido N° 12").
- * @property {(estado: string) => Promise<void>} onSubmit - Callback con el
+ * @property {(estado: EstadoPedido) => Promise<void>} onSubmit - Callback con el
  *   nuevo estado elegido; el padre persiste (pedidoService.updateEstado).
  * @property {() => void} onCancel - Cierra el modal sin cambiar nada.
  */
 type PedidoEstadoModalProps = {
   pedidoNumero?: number;
-  onSubmit: (estado: string) => Promise<void>;
+  onSubmit: (estado: EstadoPedido) => Promise<void>;
   onCancel: () => void;
 };
 
 // Estados de cierre permitidos desde el modal de un pedido en curso.
-const estadosPermitidos = ['CANCELADO'];
+const estadosPermitidos: readonly EstadoPedido[] = ['CANCELADO'];
 
 /**
  * Modal para cancelar un pedido en curso.
@@ -50,7 +51,7 @@ export default function PedidoEstadoModal ({
   onCancel,
 }: PedidoEstadoModalProps) {
   // Estado como string plano: '' = placeholder, luego 'ENTREGADO'/'CANCELADO'.
-  const [estado, setEstado] = useState('');
+  const [estado, setEstado] = useState<EstadoPedido | ''>('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -92,7 +93,7 @@ export default function PedidoEstadoModal ({
         <Field label='Nuevo estado' required>
           <select
             value={estado}
-            onChange={(e) => setEstado(e.target.value)}
+            onChange={(e) => setEstado(e.target.value as EstadoPedido | '')}
             className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
           >
             <option value=''>Seleccionar estado</option>

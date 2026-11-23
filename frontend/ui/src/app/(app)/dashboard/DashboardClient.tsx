@@ -42,20 +42,7 @@ import StockBajoModal from '@/components/StockBajoModal';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useFetch } from '@/hooks/useFetch';
 import FetchError from '@/components/FetchError';
-
-// Mapa de clases de estilo para la "pill" (etiqueta redondeada) de cada
-// estado de pedido. La clave es el estado y el valor son clases Tailwind
-// de color de texto y fondo. `Record<string, string>` indica "objeto con
-// claves string y valores string".
-const estadoColors: Record<string, string> = {
-  RECIBIDO: 'text-yellow-700 bg-yellow-100',
-  ACEPTADO: 'text-blue-700 bg-blue-100',
-  EN_PREPARACION: 'text-indigo-700 bg-indigo-100',
-  ENTREGA_PARCIAL: 'text-purple-700 bg-purple-100',
-  ENTREGADO: 'text-green-700 bg-green-100',
-  CANCELADO: 'text-red-700 bg-red-100',
-  RECHAZADO: 'text-gray-700 bg-gray-100',
-};
+import { claseDeEstadoPedido, ESTADOS_PEDIDO } from '@/lib/domain/pedido';
 
 /**
  * Formatea un número como precio argentino.
@@ -121,7 +108,7 @@ export default function DashboardClient () {
   //  3. `totalPedidos`: suma acumulada de todos los totales de pedidos.
   //  4. `productosStockBajo`: productos cuyo stock actual es menor al mínimo.
   // --------------------------------------------------------------
-  const estadosPedido = ['RECIBIDO', 'ACEPTADO', 'EN_PREPARACION', 'ENTREGA_PARCIAL', 'ENTREGADO', 'CANCELADO', 'RECHAZADO'];
+  const estadosPedido = ESTADOS_PEDIDO;
   // `Object.fromEntries` convierte un array de pares [clave, valor] en un
   // objeto: [[est, count], ...] → { est: count }. Es el patrón ideal para
   // armar un "diccionario" de conteos por estado.
@@ -205,7 +192,7 @@ export default function DashboardClient () {
       <div className='mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6'>
         {/* Panel izquierdo: pedidos agrupados por estado con su suma
             acumulada + total general de todos los pedidos.
-            Cada estado se pinta con su "pill" de color (estadoColors). */}
+            Cada estado se pinta con su "pill" de color (claseDeEstadoPedido). */}
         <div className='rounded-lg border border-slate-200 bg-white p-5'>
           <h3 className='text-sm font-semibold text-slate-700'>
             Pedidos por estado
@@ -224,7 +211,7 @@ export default function DashboardClient () {
                   <span
                     className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
                       // `??` da un color por defecto si el estado no está en el mapa.
-                      estadoColors[est] ?? 'text-slate-700 bg-slate-100'
+                      claseDeEstadoPedido(est)
                     }`}
                   >
                     {est}
