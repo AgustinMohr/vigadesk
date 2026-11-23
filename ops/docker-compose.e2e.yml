@@ -1,0 +1,9 @@
+# Overlay para las pruebas end to end: sin datos de ejemplo y con un administrador inicial conocido.
+# Uso: docker compose -f docker-compose.yml -f ops/docker-compose.e2e.yml up -d --build
+# (BOOTSTRAP_ADMIN_EMAIL y BOOTSTRAP_ADMIN_PASSWORD salen del .env; la base debe estar vacia).
+services:
+  ms-clientes:
+    environment:
+      APP_SEED_ENABLED: "false"
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:?BOOTSTRAP_ADMIN_EMAIL requerido}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?BOOTSTRAP_ADMIN_PASSWORD requerido}
