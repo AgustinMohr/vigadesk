@@ -1,6 +1,5 @@
 package isi.dan.msclientes.servicios;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -17,6 +16,7 @@ import isi.dan.msclientes.model.Cliente;
 import isi.dan.msclientes.model.EstadoObra;
 import isi.dan.msclientes.model.Obra;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -24,11 +24,15 @@ import java.util.Optional;
 @Service
 public class ObraService {
     
-    @Autowired
-    private ObraRepository obraRepository;
+    private final ObraRepository obraRepository;
+    private final ClienteRepository clienteRepository;
+    private final Clock clock;
 
-    @Autowired
-    private ClienteRepository clienteRepository;
+    public ObraService(ObraRepository obraRepository, ClienteRepository clienteRepository, Clock clock) {
+        this.obraRepository = obraRepository;
+        this.clienteRepository = clienteRepository;
+        this.clock = clock;
+    }
 
     /** Listado paginado (orden por id) de registros activos. */
     public Page<Obra> findAll(Integer page, Integer size) {
@@ -59,7 +63,7 @@ public class ObraService {
     public void deleteById(Integer id) {
         obraRepository.findByIdAndHabilitadoTrue(id).ifPresent(obra -> {
             obra.setHabilitado(false);
-            obra.setFechaBorrado(Instant.now());
+            obra.setFechaBorrado(Instant.now(clock));
             obraRepository.save(obra);
         });
     }

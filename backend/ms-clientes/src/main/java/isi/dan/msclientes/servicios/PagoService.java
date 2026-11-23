@@ -1,10 +1,10 @@
 package isi.dan.msclientes.servicios;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import isi.dan.msclientes.dao.ClienteRepository;
@@ -16,11 +16,15 @@ import isi.dan.msclientes.model.Pago;
 @Service
 public class PagoService {
 
-    @Autowired
-    private PagoRepository pagoRepository;
+    private final PagoRepository pagoRepository;
+    private final ClienteRepository clienteRepository;
+    private final Clock clock;
 
-    @Autowired
-    private ClienteRepository clienteRepository;
+    public PagoService(PagoRepository pagoRepository, ClienteRepository clienteRepository, Clock clock) {
+        this.pagoRepository = pagoRepository;
+        this.clienteRepository = clienteRepository;
+        this.clock = clock;
+    }
 
     public List<Pago> findByCliente(Integer clienteId) {
         return pagoRepository.findByClienteIdAndHabilitadoTrueOrderByFechaDesc(clienteId);
@@ -49,7 +53,7 @@ public class PagoService {
 
         pago.setId(null);
         pago.setCliente(cliente);
-        pago.setFecha(Instant.now());
+        pago.setFecha(Instant.now(clock));
         pago.setRegistradoPor(actor);
         pago.setHabilitado(true);
         pago.setFechaBorrado(null);
@@ -61,7 +65,7 @@ public class PagoService {
                 .filter(p -> p.getCliente() != null && clienteId.equals(p.getCliente().getId()))
                 .orElseThrow(() -> new IllegalArgumentException("Pago " + pagoId + " no encontrado"));
         pago.setHabilitado(false);
-        pago.setFechaBorrado(Instant.now());
+        pago.setFechaBorrado(Instant.now(clock));
         pagoRepository.save(pago);
     }
 }

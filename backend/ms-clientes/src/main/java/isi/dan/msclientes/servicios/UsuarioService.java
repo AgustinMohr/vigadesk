@@ -1,5 +1,6 @@
 package isi.dan.msclientes.servicios;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -7,7 +8,6 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.data.domain.Page;
@@ -24,23 +24,25 @@ import isi.dan.msclientes.model.UsuarioCliente;
 @Service
 public class UsuarioService {
 
-    @Autowired
-    private UsuarioRepository usuarioRepository;
-
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    private final UsuarioRepository usuarioRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final FailedAttemptLimiter limiter;
+    private final Clock clock;
 
     /** Misma longitud minima que la contrasena del administrador inicial (AdminBootstrap). */
     static final int LONGITUD_MINIMA_PASSWORD = 12;
 
-    @Value("${login.max-failures:5}")
-    private int maxFailures = 5;
-
-    @Value("${login.window-seconds:60}")
-    private long windowSeconds = 60;
-
-    private FailedAttemptLimiter limiter;
     private String hashDeRelleno;
+
+    public UsuarioService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder,
+            @Value("${login.max-failures:5}") int maxFailures,
+            @Value("${login.window-seconds:60}") long windowSeconds,
+            Clock clock) {
+        this.usuarioRepository = usuarioRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.limiter = new FailedAttemptLimiter(maxFailures, Duration.ofSeconds(windowSeconds));
+        this.clock = clock;
+    }
 
     /** Listado paginado (orden por id) de registros activos. */
     public Page<UsuarioCliente> findAll(Integer page, Integer size) {
@@ -92,7 +94,7 @@ public class UsuarioService {
     public void deleteById(Integer id) {
         usuarioRepository.findByIdAndHabilitadoTrue(id).ifPresent(usuario -> {
             usuario.setHabilitado(false);
-            usuario.setFechaBorrado(Instant.now());
+            usuario.setFechaBorrado(Instant.now(clock));
             usuarioRepository.save(usuario);
         });
     }
@@ -104,7 +106,7 @@ public class UsuarioService {
      */
     public Optional<UsuarioCliente> validarLogin(String email, String rawPassword) {
         String clave = email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
-        long espera = limiter().retryAfterSeconds(clave);
+        long espera = limiter.retryAfterSeconds(clave);
         if (espera > 0) {
             throw new DemasiadosIntentosException(
                     "Demasiados intentos fallidos. Intenta de nuevo en " + espera + " segundos");
@@ -120,10 +122,10 @@ public class UsuarioService {
         }
 
         if (!correcto) {
-            limiter().recordFailure(clave);
+            limiter.recordFailure(clave);
             return Optional.empty();
         }
-        limiter().reset(clave);
+        limiter.reset(clave);
         return encontrado;
     }
 
@@ -133,13 +135,6 @@ public class UsuarioService {
             throw new IllegalArgumentException(
                     "La contrasena debe tener al menos " + LONGITUD_MINIMA_PASSWORD + " caracteres");
         }
-    }
-
-    private synchronized FailedAttemptLimiter limiter() {
-        if (limiter == null) {
-            limiter = new FailedAttemptLimiter(maxFailures, Duration.ofSeconds(windowSeconds));
-        }
-        return limiter;
     }
 
     private synchronized String hashDeRelleno() {

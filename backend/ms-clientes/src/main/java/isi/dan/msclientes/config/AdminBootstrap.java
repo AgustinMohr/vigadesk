@@ -2,7 +2,6 @@ package isi.dan.msclientes.config;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
@@ -29,20 +28,22 @@ public class AdminBootstrap implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(AdminBootstrap.class);
 
-    @Autowired
-    private UsuarioRepository usuarioRepository;
+    private final UsuarioRepository usuarioRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final String email;
+    private final String password;
+    private final boolean required;
 
-    @Autowired
-    private PasswordEncoder passwordEncoder;
-
-    @Value("${app.bootstrap-admin.email:}")
-    private String email;
-
-    @Value("${app.bootstrap-admin.password:}")
-    private String password;
-
-    @Value("${app.bootstrap-admin.required:false}")
-    private boolean required;
+    public AdminBootstrap(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder,
+            @Value("${app.bootstrap-admin.email:}") String email,
+            @Value("${app.bootstrap-admin.password:}") String password,
+            @Value("${app.bootstrap-admin.required:false}") boolean required) {
+        this.usuarioRepository = usuarioRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.email = email;
+        this.password = password;
+        this.required = required;
+    }
 
     @Override
     public void run(String... args) {

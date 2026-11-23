@@ -7,6 +7,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -16,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import isi.dan.msclientes.dao.ClienteRepository;
@@ -32,6 +36,11 @@ class PagoServiceTest {
 
     @Mock
     private ClienteRepository clienteRepository;
+
+    private static final Instant AHORA = Instant.parse("2026-03-10T12:00:00Z");
+
+    @Spy
+    private Clock clock = Clock.fixed(AHORA, ZoneOffset.UTC);
 
     @InjectMocks
     private PagoService pagoService;
@@ -121,7 +130,7 @@ class PagoServiceTest {
         pagoService.delete(1, 10);
 
         assertThat(pago.isHabilitado()).isFalse();
-        assertThat(pago.getFechaBorrado()).isNotNull();
+        assertThat(pago.getFechaBorrado()).isEqualTo(AHORA);
         verify(pagoRepository).save(pago);
     }
 

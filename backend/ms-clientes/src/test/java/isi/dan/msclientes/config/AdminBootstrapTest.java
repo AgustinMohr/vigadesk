@@ -14,7 +14,6 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import isi.dan.msclientes.dao.ClienteRepository;
 import isi.dan.msclientes.dao.ObraRepository;
@@ -31,15 +30,10 @@ class AdminBootstrapTest {
     void setUp() {
         usuarioRepository = mock(UsuarioRepository.class);
         passwordEncoder = new BCryptPasswordEncoder();
-        bootstrap = new AdminBootstrap();
-        ReflectionTestUtils.setField(bootstrap, "usuarioRepository", usuarioRepository);
-        ReflectionTestUtils.setField(bootstrap, "passwordEncoder", passwordEncoder);
     }
 
     private void configurar(String email, String password, boolean required) {
-        ReflectionTestUtils.setField(bootstrap, "email", email);
-        ReflectionTestUtils.setField(bootstrap, "password", password);
-        ReflectionTestUtils.setField(bootstrap, "required", required);
+        bootstrap = new AdminBootstrap(usuarioRepository, passwordEncoder, email, password, required);
     }
 
     @Test

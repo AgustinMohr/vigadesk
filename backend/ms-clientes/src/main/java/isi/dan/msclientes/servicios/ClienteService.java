@@ -1,11 +1,11 @@
 package isi.dan.msclientes.servicios;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -24,17 +24,22 @@ import isi.dan.msclientes.model.Pago;
 @Service
 public class ClienteService {
 
-    @Autowired
-    private ClienteRepository clienteRepository;
+    private final ClienteRepository clienteRepository;
+    private final PagoRepository pagoRepository;
+    private final ObraRepository obraRepository;
+    private final BigDecimal maximoDescubiertoDefault;
+    private final Clock clock;
 
-    @Autowired
-    private PagoRepository pagoRepository;
-
-    @Autowired
-    private ObraRepository obraRepository;
-
-    @Value("${cliente.maximo-descubierto.default:10000}")
-    private BigDecimal maximoDescubiertoDefault;
+    public ClienteService(ClienteRepository clienteRepository, PagoRepository pagoRepository,
+            ObraRepository obraRepository,
+            @Value("${cliente.maximo-descubierto.default:10000}") BigDecimal maximoDescubiertoDefault,
+            Clock clock) {
+        this.clienteRepository = clienteRepository;
+        this.pagoRepository = pagoRepository;
+        this.obraRepository = obraRepository;
+        this.maximoDescubiertoDefault = maximoDescubiertoDefault;
+        this.clock = clock;
+    }
 
     /** Listado paginado (orden por id) de registros activos. */
     public Page<Cliente> findAll(Integer page, Integer size) {
@@ -78,7 +83,7 @@ public class ClienteService {
     public void deleteById(Integer id) {
         clienteRepository.findByIdAndHabilitadoTrue(id).ifPresent(cliente -> {
             cliente.setHabilitado(false);
-            cliente.setFechaBorrado(Instant.now());
+            cliente.setFechaBorrado(Instant.now(clock));
             clienteRepository.save(cliente);
         });
     }

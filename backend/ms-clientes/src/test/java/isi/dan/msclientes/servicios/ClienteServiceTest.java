@@ -8,6 +8,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -15,12 +18,10 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import isi.dan.msclientes.dao.ClienteRepository;
 import isi.dan.msclientes.dao.ObraRepository;
@@ -43,14 +44,16 @@ class ClienteServiceTest {
     @Mock
     private ObraRepository obraRepository;
 
-    @InjectMocks
+    private static final Instant AHORA = Instant.parse("2026-03-10T12:00:00Z");
+
     private ClienteService clienteService;
 
     private Cliente cliente;
 
     @BeforeEach
     void setUp() {
-        ReflectionTestUtils.setField(clienteService, "maximoDescubiertoDefault", BigDecimal.valueOf(10000));
+        clienteService = new ClienteService(clienteRepository, pagoRepository, obraRepository,
+                BigDecimal.valueOf(10000), Clock.fixed(AHORA, ZoneOffset.UTC));
         lenient().when(pagoRepository.findByClienteIdAndHabilitadoTrueOrderByFechaDesc(any()))
                 .thenReturn(Collections.emptyList());
         cliente = new Cliente();
@@ -174,7 +177,7 @@ class ClienteServiceTest {
         clienteService.deleteById(1);
 
         assertThat(cliente.isHabilitado()).isFalse();
-        assertThat(cliente.getFechaBorrado()).isNotNull();
+        assertThat(cliente.getFechaBorrado()).isEqualTo(AHORA);
         verify(clienteRepository).save(cliente);
     }
 

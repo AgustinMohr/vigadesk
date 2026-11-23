@@ -22,7 +22,7 @@ class JwtServiceTest {
 
     @BeforeEach
     void setUp() {
-        jwtService = new JwtService(SECRET, 7200);
+        jwtService = new JwtService(SECRET, 7200, java.time.Clock.systemUTC());
     }
 
     private Claims parse(String token) {
@@ -69,7 +69,7 @@ class JwtServiceTest {
 
     @Test
     void generateToken_ShouldHonorExpiration() {
-        jwtService = new JwtService(SECRET, 3600);
+        jwtService = new JwtService(SECRET, 3600, java.time.Clock.systemUTC());
         UsuarioCliente usuario = new UsuarioCliente();
         usuario.setEmail("a@b.com");
         usuario.setNombre("A");

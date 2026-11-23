@@ -10,16 +10,15 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Clock;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import dan.common.error.DemasiadosIntentosException;
 import isi.dan.msclientes.dao.UsuarioRepository;
@@ -37,15 +36,13 @@ class UsuarioServiceSeguridadTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
-    @InjectMocks
     private UsuarioService usuarioService;
 
     private UsuarioCliente usuario;
 
     @BeforeEach
     void setUp() {
-        ReflectionTestUtils.setField(usuarioService, "maxFailures", 3);
-        ReflectionTestUtils.setField(usuarioService, "windowSeconds", 60L);
+        usuarioService = new UsuarioService(usuarioRepository, passwordEncoder, 3, 60L, Clock.systemUTC());
         usuario = new UsuarioCliente();
         usuario.setId(1);
         usuario.setEmail(EMAIL);

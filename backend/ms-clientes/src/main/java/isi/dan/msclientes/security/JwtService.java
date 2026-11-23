@@ -1,6 +1,7 @@
 package isi.dan.msclientes.security;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.Date;
 
@@ -21,16 +22,19 @@ public class JwtService {
 
     private final SecretKey key;
     private final long expirationSeconds;
+    private final Clock clock;
 
     public JwtService(
             @Value("${jwt.secret}") String secret,
-            @Value("${jwt.expiration:7200}") long expirationSeconds) {
+            @Value("${jwt.expiration:7200}") long expirationSeconds,
+            Clock clock) {
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.expirationSeconds = expirationSeconds;
+        this.clock = clock;
     }
 
     public String generateToken(UsuarioCliente usuario) {
-        Instant now = Instant.now();
+        Instant now = Instant.now(clock);
         var builder = Jwts.builder()
                 .subject(usuario.getEmail())
                 .claim("nombre", usuario.getNombre())

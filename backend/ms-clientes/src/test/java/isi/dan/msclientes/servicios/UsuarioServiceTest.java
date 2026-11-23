@@ -6,6 +6,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -13,7 +16,6 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
@@ -33,8 +35,14 @@ class UsuarioServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
-    @InjectMocks
+    private static final Instant AHORA = Instant.parse("2026-03-10T12:00:00Z");
+
     private UsuarioService usuarioService;
+
+    @BeforeEach
+    void crearServicio() {
+        usuarioService = new UsuarioService(usuarioRepository, passwordEncoder, 5, 60, Clock.fixed(AHORA, ZoneOffset.UTC));
+    }
 
     private UsuarioCliente usuario;
     private Cliente cliente;
@@ -151,7 +159,7 @@ class UsuarioServiceTest {
         usuarioService.deleteById(1);
 
         assertThat(usuario.isHabilitado()).isFalse();
-        assertThat(usuario.getFechaBorrado()).isNotNull();
+        assertThat(usuario.getFechaBorrado()).isEqualTo(AHORA);
         verify(usuarioRepository).save(usuario);
     }
 

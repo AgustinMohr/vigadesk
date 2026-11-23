@@ -4,13 +4,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.time.Clock;
 import java.util.Arrays;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import isi.dan.msclientes.dao.UsuarioRepository;
 import isi.dan.msclientes.model.UsuarioCliente;
@@ -45,11 +45,8 @@ class UsuarioServiceTiemposTest {
         when(repo.findByEmailAndHabilitadoTrue("juan@mail.com")).thenReturn(Optional.of(existente));
         when(repo.findByEmailAndHabilitadoTrue("nadie@mail.com")).thenReturn(Optional.empty());
 
-        UsuarioService service = new UsuarioService();
-        ReflectionTestUtils.setField(service, "usuarioRepository", repo);
-        ReflectionTestUtils.setField(service, "passwordEncoder", encoder);
-        // sin bloqueo durante la medicion: el limite se prueba aparte
-        ReflectionTestUtils.setField(service, "maxFailures", 1000);
+        // sin bloqueo durante la medicion (limite alto): el limite se prueba aparte
+        UsuarioService service = new UsuarioService(repo, encoder, 1000, 60, Clock.systemUTC());
 
         service.validarLogin("nadie@mail.com", "x"); // calienta JIT y crea el hash de relleno
 
