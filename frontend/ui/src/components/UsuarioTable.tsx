@@ -17,10 +17,11 @@
 import type { UsuarioCliente } from '@/services/usuarioService';
 import Button from './Button';
 import { useSort } from '@/hooks/useSort';
+import SortableTh from './SortableTh';
 
 // Clases CSS de Tailwind para las celdas de encabezado.
 const thClass =
-  'px-4 py-3 text-left font-medium text-slate-600 cursor-pointer select-none hover:text-slate-900';
+  'px-4 py-3 text-left font-medium text-slate-600';
 
 /**
  * Props (contrato) de la tabla de usuarios.
@@ -65,7 +66,7 @@ export default function UsuarioTable ({
 }: UsuarioTableProps) {
   // useSort con columna inicial "nombre" y getUsuarioValue para los
   // campos anidados (cliente.nombre).
-  const { sortedData, toggleSort, indicator } = useSort(
+  const { sortedData, sortKey, sortDir, toggleSort } = useSort(
     usuarios,
     'nombre',
     getUsuarioValue
@@ -76,15 +77,9 @@ export default function UsuarioTable ({
       <table className='min-w-full divide-y divide-slate-200 text-sm'>
         <thead className='bg-slate-50'>
           <tr>
-            <th className={thClass} onClick={() => toggleSort('nombre')}>
-              Nombre{indicator('nombre')}
-            </th>
-            <th className={thClass} onClick={() => toggleSort('email')}>
-              Email{indicator('email')}
-            </th>
-            <th className={thClass} onClick={() => toggleSort('clienteNombre')}>
-              Cliente{indicator('clienteNombre')}
-            </th>
+            <SortableTh clave='nombre' sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className={thClass}>Nombre</SortableTh>
+            <SortableTh clave='email' sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className={thClass}>Email</SortableTh>
+            <SortableTh clave='clienteNombre' sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className={thClass}>Cliente</SortableTh>
             <th className='px-4 py-3 text-right font-medium text-slate-600'>
               Acciones
             </th>
@@ -94,7 +89,7 @@ export default function UsuarioTable ({
           {sortedData.length === 0
             ? (
               <tr>
-                <td colSpan={4} className='px-4 py-8 text-center text-slate-400'>
+                <td colSpan={4} className='px-4 py-8 text-center text-slate-500'>
                   No hay usuarios registrados.
                 </td>
               </tr>

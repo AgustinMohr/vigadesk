@@ -1,71 +1,77 @@
-// ==============================================================
-// SIDEBAR — menú lateral de navegación
-// --------------------------------------------------------------
-// Client Component porque necesita el usuario logueado (useAuth) para
-// decidir qué opciones mostrar según el rol.
-//
-// NAVEGACIÓN CON <Link> (next/link): a diferencia de un <a> normal,
-// Link navega por CLIENTE (client-side), sin recargar toda la página.
-// Next.js solo re-renderiza el segmento que cambia (los layouts comunes
-// se mantienen). Es más rápido y mantiene el estado de la app.
-//
-// CONTROL DE ACCESO POR ROL:
-//  - Admin: ve todo.
-//  - CLIENTE: solo lo operativo (productos y pedidos), sin las pantallas
-//    adminOnly (no administra clientes/obras/usuarios).
-//  - Invitado (GUEST): solo catálogo de productos; sin datos de clientes,
-//    obras, pedidos ni pagos.
-// ==============================================================
-
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useEffect } from 'react';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { RUTAS } from '@/lib/auth/access';
 
-// Centralizamos las opciones del menú en un array. Para agregar una
-// pantalla nueva alcanza con sumar otro objeto acá. `adminOnly: true`
-// marca las pantallas que solo ve el admin.
+type SidebarProps = {
+  /** En pantallas chicas el menú es un panel que se abre y se cierra; en las grandes está siempre visible. */
+  abierto?: boolean;
+  onCerrar?: () => void;
+};
 
 /**
- * Menú lateral fijo de la aplicación.
- *
- * Recibe el rol desde el Context global y FILTRA la tabla de rutas
- * (`RUTAS`) antes de renderizar. Este filtro es solo de UX; la seguridad
- * REAL la aplica el backend al validar el JWT en cada request.
- *
- * @returns {JSX.Element} El <aside> con la lista de links filtrados.
+ * Menú lateral de la aplicación. Muestra solo las pantallas que el rol puede abrir (misma tabla que el guard
+ * de rutas: `RUTAS`), marca la ruta activa con `aria-current="page"` y, en pantallas chicas, se comporta como
+ * un panel que se cierra con Esc, con el botón "Cerrar menú" o al elegir una opción. Este filtro es solo de
+ * UX; la seguridad real la aplica el backend al validar el JWT en cada request.
  */
-export default function Sidebar () {
-  const { user } = useAuth(); // lee la sesión del Context global
+export default function Sidebar ({ abierto = false, onCerrar }: SidebarProps) {
+  const { user } = useAuth();
+  const pathname = usePathname();
 
-  // Filtro por rol:
-  //  - Admin: ve todo.
-  //  - CLIENTE: ve solo lo operativo (productos y pedidos), sin las
-  //    pantallas adminOnly (no administra clientes/obras/usuarios).
-  //  - Invitado (GUEST): solo el catálogo de productos.
-  // `filter` es un método de array que devuelve un NUEVO array con los
-  // items que cumplen la condición (no muta `allLinks` original).
-  // Solo las pantallas que el rol puede abrir (misma tabla que usa el guard de rutas)
   const links = RUTAS.filter((ruta) => user !== null && ruta.roles.includes(user.rol));
 
+  useEffect(() => {
+    if (!abierto || !onCerrar) return;
+    const alPresionar = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCerrar();
+    };
+    document.addEventListener('keydown', alPresionar);
+    return () => document.removeEventListener('keydown', alPresionar);
+  }, [abierto, onCerrar]);
+
   return (
-    <aside className='w-64 border-r border-slate-200 bg-white px-4 py-6'>
-      <ul className='space-y-1'>
-        {/* Render de lista con `.map()`: convierte CADA elemento del array
-            en un <li> con su <Link>. `key` es obligatoria (identidad del
-            item para que React difiere eficientemente los cambios). */}
-        {links.map((link) => (
-          <li key={link.href}>
-            <Link
-              href={link.href}
-              className='block rounded-md px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950'
-            >
-              {link.label}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </aside>
+    <>
+      {/* Fondo oscuro que cubre la pantalla detrás del panel móvil */}
+      {abierto && <div aria-hidden='true' onClick={onCerrar} className='fixed inset-0 z-30 bg-black/40 md:hidden' />}
+
+      <aside
+        id='menu-lateral'
+        className={`${abierto ? 'fixed inset-y-0 left-0 z-40 block' : 'hidden'} w-64 shrink-0 border-r border-slate-200 bg-white px-4 py-6 md:static md:block`}
+      >
+        <div className='mb-4 flex justify-end md:hidden'>
+          <button
+            type='button'
+            onClick={onCerrar}
+            aria-label='Cerrar menú'
+            className='rounded p-1 text-2xl leading-none text-slate-500 hover:text-slate-700'
+          >
+            &times;
+          </button>
+        </div>
+        <nav aria-label='Principal'>
+          <ul className='space-y-1'>
+            {links.map((link) => {
+              const activo = pathname === link.href || pathname.startsWith(`${link.href}/`);
+              return (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    onClick={onCerrar}
+                    aria-current={activo ? 'page' : undefined}
+                    className={`block rounded-md px-3 py-2 text-sm font-medium hover:bg-slate-100 hover:text-slate-950 ${activo ? 'bg-slate-100 text-slate-950' : 'text-slate-700'}`}
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+      </aside>
+    </>
   );
 }

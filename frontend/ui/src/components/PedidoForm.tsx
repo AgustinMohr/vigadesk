@@ -416,7 +416,7 @@ export default function PedidoForm ({ onSubmit, onCancel }: PedidoFormProps) {
           </div>
 
           {lineItems.length === 0 && (
-            <p className='py-2 text-sm text-slate-400'>No hay productos agregados.</p>
+            <p className='py-2 text-sm text-slate-500'>No hay productos agregados.</p>
           )}
 
           {/* Render de líneas dinámicas: `lineItems.map`. OJO: la `key={i}`

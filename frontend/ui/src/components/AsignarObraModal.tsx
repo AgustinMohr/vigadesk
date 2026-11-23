@@ -101,7 +101,7 @@ export default function AsignarObraModal ({
       {/* CASCADA DE ESTADOS: cargando → error sin obras → sin obras → lista */}
       {loading
         ? (
-          <p className='text-sm text-slate-400'>Cargando obras disponibles…</p>
+          <p className='text-sm text-slate-500'>Cargando obras disponibles…</p>
           )
         : error && obras.length === 0
           ? (
@@ -109,7 +109,7 @@ export default function AsignarObraModal ({
             )
           : obras.length === 0
             ? (
-              <p className='text-sm text-slate-400'>
+              <p className='text-sm text-slate-500'>
                 No hay obras disponibles para asignar.
               </p>
               )

@@ -14,7 +14,7 @@
 
 'use client';
 
-import { useEffect, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { AuthProvider, useAuth } from '@/lib/auth/AuthContext';
 import Navbar from '@/components/Navbar';
@@ -32,6 +32,7 @@ function AuthGuard ({ children }: { children: React.ReactNode }) {
   const { user } = useAuth(); // lee el usuario del Context (ver AuthContext.tsx)
   const router = useRouter(); // hook de Next para navegar programáticamente
   const pathname = usePathname(); // ruta actual: decide qué roles pueden verla
+  const [menuAbierto, setMenuAbierto] = useState(false); // menú lateral en pantallas chicas
 
   // ------------------------------------------------------------------
   // DETECCIÓN DE MONTAJE (por qué existe)
@@ -64,10 +65,15 @@ function AuthGuard ({ children }: { children: React.ReactNode }) {
   // Usuario logueado → estructura común de la app
   return (
     <div className='min-h-screen bg-slate-50 text-slate-950'>
-      <Navbar />
+      {/* Enlace para saltar el menú con el teclado: solo se ve al enfocarlo */}
+      <a href='#contenido' className='sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:shadow'>
+        Saltar al contenido
+      </a>
+      <Navbar menuAbierto={menuAbierto} onMenu={() => setMenuAbierto((abierto) => !abierto)} />
       <div className='flex min-h-[calc(100vh-64px)]'>
-        <Sidebar />
-        <main className='flex-1 p-6'>
+        <Sidebar abierto={menuAbierto} onCerrar={() => setMenuAbierto(false)} />
+        {/* min-w-0: sin esto una tabla ancha estira la pagina en vez de desplazarse dentro de su caja */}
+        <main id='contenido' className='min-w-0 flex-1 p-4 md:p-6'>
           <RoleGuard rol={user.rol} roles={rolesDeRuta(pathname)}>{children}</RoleGuard>
         </main>
       </div>

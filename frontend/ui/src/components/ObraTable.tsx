@@ -21,10 +21,11 @@ import type { Obra } from '@/services/obraService';
 import Button from './Button';
 import { useSort } from '@/hooks/useSort';
 import { useAuth } from '@/lib/auth/AuthContext';
+import SortableTh from './SortableTh';
 
 // Clases CSS de Tailwind para las celdas de encabezado
 const thClass =
-  'px-4 py-3 text-left font-medium text-slate-600 cursor-pointer select-none hover:text-slate-900';
+  'px-4 py-3 text-left font-medium text-slate-600';
 
 // Colores de la "pill" (etiqueta) según el estado de la obra. Es un Record
 // clave→string: la clave es el estado y el string las clases Tailwind.
@@ -85,7 +86,7 @@ export default function ObraTable ({
 }: ObraTableProps) {
   const { isAdmin } = useAuth();
 
-  const { sortedData, toggleSort, indicator } = useSort(obras, 'direccion', obraSortValue);
+  const { sortedData, sortKey, sortDir, toggleSort } = useSort(obras, 'direccion', obraSortValue);
 
   return (
     <div className='overflow-x-auto rounded-lg border border-slate-200'>
@@ -93,18 +94,10 @@ export default function ObraTable ({
         <thead className='bg-slate-50'>
           <tr>
             {/* Al hacer click en un encabezado se ordena por esa columna */}
-            <th className={thClass} onClick={() => toggleSort('direccion')}>
-              Dirección{indicator('direccion')}
-            </th>
-            <th className={thClass} onClick={() => toggleSort('cliente')}>
-              Cliente{indicator('cliente')}
-            </th>
-            <th className={thClass} onClick={() => toggleSort('presupuesto')}>
-              Presupuesto{indicator('presupuesto')}
-            </th>
-            <th className={thClass} onClick={() => toggleSort('estado')}>
-              Estado{indicator('estado')}
-            </th>
+            <SortableTh clave='direccion' sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className={thClass}>Dirección</SortableTh>
+            <SortableTh clave='cliente' sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className={thClass}>Cliente</SortableTh>
+            <SortableTh clave='presupuesto' sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className={thClass}>Presupuesto</SortableTh>
+            <SortableTh clave='estado' sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className={thClass}>Estado</SortableTh>
             <th className='px-4 py-3 text-right font-medium text-slate-600'>
               Acciones
             </th>
@@ -118,7 +111,7 @@ export default function ObraTable ({
             ? (
               // Fila de "sin datos": colSpan=5 para cubrir todas las columnas.
               <tr>
-                <td colSpan={5} className='px-4 py-8 text-center text-slate-400'>
+                <td colSpan={5} className='px-4 py-8 text-center text-slate-500'>
                   No hay obras registradas.
                 </td>
               </tr>
@@ -134,7 +127,7 @@ export default function ObraTable ({
                         el nullish (??) cae en el texto "Sin asignar". */}
                     <td className='px-4 py-3 text-slate-600'>
                       {obra.cliente?.nombre ?? (
-                        <span className='text-slate-400'>Sin asignar</span>
+                        <span className='text-slate-500'>Sin asignar</span>
                       )}
                     </td>
                     {/* toLocaleString formatea el número como precio argentino
@@ -156,7 +149,7 @@ export default function ObraTable ({
                           </span>
                           )
                         : (
-                          <span className='text-slate-400'>—</span>
+                          <span className='text-slate-500'>—</span>
                           )}
                     </td>
                     <td className='px-4 py-3 text-right'>

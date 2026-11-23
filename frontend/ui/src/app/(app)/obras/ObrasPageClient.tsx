@@ -156,9 +156,9 @@ export default function ObrasPageClient () {
   return (
     <section>
       {/* Encabezado: título + botón de crear (solo admin) */}
-      <div className='flex items-center justify-between'>
+      <div className='flex flex-wrap items-center justify-between gap-3'>
         <div>
-          <h2 className='text-2xl font-semibold'>Obras</h2>
+          <h1 className='text-2xl font-semibold'>Obras</h1>
           <p className='mt-2 text-slate-600'>
             Gestión de obras registradas.
           </p>
@@ -168,7 +168,7 @@ export default function ObrasPageClient () {
 
       <div className='mt-6'>
         {/* Filtros: texto (dirección/cliente) y estado */}
-        <div className='mb-4 flex items-center gap-3'>
+        <div className='mb-4 flex flex-wrap items-center gap-3'>
           <input
             type='text'
             aria-label='Buscar por dirección o cliente' placeholder='Buscar por dirección o cliente…'
@@ -196,7 +196,7 @@ export default function ObrasPageClient () {
         {/* Render condicional con 3 estados: cargando / error / tabla */}
         {loading
           ? (
-            <p className='text-slate-400'>Cargando obras…</p>
+            <p className='text-slate-500'>Cargando obras…</p>
             )
           : fetchError
             ? (

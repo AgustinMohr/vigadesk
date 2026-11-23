@@ -137,9 +137,9 @@ export default function DashboardClient () {
   if (loading) {
     return (
       <section>
-        <h2 className='text-2xl font-semibold'>Dashboard</h2>
+        <h1 className='text-2xl font-semibold'>Dashboard</h1>
         <p className='mt-2 text-slate-600'>Resumen general del sistema.</p>
-        <p className='mt-8 text-slate-400'>Cargando información…</p>
+        <p className='mt-8 text-slate-500'>Cargando información…</p>
       </section>
     );
   }
@@ -147,7 +147,7 @@ export default function DashboardClient () {
   if (isGuest) {
     return (
       <section>
-        <h2 className='text-2xl font-semibold'>Dashboard</h2>
+        <h1 className='text-2xl font-semibold'>Dashboard</h1>
         <p className='mt-2 text-slate-600'>
           Tu usuario invitado solo tiene acceso al catálogo de productos.
         </p>
@@ -157,7 +157,7 @@ export default function DashboardClient () {
 
   return (
     <section>
-      <h2 className='text-2xl font-semibold'>Dashboard</h2>
+      <h1 className='text-2xl font-semibold'>Dashboard</h1>
       <p className='mt-2 text-slate-600'>Resumen general del sistema.</p>
 
       {/* Tarjetas: muestran el `.length` (cantidad de ítems) de cada
@@ -194,9 +194,9 @@ export default function DashboardClient () {
             acumulada + total general de todos los pedidos.
             Cada estado se pinta con su "pill" de color (claseDeEstadoPedido). */}
         <div className='rounded-lg border border-slate-200 bg-white p-5'>
-          <h3 className='text-sm font-semibold text-slate-700'>
+          <h2 className='text-sm font-semibold text-slate-700'>
             Pedidos por estado
-          </h3>
+          </h2>
           <div className='mt-3 space-y-2'>
             {/* `.map` transforma cada estado en un renglón de la lista.
                 `key={est}` es obligatorio para que React identifique cada
@@ -217,7 +217,7 @@ export default function DashboardClient () {
                     {est}
                   </span>
                   {/* Cantidad de pedidos en ese estado (texto tenue). */}
-                  <span className='text-xs text-slate-400'>
+                  <span className='text-xs text-slate-500'>
                     {pedidosPorEstado[est] === 1 ? '1 pedido' : `${pedidosPorEstado[est]} pedidos`}
                   </span>
                 </div>
@@ -241,14 +241,14 @@ export default function DashboardClient () {
         {/* Panel derecho: productos con stock actual menor al mínimo.
             Muestra solo los primeros 10; si hay más, un botón abre el modal. */}
         <div className='rounded-lg border border-slate-200 bg-white p-5'>
-          <h3 className='text-sm font-semibold text-slate-700'>
+          <h2 className='text-sm font-semibold text-slate-700'>
             Productos con stock bajo
-          </h3>
+          </h2>
           {/* Render condicional: sin productos → mensaje de éxito; con
               productos → lista (slice de 10) + botón "Ver más". */}
           {productosStockBajo.length === 0
             ? (
-              <p className='mt-3 text-sm text-slate-400'>
+              <p className='mt-3 text-sm text-slate-500'>
                 Todos los productos tienen stock suficiente.
               </p>
               )

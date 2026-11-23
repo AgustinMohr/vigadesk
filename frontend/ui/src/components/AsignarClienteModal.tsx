@@ -116,7 +116,7 @@ export default function AsignarClienteModal ({
             4. Hay clientes → la lista con radio buttons. */}
       {loading
         ? (
-          <p className='text-sm text-slate-400'>Cargando clientes…</p>
+          <p className='text-sm text-slate-500'>Cargando clientes…</p>
           )
         : error && clientes.length === 0
           ? (
@@ -124,7 +124,7 @@ export default function AsignarClienteModal ({
             )
           : clientes.length === 0
             ? (
-              <p className='text-sm text-slate-400'>
+              <p className='text-sm text-slate-500'>
                 No hay clientes disponibles para asignar.
               </p>
               )

@@ -68,7 +68,7 @@ export default function ImportarPageClient () {
   if (!isAdmin) {
     return (
       <section>
-        <h2 className='text-2xl font-semibold'>Importar CSV</h2>
+        <h1 className='text-2xl font-semibold'>Importar CSV</h1>
         <p className='mt-2 text-slate-600'>Solo un administrador puede importar datos.</p>
       </section>
     );
@@ -76,7 +76,7 @@ export default function ImportarPageClient () {
 
   return (
     <section>
-      <h2 className='text-2xl font-semibold'>Importar CSV</h2>
+      <h1 className='text-2xl font-semibold'>Importar CSV</h1>
       <p className='mt-2 text-slate-600'>
         Carga inicial de catálogo y clientes. Los registros existentes se actualizan por código o email.
       </p>

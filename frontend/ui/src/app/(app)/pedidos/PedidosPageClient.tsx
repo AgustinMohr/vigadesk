@@ -174,9 +174,9 @@ export default function PedidosPageClient () {
   return (
     <section>
       {/* Encabezado */}
-      <div className='flex items-center justify-between'>
+      <div className='flex flex-wrap items-center justify-between gap-3'>
         <div>
-          <h2 className='text-2xl font-semibold'>Pedidos</h2>
+          <h1 className='text-2xl font-semibold'>Pedidos</h1>
           <p className='mt-2 text-slate-600'>
             Gestión de pedidos de clientes.
           </p>
@@ -186,7 +186,7 @@ export default function PedidosPageClient () {
 
       {/* Filtros de búsqueda: nombre de cliente, estado, y botones buscar/limpiar */}
       <div className='mt-6'>
-        <div className='mb-4 flex items-end gap-3'>
+        <div className='mb-4 flex flex-wrap items-end gap-3'>
           <Field label='Cliente' labelClassName='block text-xs font-medium text-slate-500 mb-1'>
             <input
               aria-label='Nombre del cliente' placeholder='Nombre del cliente…'
@@ -220,7 +220,7 @@ export default function PedidosPageClient () {
         {/* Tres estados: cargando, error, tabla */}
         {loading
           ? (
-            <p className='text-slate-400'>Cargando pedidos…</p>
+            <p className='text-slate-500'>Cargando pedidos…</p>
             )
           : fetchError
             ? (

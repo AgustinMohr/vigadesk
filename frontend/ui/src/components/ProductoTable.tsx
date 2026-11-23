@@ -13,12 +13,13 @@ import type { Producto } from '@/services/productoService';
 import Button from './Button';
 import { useSort } from '@/hooks/useSort';
 import { useAuth } from '@/lib/auth/AuthContext';
+import SortableTh from './SortableTh';
 
 // Constantes de clases Tailwind para encabezados (izquierda y derecha).
 const thClass =
-  'px-4 py-3 text-left font-medium text-slate-600 cursor-pointer select-none hover:text-slate-900';
+  'px-4 py-3 text-left font-medium text-slate-600';
 const thClassRight =
-  'px-4 py-3 text-right font-medium text-slate-600 cursor-pointer select-none hover:text-slate-900';
+  'px-4 py-3 text-right font-medium text-slate-600';
 
 /**
  * Props (contrato) de la tabla de productos.
@@ -53,34 +54,20 @@ export default function ProductoTable ({
 }: ProductoTableProps) {
   const { isAdmin } = useAuth();
   // useSort con columna inicial "nombre"; acceso directo a propiedades.
-  const { sortedData, toggleSort, indicator } = useSort(productos, 'nombre');
+  const { sortedData, sortKey, sortDir, toggleSort } = useSort(productos, 'nombre');
 
   return (
     <div className='overflow-x-auto rounded-lg border border-slate-200'>
       <table className='min-w-full divide-y divide-slate-200 text-sm'>
         <thead className='bg-slate-50'>
           <tr>
-            <th className={thClass} onClick={() => toggleSort('codigo')}>
-              Código{indicator('codigo')}
-            </th>
-            <th className={thClass} onClick={() => toggleSort('nombre')}>
-              Nombre{indicator('nombre')}
-            </th>
-            <th className={thClass} onClick={() => toggleSort('precio')}>
-              Precio{indicator('precio')}
-            </th>
-            <th className={thClass} onClick={() => toggleSort('stockActual')}>
-              Stock Actual{indicator('stockActual')}
-            </th>
-            <th className={thClass} onClick={() => toggleSort('stockMinimo')}>
-              Stock Mínimo{indicator('stockMinimo')}
-            </th>
-            <th className={thClass} onClick={() => toggleSort('categoria')}>
-              Categoría{indicator('categoria')}
-            </th>
-            <th className={thClassRight} onClick={() => toggleSort('descuentoPromocional')}>
-              Desc. Promocional{indicator('descuentoPromocional')}
-            </th>
+            <SortableTh clave='codigo' sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className={thClass}>Código</SortableTh>
+            <SortableTh clave='nombre' sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className={thClass}>Nombre</SortableTh>
+            <SortableTh clave='precio' sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className={thClass}>Precio</SortableTh>
+            <SortableTh clave='stockActual' sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className={thClass}>Stock Actual</SortableTh>
+            <SortableTh clave='stockMinimo' sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className={thClass}>Stock Mínimo</SortableTh>
+            <SortableTh clave='categoria' sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className={thClass}>Categoría</SortableTh>
+            <SortableTh clave='descuentoPromocional' sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className={thClassRight}>Desc. Promocional</SortableTh>
             <th className='px-4 py-3 text-right font-medium text-slate-600'>
               Acciones
             </th>
@@ -90,7 +77,7 @@ export default function ProductoTable ({
           {sortedData.length === 0
             ? (
               <tr>
-                <td colSpan={8} className='px-4 py-8 text-center text-slate-400'>
+                <td colSpan={8} className='px-4 py-8 text-center text-slate-500'>
                   No hay productos registrados.
                 </td>
               </tr>

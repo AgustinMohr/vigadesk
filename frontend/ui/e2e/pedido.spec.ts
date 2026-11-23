@@ -87,10 +87,11 @@ test.describe('flujo principal', () => {
   test('iniciar sesion, crear un pedido y ver su estado', async ({ page }) => {
     // 1. Inicio de sesion por la pantalla
     await page.goto('/login');
+    await page.waitForLoadState('networkidle'); // el formulario necesita estar hidratado
     await page.locator('input[name="email"]').fill(email!);
     await page.locator('input[name="password"]').fill(password!);
     await page.getByRole('button', { name: /entrar/i }).click();
-    await expect(page).not.toHaveURL(/\/login/);
+    await expect(page).not.toHaveURL(/\/login/, { timeout: 20_000 }); // el primer login tras un rato sin uso puede tardar
 
     // 2. Nuevo pedido: cliente, obra, un producto y su cantidad
     await page.goto('/pedidos');
@@ -122,10 +123,11 @@ test.describe('flujo principal', () => {
     });
 
     await page.goto('/login');
+    await page.waitForLoadState('networkidle'); // el formulario necesita estar hidratado
     await page.locator('input[name="email"]').fill(emailCliente);
     await page.locator('input[name="password"]').fill(claveCliente);
     await page.getByRole('button', { name: /entrar/i }).click();
-    await expect(page).not.toHaveURL(/\/login/);
+    await expect(page).not.toHaveURL(/\/login/, { timeout: 20_000 }); // el primer login tras un rato sin uso puede tardar
 
     await page.goto('/usuarios');
 

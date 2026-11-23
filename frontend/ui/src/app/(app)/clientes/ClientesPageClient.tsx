@@ -134,9 +134,9 @@ export default function ClientesPageClient () {
   return (
     <section>
       {/* Encabezado: título y botón para crear cliente */}
-      <div className='flex items-center justify-between'>
+      <div className='flex flex-wrap items-center justify-between gap-3'>
         <div>
-          <h2 className='text-2xl font-semibold'>Clientes</h2>
+          <h1 className='text-2xl font-semibold'>Clientes</h1>
           <p className='mt-2 text-slate-600'>
             Gestión de clientes registrados.
           </p>
@@ -146,7 +146,7 @@ export default function ClientesPageClient () {
 
       <div className='mt-6'>
         {/* Buscador con selector de modo (nombre / CUIT / email) */}
-        <div className='mb-4 flex items-center gap-3'>
+        <div className='mb-4 flex flex-wrap items-center gap-3'>
           <div className='relative flex-1'>
             <input
               type='text'
@@ -159,7 +159,7 @@ export default function ClientesPageClient () {
             {searchTerm && (
               <button
                 onClick={() => setSearchTerm('')}
-                className='absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-sm'
+                className='absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-600 text-sm'
               >
                 &times;
               </button>
@@ -186,7 +186,7 @@ export default function ClientesPageClient () {
         {/* Tres estados: cargando, error, o tabla */}
         {loading
           ? (
-            <p className='text-slate-400'>Cargando clientes…</p>
+            <p className='text-slate-500'>Cargando clientes…</p>
             )
           : fetchError
             ? (

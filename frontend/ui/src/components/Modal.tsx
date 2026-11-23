@@ -72,14 +72,14 @@ export default function Modal ({ titulo, onClose, ancho = 'max-w-md', className 
         className={`w-full ${ancho} rounded-lg bg-white p-6 shadow-xl focus:outline-none ${className}`}
       >
         <div className='mb-4 flex items-center justify-between'>
-          <h3 id={tituloId} className='text-lg font-semibold text-slate-900'>{titulo}</h3>
+          <h2 id={tituloId} className='text-lg font-semibold text-slate-900'>{titulo}</h2>
           {mostrarCerrar && (
             <button
               type='button'
               data-cerrar
               aria-label='Cerrar'
               onClick={onClose}
-              className='text-xl leading-none text-slate-400 hover:text-slate-600'
+              className='text-xl leading-none text-slate-500 hover:text-slate-600'
             >
               &times;
             </button>

@@ -31,19 +31,32 @@ import { useAuth } from '@/lib/auth/AuthContext';
  *
  * @returns {JSX.Element} La barra con marca, nombre del usuario y Salir.
  */
-export default function Navbar () {
+export default function Navbar ({ menuAbierto = false, onMenu }: { menuAbierto?: boolean; onMenu?: () => void }) {
   // Desestructuración del objeto del context: `user` (o null) y `logout`.
   const { user, logout } = useAuth();
 
   return (
-    <nav className='flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6'>
-      {/* next/link → navegación client-side sin recargar la página completa */}
-      <Link href='/dashboard' className='text-lg font-semibold text-slate-950'>
-        Mi Sistema
-      </Link>
+    <header className='flex h-16 items-center justify-between gap-2 border-b border-slate-200 bg-white px-4 md:px-6'>
+      <div className='flex items-center gap-2'>
+        {/* Botón del menú: solo en pantallas chicas */}
+        <button
+          type='button'
+          onClick={onMenu}
+          aria-label='Abrir menú'
+          aria-expanded={menuAbierto}
+          aria-controls='menu-lateral'
+          className='rounded p-2 text-slate-600 hover:bg-slate-100 md:hidden'
+        >
+          <span aria-hidden='true' className='block text-xl leading-none'>☰</span>
+        </button>
+        {/* next/link → navegación client-side sin recargar la página completa */}
+        <Link href='/dashboard' className='text-lg font-semibold text-slate-950'>
+          VigaDesk
+        </Link>
+      </div>
 
-      <div className='flex items-center gap-4'>
-        <span className='text-sm text-slate-500'>
+      <div className='flex items-center gap-2 md:gap-4'>
+        <span className='hidden text-sm text-slate-500 sm:inline'>
           {/* Nombre del usuario + etiqueta según rol. Ternarios anidados:
               si es ADMIN muestra "Admin"; si es CLIENTE muestra su empresa
               (clienteNombre) o "Cliente"; cualquier otro rol, "Invitado".
@@ -59,20 +72,14 @@ export default function Navbar () {
           </span>
         </span>
 
-        <Link
-          href='/login'
-          onClick={(e) => {
-            // `preventDefault()` cancela el comportamiento por defecto del
-            // Link (navegar a /login). Acá el Link es SOLO la apariencia
-            // de botón; la acción real es logout().
-            e.preventDefault();
-            logout();
-          }}
+        <button
+          type='button'
+          onClick={logout}
           className='rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100'
         >
           Salir
-        </Link>
+        </button>
       </div>
-    </nav>
+    </header>
   );
 }

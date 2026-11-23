@@ -110,11 +110,11 @@ export default function ClienteDetailModal ({
 
       {loadingObras
         ? (
-          <p className='text-sm text-slate-400'>Cargando obras…</p>
+          <p className='text-sm text-slate-500'>Cargando obras…</p>
           )
         : obras.length === 0
           ? (
-            <p className='text-sm text-slate-400'>Este cliente no tiene obras asignadas.</p>
+            <p className='text-sm text-slate-500'>Este cliente no tiene obras asignadas.</p>
             )
           : (
             <div className='space-y-2'>

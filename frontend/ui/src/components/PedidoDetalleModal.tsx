@@ -146,7 +146,7 @@ export default function PedidoDetalleModal ({
             {pedido.detalle.length === 0
               ? (
                 <tr>
-                  <td colSpan={7} className='px-3 py-6 text-center text-slate-400'>
+                  <td colSpan={7} className='px-3 py-6 text-center text-slate-500'>
                     El pedido no tiene productos.
                   </td>
                 </tr>
@@ -160,7 +160,7 @@ export default function PedidoDetalleModal ({
                         {/* El nombre del producto puede faltar en la info
                               mínima → fallback "Producto #id" */}
                         {item.producto.nombre ?? `Producto #${item.producto.id}`}
-                        <span className='ml-1 text-xs text-slate-400'>
+                        <span className='ml-1 text-xs text-slate-500'>
                           ({item.producto.unidadMedida ?? 'UNIDAD'})
                         </span>
                       </td>

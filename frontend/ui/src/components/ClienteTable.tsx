@@ -23,12 +23,13 @@ import type { Cliente } from '@/services/clienteService';
 import Button from './Button';
 import { useSort } from '@/hooks/useSort';
 import { useAuth } from '@/lib/auth/AuthContext';
+import SortableTh from './SortableTh';
 
 // Clases CSS de Tailwind para las celdas de encabezado. Se centralizan
 // en una constante para no repetir el string en cada <th> (DRY) y que
 // cambiar el estilo del encabezado sea tocar un solo lugar.
 const thClass =
-  'px-4 py-3 text-left font-medium text-slate-600 cursor-pointer select-none hover:text-slate-900';
+  'px-4 py-3 text-left font-medium text-slate-600';
 
 /**
  * Props (contrato) de la tabla de clientes. Todos los handlers son
@@ -67,7 +68,7 @@ export default function ClienteTable ({
 
   // useSort con columna inicial "nombre". Sin getValue → accede directo a
   // la propiedad del cliente por nombre de columna (cliente[sortKey]).
-  const { sortedData, toggleSort, indicator } = useSort(clientes, 'nombre');
+  const { sortedData, sortKey, sortDir, toggleSort } = useSort(clientes, 'nombre');
 
   return (
     <div className='overflow-x-auto rounded-lg border border-slate-200'>
@@ -76,18 +77,10 @@ export default function ClienteTable ({
           <tr>
             {/* Cada encabezado es CLICKEABLE: onClick dispara toggleSort
                 e `indicator(col)` agrega la flecha ▲/▼ de la columna activa */}
-            <th className={thClass} onClick={() => toggleSort('nombre')}>
-              Nombre{indicator('nombre')}
-            </th>
-            <th className={thClass} onClick={() => toggleSort('correoElectronico')}>
-              Email{indicator('correoElectronico')}
-            </th>
-            <th className={thClass} onClick={() => toggleSort('cuit')}>
-              CUIT{indicator('cuit')}
-            </th>
-            <th className={thClass} onClick={() => toggleSort('maximoDescubierto')}>
-              Desc. Máximo{indicator('maximoDescubierto')}
-            </th>
+            <SortableTh clave='nombre' sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className={thClass}>Nombre</SortableTh>
+            <SortableTh clave='correoElectronico' sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className={thClass}>Email</SortableTh>
+            <SortableTh clave='cuit' sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className={thClass}>CUIT</SortableTh>
+            <SortableTh clave='maximoDescubierto' sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className={thClass}>Desc. Máximo</SortableTh>
             <th className='px-4 py-3 text-right font-medium text-slate-600'>
               Acciones
             </th>
@@ -99,7 +92,7 @@ export default function ClienteTable ({
               // Fila de "vacío": colSpan={5} hace que la celda ocupe las 5
               // columnas para centrar el mensaje horizontalmente.
               <tr>
-                <td colSpan={5} className='px-4 py-8 text-center text-slate-400'>
+                <td colSpan={5} className='px-4 py-8 text-center text-slate-500'>
                   No hay clientes registrados.
                 </td>
               </tr>

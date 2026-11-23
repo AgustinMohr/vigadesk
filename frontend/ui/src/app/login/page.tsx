@@ -18,6 +18,7 @@ function LoginForm () {
   const { login } = useAuth(); // función async de autenticación (AuthContext.tsx)
   const router = useRouter(); // navegación programática de Next
   const [error, setError] = useState(''); // mensaje de error en el form
+  const [enviando, setEnviando] = useState(false); // evita enviar dos veces y avisa que se está procesando
 
   // --------------------------------------------------------------
   // useState: estado local del componente.
@@ -30,6 +31,7 @@ function LoginForm () {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault(); // evita que el navegador recargue la página al enviar
     setError('');
+    setEnviando(true);
 
     // FormData lee los <input> del form por su atributo `name`.
     const form = new FormData(e.currentTarget);
@@ -41,6 +43,7 @@ function LoginForm () {
     const ok = await login(email, password);
     if (!ok) {
       setError('Email o contraseña incorrectos.');
+      setEnviando(false);
       return;
     }
 
@@ -57,7 +60,8 @@ function LoginForm () {
           Ingresa tus datos para acceder al sistema.
         </p>
 
-        <form onSubmit={handleSubmit} className='mt-6 space-y-4'>
+        {/* method='post': si el formulario se enviara antes de que cargue el JavaScript, las credenciales nunca irían en la URL */}
+        <form method='post' onSubmit={handleSubmit} className='mt-6 space-y-4'>
           <div>
             <label htmlFor='email' className='block text-sm font-medium text-slate-700'>
               Email
@@ -67,6 +71,7 @@ function LoginForm () {
               id='email'
               name='email'
               type='email'
+              autoComplete='username'
               required
               className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-500'
               placeholder='usuario@email.com'
@@ -81,6 +86,7 @@ function LoginForm () {
               id='password'
               name='password'
               type='password'
+              autoComplete='current-password'
               required
               className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-500'
               placeholder='********'
@@ -89,14 +95,15 @@ function LoginForm () {
 
           {/* Render condicional: si `error` tiene texto, se muestra en rojo */}
           {error && (
-            <p className='text-sm text-red-600'>{error}</p>
+            <p role='alert' className='text-sm text-red-600'>{error}</p>
           )}
 
           <button
             type='submit' // type="submit" hace que active el onSubmit del form
-            className='w-full rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800'
+            disabled={enviando}
+            className='w-full rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60'
           >
-            Entrar
+            {enviando ? 'Ingresando…' : 'Entrar'}
           </button>
         </form>
       </section>

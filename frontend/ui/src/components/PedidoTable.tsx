@@ -22,12 +22,13 @@ import Button from './Button';
 import { useSort } from '@/hooks/useSort';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { claseDeEstadoPedido, ESTADOS_CANCELABLES, ESTADOS_CON_ENTREGA } from '@/lib/domain/pedido';
+import SortableTh from './SortableTh';
 
 // Constantes de clases Tailwind para encabezados (izquierda y derecha).
 const thClass =
-  'px-4 py-3 text-left font-medium text-slate-600 cursor-pointer select-none hover:text-slate-900';
+  'px-4 py-3 text-left font-medium text-slate-600';
 const thClassRight =
-  'px-4 py-3 text-right font-medium text-slate-600 cursor-pointer select-none hover:text-slate-900';
+  'px-4 py-3 text-right font-medium text-slate-600';
 
 /**
  * Formatea una fecha ISO (string) a texto legible es-AR con hora.
@@ -120,7 +121,7 @@ export default function PedidoTable ({
 
   // useSort con columna inicial "numeroPedido" y getPedidoValue para
   // saber cómo extraer el valor comparado (incluye campos anidados).
-  const { sortedData, toggleSort, indicator } = useSort(
+  const { sortedData, sortKey, sortDir, toggleSort } = useSort(
     pedidos,
     'numeroPedido',
     getPedidoValue
@@ -131,24 +132,12 @@ export default function PedidoTable ({
       <table className='min-w-full divide-y divide-slate-200 text-sm'>
         <thead className='bg-slate-50'>
           <tr>
-            <th className={thClass} onClick={() => toggleSort('numeroPedido')}>
-              Nro Pedido{indicator('numeroPedido')}
-            </th>
-            <th className={thClass} onClick={() => toggleSort('clienteNombre')}>
-              Cliente{indicator('clienteNombre')}
-            </th>
-            <th className={thClass} onClick={() => toggleSort('usuario')}>
-              Usuario{indicator('usuario')}
-            </th>
-            <th className={thClassRight} onClick={() => toggleSort('total')}>
-              Total{indicator('total')}
-            </th>
-            <th className={thClass} onClick={() => toggleSort('estado')}>
-              Estado{indicator('estado')}
-            </th>
-            <th className={thClass} onClick={() => toggleSort('fecha')}>
-              Fecha{indicator('fecha')}
-            </th>
+            <SortableTh clave='numeroPedido' sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className={thClass}>Nro Pedido</SortableTh>
+            <SortableTh clave='clienteNombre' sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className={thClass}>Cliente</SortableTh>
+            <SortableTh clave='usuario' sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className={thClass}>Usuario</SortableTh>
+            <SortableTh clave='total' sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className={thClassRight}>Total</SortableTh>
+            <SortableTh clave='estado' sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className={thClass}>Estado</SortableTh>
+            <SortableTh clave='fecha' sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className={thClass}>Fecha</SortableTh>
             <th className='px-4 py-3 text-right font-medium text-slate-600'>
               Acciones
             </th>
@@ -158,7 +147,7 @@ export default function PedidoTable ({
           {sortedData.length === 0
             ? (
               <tr>
-                <td colSpan={7} className='px-4 py-8 text-center text-slate-400'>
+                <td colSpan={7} className='px-4 py-8 text-center text-slate-500'>
                   No hay pedidos registrados.
                 </td>
               </tr>

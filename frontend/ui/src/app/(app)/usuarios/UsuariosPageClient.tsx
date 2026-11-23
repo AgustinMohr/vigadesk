@@ -166,9 +166,9 @@ export default function UsuariosPageClient () {
   return (
     <section>
       {/* Encabezado: título + botón de crear (solo admin) */}
-      <div className='flex items-center justify-between'>
+      <div className='flex flex-wrap items-center justify-between gap-3'>
         <div>
-          <h2 className='text-2xl font-semibold'>Usuarios de clientes</h2>
+          <h1 className='text-2xl font-semibold'>Usuarios de clientes</h1>
           <p className='mt-2 text-slate-600'>
             Usuarios que operan en nombre de un cliente (hacen pedidos por su empresa).
           </p>
@@ -179,7 +179,7 @@ export default function UsuariosPageClient () {
       <div className='mt-6'>
         {/* Buscador: actualiza `searchTerm` en cada tecla; el filtrado
             real lo hace `filteredUsuarios` vía useMemo. */}
-        <div className='mb-4 flex items-center gap-3'>
+        <div className='mb-4 flex flex-wrap items-center gap-3'>
           <input
             type='text'
             aria-label='Buscar por nombre, email o cliente' placeholder='Buscar por nombre, email o cliente…'
@@ -193,7 +193,7 @@ export default function UsuariosPageClient () {
             El operador ternario anidado prioriza loading sobre error. */}
         {loading
           ? (
-            <p className='text-slate-400'>Cargando usuarios…</p>
+            <p className='text-slate-500'>Cargando usuarios…</p>
             )
           : fetchError
             ? (

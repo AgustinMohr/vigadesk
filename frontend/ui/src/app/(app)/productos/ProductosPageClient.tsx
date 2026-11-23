@@ -207,9 +207,9 @@ export default function ProductosPageClient () {
   return (
     <section>
       {/* Encabezado: título + botón de crear (solo admin) */}
-      <div className='flex items-center justify-between'>
+      <div className='flex flex-wrap items-center justify-between gap-3'>
         <div>
-          <h2 className='text-2xl font-semibold'>Productos</h2>
+          <h1 className='text-2xl font-semibold'>Productos</h1>
           <p className='mt-2 text-slate-600'>
             Gestión del catálogo de productos.
           </p>
@@ -232,7 +232,7 @@ export default function ProductosPageClient () {
         {/* Render condicional con 3 estados: cargando / error / tabla. */}
         {loading
           ? (
-            <p className='text-slate-400'>Cargando productos…</p>
+            <p className='text-slate-500'>Cargando productos…</p>
             )
           : fetchError
             ? (

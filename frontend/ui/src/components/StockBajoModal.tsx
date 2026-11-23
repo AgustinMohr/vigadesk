@@ -26,12 +26,13 @@ import type { Producto } from '@/services/productoService';
 import Button from './Button';
 import Modal from './Modal';
 import { useSort } from '@/hooks/useSort';
+import SortableTh from './SortableTh';
 
 // Constantes de clases Tailwind para encabezados (izquierda y derecha).
 const thClass =
-  'px-4 py-3 text-left font-medium text-slate-600 cursor-pointer select-none hover:text-slate-900';
+  'px-4 py-3 text-left font-medium text-slate-600';
 const thClassRight =
-  'px-4 py-3 text-right font-medium text-slate-600 cursor-pointer select-none hover:text-slate-900';
+  'px-4 py-3 text-right font-medium text-slate-600';
 
 /**
  * Formatea un número a moneda argentina con 2 decimales.
@@ -70,7 +71,7 @@ export default function StockBajoModal ({
   onClose,
 }: StockBajoModalProps) {
   // useSort con columna inicial "nombre" (acceso directo a propiedades).
-  const { sortedData, toggleSort, indicator } = useSort(productos, 'nombre');
+  const { sortedData, sortKey, sortDir, toggleSort } = useSort(productos, 'nombre');
 
   // `selected`: null → mostramos la tabla; Producto → mostramos su detalle.
   const [selected, setSelected] = useState<Producto | null>(null);
@@ -155,42 +156,12 @@ export default function StockBajoModal ({
           <table className='min-w-full divide-y divide-slate-200 text-sm'>
             <thead className='bg-slate-50'>
               <tr>
-                <th
-                  className={thClass}
-                  onClick={() => toggleSort('codigo')}
-                >
-                  Código{indicator('codigo')}
-                </th>
-                <th
-                  className={thClass}
-                  onClick={() => toggleSort('nombre')}
-                >
-                  Nombre{indicator('nombre')}
-                </th>
-                <th
-                  className={thClassRight}
-                  onClick={() => toggleSort('precio')}
-                >
-                  Precio{indicator('precio')}
-                </th>
-                <th
-                  className={thClassRight}
-                  onClick={() => toggleSort('stockActual')}
-                >
-                  Stock Actual{indicator('stockActual')}
-                </th>
-                <th
-                  className={thClassRight}
-                  onClick={() => toggleSort('stockMinimo')}
-                >
-                  Stock Mínimo{indicator('stockMinimo')}
-                </th>
-                <th
-                  className={thClass}
-                  onClick={() => toggleSort('categoria')}
-                >
-                  Categoría{indicator('categoria')}
-                </th>
+                <SortableTh clave='codigo' sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className={thClass}>Código</SortableTh>
+                <SortableTh clave='nombre' sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className={thClass}>Nombre</SortableTh>
+                <SortableTh clave='precio' sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className={thClassRight}>Precio</SortableTh>
+                <SortableTh clave='stockActual' sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className={thClassRight}>Stock Actual</SortableTh>
+                <SortableTh clave='stockMinimo' sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className={thClassRight}>Stock Mínimo</SortableTh>
+                <SortableTh clave='categoria' sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className={thClass}>Categoría</SortableTh>
                 <th className='px-4 py-3 text-right font-medium text-slate-600'>
                   Acciones
                 </th>
@@ -203,7 +174,7 @@ export default function StockBajoModal ({
                   <tr>
                     <td
                       colSpan={7}
-                      className='px-4 py-8 text-center text-slate-400'
+                      className='px-4 py-8 text-center text-slate-500'
                     >
                       No hay productos con stock bajo.
                     </td>

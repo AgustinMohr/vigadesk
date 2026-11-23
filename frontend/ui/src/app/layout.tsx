@@ -26,8 +26,8 @@ const geistMono = GeistMono({
 // Metadatos globales: título y descripción que Next coloca en el <head>
 // de todas las páginas (SEO / pestaña del navegador).
 export const metadata: Metadata = {
-  title: 'Mi Sistema',
-  description: 'Sistema de gestion',
+  title: { default: 'VigaDesk', template: '%s · VigaDesk' },
+  description: 'VigaDesk: gestión de clientes, obras, productos y pedidos de un corralón de materiales.',
 };
 
 // Componente del layout raíz. Recibe `children` (las páginas hijas) como
