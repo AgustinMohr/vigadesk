@@ -51,7 +51,7 @@ import isi.dan.ms.pedidos.servicio.SecuenciaService;
 @Testcontainers(disabledWithoutDocker = true)
 @TestPropertySource(properties = { "spring.data.mongodb.auto-index-creation=true",
         "pedidos.limpiar-indices-anteriores=true" })
-@Import({ PedidoService.class, SecuenciaService.class, CreditoService.class,
+@Import({ isi.dan.ms.pedidos.conf.ClockConfig.class, PedidoService.class, SecuenciaService.class, CreditoService.class,
         isi.dan.ms.pedidos.conf.LimpiezaIndicesMongo.class })
 class PedidoMongoTest {
 

@@ -1,6 +1,7 @@
 package isi.dan.ms.pedidos.servicio;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -15,7 +16,6 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -57,23 +57,25 @@ public class PedidoService {
             EstadoPedido.ENTREGA_PARCIAL,
             EstadoPedido.ENTREGADO);
 
-    @Autowired
-    private PedidoRepository pedidoRepository;
+    private final PedidoRepository pedidoRepository;
+    private final MongoTemplate mongoTemplate;
+    private final SecuenciaService secuenciaService;
+    private final CreditoService creditoService;
+    private final ClienteFeignClient clienteFeignClient;
+    private final ProductoFeignClient productoFeignClient;
+    private final Clock clock;
 
-    @Autowired
-    private MongoTemplate mongoTemplate;
-
-    @Autowired
-    private SecuenciaService secuenciaService;
-
-    @Autowired
-    private CreditoService creditoService;
-
-    @Autowired
-    private ClienteFeignClient clienteFeignClient;
-
-    @Autowired
-    private ProductoFeignClient productoFeignClient;
+    public PedidoService(PedidoRepository pedidoRepository, MongoTemplate mongoTemplate,
+            SecuenciaService secuenciaService, CreditoService creditoService,
+            ClienteFeignClient clienteFeignClient, ProductoFeignClient productoFeignClient, Clock clock) {
+        this.pedidoRepository = pedidoRepository;
+        this.mongoTemplate = mongoTemplate;
+        this.secuenciaService = secuenciaService;
+        this.creditoService = creditoService;
+        this.clienteFeignClient = clienteFeignClient;
+        this.productoFeignClient = productoFeignClient;
+        this.clock = clock;
+    }
 
     Logger log = LoggerFactory.getLogger(PedidoService.class);
 
@@ -122,7 +124,7 @@ public class PedidoService {
             total = total.add(precioFinal);
         }
         pedido.setTotal(total);
-        pedido.setFecha(Instant.now());
+        pedido.setFecha(Instant.now(clock));
         pedido.setNumeroPedido(secuenciaService.nextNumeroPedido());
 
         // El control de credito y el guardado van bajo el bloqueo del cliente: dos pedidos
@@ -252,7 +254,7 @@ public class PedidoService {
         Entrega entrega = new Entrega();
         entrega.setId(UUID.randomUUID().toString());
         entrega.setNumeroRemito(secuenciaService.nextNumeroRemito());
-        entrega.setFecha(Instant.now());
+        entrega.setFecha(Instant.now(clock));
         entrega.setReceptor(request.getReceptor());
         entrega.setObservaciones(request.getObservaciones());
         entrega.setItems(items);
@@ -395,7 +397,7 @@ public class PedidoService {
 
     private void auditar(Pedido pedido, String actor, String accion, String detalle) {
         AuditLog evento = new AuditLog();
-        evento.setFecha(Instant.now());
+        evento.setFecha(Instant.now(clock));
         evento.setActor(actor);
         evento.setAccion(accion);
         evento.setDetalle(detalle);
@@ -546,7 +548,7 @@ public class PedidoService {
                 devolverStock(pedido);
             }
             pedido.setHabilitado(false);
-            pedido.setFechaBorrado(Instant.now());
+            pedido.setFechaBorrado(Instant.now(clock));
             auditar(pedido, actor, "PEDIDO_BORRADO", "Soft delete");
             pedidoRepository.save(pedido);
         });

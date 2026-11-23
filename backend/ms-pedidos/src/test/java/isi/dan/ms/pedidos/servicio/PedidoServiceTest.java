@@ -13,6 +13,9 @@ import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.Page;
@@ -68,6 +72,12 @@ class PedidoServiceTest {
 
     @Mock
     private CreditoService creditoService;
+
+    private static final Instant AHORA = Instant.parse("2026-03-10T12:00:00Z");
+
+    /** Reloj fijo: las fechas que pone el servicio se pueden comparar con un valor exacto. */
+    @Spy
+    private Clock clock = Clock.fixed(AHORA, ZoneOffset.UTC);
 
     @InjectMocks
     private PedidoService pedidoService;
@@ -214,7 +224,7 @@ class PedidoServiceTest {
 
         Pedido result = pedidoService.savePedido(pedido);
 
-        assertThat(result.getFecha()).isNotNull();
+        assertThat(result.getFecha()).isEqualTo(AHORA);
         assertThat(result.getNumeroPedido()).isEqualTo(1000);
         assertThat(result.getAuditoria()).isNotEmpty();
         verify(secuenciaService).nextNumeroPedido();

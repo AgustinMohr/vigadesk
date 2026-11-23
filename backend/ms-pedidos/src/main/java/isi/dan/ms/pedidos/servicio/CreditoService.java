@@ -1,6 +1,7 @@
 package isi.dan.ms.pedidos.servicio;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -9,7 +10,6 @@ import java.util.function.Supplier;
 
 import org.bson.Document;
 import org.bson.types.Decimal128;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.mongodb.core.FindAndModifyOptions;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -36,8 +36,13 @@ public class CreditoService {
     static final Duration ESPERA_MAXIMA = Duration.ofSeconds(15);
     private static final long PAUSA_MS = 20;
 
-    @Autowired
-    private MongoTemplate mongoTemplate;
+    private final MongoTemplate mongoTemplate;
+    private final Clock clock;
+
+    public CreditoService(MongoTemplate mongoTemplate, Clock clock) {
+        this.mongoTemplate = mongoTemplate;
+        this.clock = clock;
+    }
 
     /**
      * Suma el total de los pedidos activos del cliente en los estados dados, sin cargar documentos.
@@ -77,9 +82,9 @@ public class CreditoService {
     private String adquirir(Integer clienteId) {
         String id = "cliente:" + clienteId;
         String token = UUID.randomUUID().toString();
-        Instant limite = Instant.now().plus(ESPERA_MAXIMA);
+        Instant limite = Instant.now(clock).plus(ESPERA_MAXIMA);
         while (true) {
-            Instant ahora = Instant.now();
+            Instant ahora = Instant.now(clock);
             // Toma el bloqueo si no existe o si vencio. Si esta vigente, el upsert choca con _id duplicado.
             Query libre = Query.query(Criteria.where("_id").is(id).and("expiraEn").lt(ahora));
             Update tomar = new Update().set("token", token).set("expiraEn", ahora.plus(VIGENCIA_BLOQUEO));
