@@ -9,6 +9,9 @@ const clienteNombre = `Cliente E2E ${sufijo}`;
 const obraDireccion = `Obra E2E ${sufijo}`;
 const productoNombre = `Producto E2E ${sufijo}`;
 
+// Ids y token creados en beforeAll, para la prueba de doble envio por API
+const datos = { token: '', clienteId: 0, obraId: 0, productoId: 0 };
+
 async function api<T> (request: APIRequestContext, token: string, metodo: 'post', ruta: string, datos: unknown): Promise<T> {
   const respuesta = await request[metodo](ruta, { data: datos, headers: { Authorization: `Bearer ${token}` } });
   expect(respuesta.ok(), `${ruta} → ${respuesta.status()} ${await respuesta.text()}`).toBeTruthy();
@@ -22,13 +25,14 @@ test.describe('flujo principal', () => {
     const sesion = await request.post('/api/usuarios/login', { data: { email, password } });
     expect(sesion.ok(), 'login del administrador por API').toBeTruthy();
     const { token } = await sesion.json() as { token: string };
+    datos.token = token;
 
     const cliente = await api<{ id: number }>(request, token, 'post', '/api/clientes', {
       nombre: clienteNombre,
       correoElectronico: `e2e-${sufijo}@mail.com`,
       maximoDescubierto: 1_000_000,
     });
-    await api(request, token, 'post', '/api/obras', {
+    const obra = await api<{ id: number }>(request, token, 'post', '/api/obras', {
       direccion: obraDireccion,
       lat: 0,
       lng: 0,
@@ -36,13 +40,39 @@ test.describe('flujo principal', () => {
       estado: 'HABILITADA',
       cliente: { id: cliente.id },
     });
-    await api(request, token, 'post', '/api/productos', {
+    const producto = await api<{ id: number }>(request, token, 'post', '/api/productos', {
       nombre: productoNombre,
       precio: 1000,
       stockActual: 100,
       stockMinimo: 1,
       unidadMedida: 'UNIDAD',
     });
+    datos.clienteId = cliente.id;
+    datos.obraId = obra.id;
+    datos.productoId = producto.id;
+  });
+
+  test('un POST repetido con la misma Idempotency-Key (por el BFF) devuelve el mismo pedido', async ({ request }) => {
+    const clave = `e2e-${sufijo}-${Date.now()}`;
+    const pedido = { clienteId: datos.clienteId, obraId: datos.obraId, lineas: [{ productoId: datos.productoId, cantidad: 1 }] };
+    const enviar = (cuerpo: unknown) => request.post('/api/pedidos', {
+      data: cuerpo,
+      headers: { Authorization: `Bearer ${datos.token}`, 'Idempotency-Key': clave },
+    });
+
+    const primero = await enviar(pedido);
+    const segundo = await enviar(pedido);
+
+    expect(primero.ok(), await primero.text()).toBeTruthy();
+    expect(segundo.ok(), await segundo.text()).toBeTruthy();
+    const a = await primero.json();
+    const b = await segundo.json();
+    expect(b.id).toBe(a.id);
+    expect(b.numeroPedido).toBe(a.numeroPedido);
+
+    // la misma clave con otro contenido es un conflicto, no un pedido nuevo
+    const distinto = await enviar({ ...pedido, lineas: [{ productoId: datos.productoId, cantidad: 2 }] });
+    expect(distinto.status()).toBe(409);
   });
 
   test('iniciar sesion, crear un pedido y ver su estado', async ({ page }) => {
