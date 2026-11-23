@@ -1,0 +1,88 @@
+name: Dependencias
+
+# Revision de vulnerabilidades conocidas en las dependencias (R2.14).
+# - npm audit: falla si hay vulnerabilidades altas o criticas en las dependencias de produccion del frontend.
+# - OWASP Dependency-Check: genera el reporte de los modulos Maven. Es informativo (no falla el flujo):
+#   la base de datos de vulnerabilidades (NVD) cambia todos los dias y un hallazgo nuevo no debe
+#   bloquear un cambio que no toco las dependencias. Se revisa el reporte publicado como artefacto.
+# Corre cada lunes, a pedido, y cuando un pull request cambia un pom.xml o el package.json.
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '**/pom.xml'
+      - 'frontend/ui/package.json'
+      - 'frontend/ui/package-lock.json'
+      - '.github/workflows/dependencias.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependencias-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  npm-audit:
+    name: npm audit (frontend)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend/ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/ui/package-lock.json
+      - run: npm ci
+      - name: Reporte completo (incluye dependencias de desarrollo)
+        run: npm audit --json > npm-audit.json || true
+      - name: Falla con vulnerabilidades altas o criticas en produccion
+        run: npm audit --omit=dev --audit-level=high
+      - name: Publicar reporte de npm audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit
+          path: frontend/ui/npm-audit.json
+
+  owasp-dependency-check:
+    name: OWASP Dependency-Check (backend)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Cache de la base de vulnerabilidades
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/owasp/dependency-check-data
+          key: owasp-nvd-${{ github.run_id }}
+          restore-keys: owasp-nvd-
+      # Sin NVD_API_KEY (secret opcional del repositorio) la descarga de la base es lenta y suele
+      # quedar limitada; con la clave tarda pocos minutos. Pedirla es gratis en nvd.nist.gov.
+      - name: Dependency-Check
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: |
+          mvn -B -q -DskipTests install -pl :dan-common
+          mvn -B org.owasp:dependency-check-maven:12.1.0:aggregate \
+            -Dformat=HTML,JSON \
+            -DfailBuildOnCVSS=11 \
+            -DnvdApiKey="$NVD_API_KEY" \
+            -DossindexAnalyzerEnabled=false
+      - name: Publicar reporte de Dependency-Check
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-check
+          path: target/dependency-check-report.*
+          if-no-files-found: warn
