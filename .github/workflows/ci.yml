@@ -102,6 +102,8 @@ jobs:
       - name: Configurar .env con credenciales de prueba
         run: |
           cp .env.example .env
+          # .env.example trae marcadores; el secreto JWT necesita al menos 32 bytes
+          sed -i "s/^JWT_SECRET=.*/JWT_SECRET=$(openssl rand -hex 32)/" .env
           # El administrador inicial lo crea ms-clientes al arrancar con la base vacia.
           sed -i 's/^BOOTSTRAP_ADMIN_EMAIL=.*/BOOTSTRAP_ADMIN_EMAIL=e2e-admin@example.com/' .env
           sed -i 's/^BOOTSTRAP_ADMIN_PASSWORD=.*/BOOTSTRAP_ADMIN_PASSWORD=e2e-clave-de-prueba-123/' .env
