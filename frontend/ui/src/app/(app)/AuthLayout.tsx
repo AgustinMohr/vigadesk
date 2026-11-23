@@ -15,11 +15,13 @@
 'use client';
 
 import { useEffect, useSyncExternalStore } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { AuthProvider, useAuth } from '@/lib/auth/AuthContext';
 import Navbar from '@/components/Navbar';
 import { FeedbackProvider } from '@/components/Feedback';
 import Sidebar from '@/components/Sidebar';
+import RoleGuard, { Cargando } from '@/components/RoleGuard';
+import { rolesDeRuta } from '@/lib/auth/access';
 
 // useSyncExternalStore espera una función "subscribe" que devuelva un
 // "unsubscribe". Como no escuchamos nada, usamos esta que no hace nada
@@ -29,6 +31,7 @@ const emptySubscribe = () => () => {};
 function AuthGuard ({ children }: { children: React.ReactNode }) {
   const { user } = useAuth(); // lee el usuario del Context (ver AuthContext.tsx)
   const router = useRouter(); // hook de Next para navegar programáticamente
+  const pathname = usePathname(); // ruta actual: decide qué roles pueden verla
 
   // ------------------------------------------------------------------
   // DETECCIÓN DE MONTAJE (por qué existe)
@@ -56,7 +59,7 @@ function AuthGuard ({ children }: { children: React.ReactNode }) {
 
   // Mientras no estemos montados o no haya sesión, no dibujamos nada
   // (evita un flash del contenido protegido y el mismatch de hydratación).
-  if (!isMounted || !user) return null;
+  if (!isMounted || !user) return <Cargando />;
 
   // Usuario logueado → estructura común de la app
   return (
@@ -64,7 +67,9 @@ function AuthGuard ({ children }: { children: React.ReactNode }) {
       <Navbar />
       <div className='flex min-h-[calc(100vh-64px)]'>
         <Sidebar />
-        <main className='flex-1 p-6'>{children}</main>
+        <main className='flex-1 p-6'>
+          <RoleGuard rol={user.rol} roles={rolesDeRuta(pathname)}>{children}</RoleGuard>
+        </main>
       </div>
     </div>
   );

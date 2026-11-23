@@ -11,6 +11,8 @@ const productoNombre = `Producto E2E ${sufijo}`;
 
 // Ids y token creados en beforeAll, para la prueba de doble envio por API
 const datos = { token: '', clienteId: 0, obraId: 0, productoId: 0 };
+const emailCliente = `cliente-${sufijo}@example.com`;
+const claveCliente = 'clave-del-cliente-123';
 
 async function api<T> (request: APIRequestContext, token: string, metodo: 'post', ruta: string, datos: unknown): Promise<T> {
   const respuesta = await request[metodo](ruta, { data: datos, headers: { Authorization: `Bearer ${token}` } });
@@ -46,6 +48,13 @@ test.describe('flujo principal', () => {
       stockActual: 100,
       stockMinimo: 1,
       unidadMedida: 'UNIDAD',
+    });
+    // un usuario con rol CLIENTE de esa empresa, para probar el guard de rutas por rol
+    await api(request, token, 'post', '/api/usuarios', {
+      nombre: 'Usuario E2E',
+      email: emailCliente,
+      password: claveCliente,
+      cliente: { id: cliente.id },
     });
     datos.clienteId = cliente.id;
     datos.obraId = obra.id;
@@ -103,5 +112,25 @@ test.describe('flujo principal', () => {
     const fila = page.getByRole('row').filter({ hasText: clienteNombre });
     await expect(fila).toBeVisible({ timeout: 20_000 }); // la lista se recarga al guardar
     await expect(fila).toContainText(/ACEPTADO|EN_PREPARACION/);
+  });
+
+  test('un CLIENTE que abre /usuarios ve "Sin acceso" y no se llama al backend de usuarios', async ({ page }) => {
+    const pedidosAUsuarios: string[] = [];
+    page.on('request', (r) => {
+      const { pathname } = new URL(r.url());
+      if (pathname === '/api/usuarios') pedidosAUsuarios.push(`${r.method()} ${pathname}`);
+    });
+
+    await page.goto('/login');
+    await page.locator('input[name="email"]').fill(emailCliente);
+    await page.locator('input[name="password"]').fill(claveCliente);
+    await page.getByRole('button', { name: /entrar/i }).click();
+    await expect(page).not.toHaveURL(/\/login/);
+
+    await page.goto('/usuarios');
+
+    await expect(page.getByRole('heading', { name: 'Sin acceso' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Usuarios' })).toHaveCount(0); // tampoco esta en el menu
+    expect(pedidosAUsuarios).toEqual([]);
   });
 });

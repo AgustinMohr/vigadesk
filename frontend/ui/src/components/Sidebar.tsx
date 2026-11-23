@@ -21,32 +21,23 @@
 
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { RUTAS } from '@/lib/auth/access';
 
 // Centralizamos las opciones del menú en un array. Para agregar una
 // pantalla nueva alcanza con sumar otro objeto acá. `adminOnly: true`
 // marca las pantallas que solo ve el admin.
-const allLinks = [
-  { href: '/dashboard', label: 'Dashboard' },
-  { href: '/clientes', label: 'Clientes', adminOnly: true },
-  { href: '/obras', label: 'Obras', adminOnly: true },
-  { href: '/usuarios', label: 'Usuarios', adminOnly: true },
-  { href: '/productos', label: 'Productos' },
-  { href: '/pedidos', label: 'Pedidos' },
-  { href: '/importar', label: 'Importar CSV', adminOnly: true },
-];
 
 /**
  * Menú lateral fijo de la aplicación.
  *
- * Recibe el rol desde el Context global y FILTRA el array `allLinks`
- * antes de renderizar: se ocultan los links con `adminOnly: true` para
- * usuarios CLIENTE. Este filtro es solo de UX; la seguridad REAL la
- * aplica el backend al validar el JWT en cada request.
+ * Recibe el rol desde el Context global y FILTRA la tabla de rutas
+ * (`RUTAS`) antes de renderizar. Este filtro es solo de UX; la seguridad
+ * REAL la aplica el backend al validar el JWT en cada request.
  *
  * @returns {JSX.Element} El <aside> con la lista de links filtrados.
  */
 export default function Sidebar () {
-  const { user, isAdmin } = useAuth(); // lee la sesión del Context global
+  const { user } = useAuth(); // lee la sesión del Context global
 
   // Filtro por rol:
   //  - Admin: ve todo.
@@ -55,13 +46,8 @@ export default function Sidebar () {
   //  - Invitado (GUEST): solo el catálogo de productos.
   // `filter` es un método de array que devuelve un NUEVO array con los
   // items que cumplen la condición (no muta `allLinks` original).
-  const links = allLinks.filter((link) => {
-    if (isAdmin) return true;
-    // `user?.rol` con optional chaining: si user es null no lanza error.
-    if (user?.rol === 'CLIENTE') return !link.adminOnly;
-    if (user?.rol === 'GUEST') return link.href === '/productos';
-    return false;
-  });
+  // Solo las pantallas que el rol puede abrir (misma tabla que usa el guard de rutas)
+  const links = RUTAS.filter((ruta) => user !== null && ruta.roles.includes(user.rol));
 
   return (
     <aside className='w-64 border-r border-slate-200 bg-white px-4 py-6'>
