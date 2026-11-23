@@ -419,6 +419,23 @@ docker compose --env-file .env -f docker-compose.frontend.yml up -d
 
 ---
 
+## Dependencias y versiones
+
+- El workflow `Dependencias` (`.github/workflows/dependencias.yml`) corre cada lunes, a pedido y en los pull requests que cambian un `pom.xml` o el `package.json`. `npm audit` falla si hay vulnerabilidades altas o críticas en las dependencias de producción del frontend; OWASP Dependency-Check publica el reporte de los módulos Maven como artefacto (informativo; con el secret opcional `NVD_API_KEY` la descarga de la base es mucho más rápida).
+- Estado de soporte (verificar las fechas en endoflife.date y en los sitios de cada proyecto antes de decidir):
+
+| Componente | En el proyecto | Estado |
+|---|---|---|
+| Spring Boot | 3.2.5 | Sin soporte abierto desde fines de 2024; la 3.5 también terminó su soporte abierto en junio de 2026. Línea vigente: 4.x |
+| Spring Cloud | 2023.0.2 | Sin soporte; vigente 2025.1 (Oakwood), que acompaña a Boot 4.x |
+| MySQL | 8.0 | Fin de vida en abril de 2026; pasar a 8.4 LTS |
+| PostgreSQL | 17 | Con soporte |
+| MongoDB | 8.3 | Con soporte |
+| Grafana | 11.3.0 | Sin soporte; pasar a una versión vigente |
+| RabbitMQ | retirado (R2.12) | No aplica |
+
+- Plan de actualización: la rama `chore/actualizar-spring-boot` sube a Spring Boot 3.5.16 y Spring Cloud 2025.0.3 y pasa la suite completa (único cambio necesario: agregar `flyway-database-postgresql` en `ms-productos`, porque Flyway 11 separó el soporte de PostgreSQL). Es el paso previo obligatorio a Boot 4.x, que requiere una migración propia (Spring Framework 7, Jackson 3, anotaciones de test reubicadas).
+
 ## Testing y calidad
 
 ### Backend
