@@ -458,18 +458,18 @@ mvn test -pl :ms-clientes -am         # un módulo
 - **Reglas de acceso:** viven en `dan-common` (`AccessMatrix`) y las usan el Gateway y los tres microservicios. Se prueban una sola vez en `dan-common`; el Gateway conserva sus pruebas de `JwtAuthFilter` como regresión. Las imágenes de los servicios se construyen con la raíz del repo como contexto (`docker build -f backend/ms-pedidos/Dockerfile .`).
 - **Herramientas:** JUnit 5, Mockito, AssertJ y `@WebMvcTest`.
 - **Cobertura temática:** servicios, controladores, manejo global de excepciones, `JwtAuthFilter` del Gateway y repositorios.
-- **Testcontainers:** los tests de repositorio de `ms-clientes` corren contra un MySQL real. Requieren Docker y, si no está disponible, se omiten (`@Testcontainers(disabledWithoutDocker = true)`). El `pom.xml` fija `api.version=1.40` por compatibilidad con Docker moderno.
-- **JaCoCo:** el umbral de **80 % de cobertura de instrucciones** (`COVEREDRATIO`) está configurado como regla `check` en `ms-clientes`, `ms-pedidos` y `ms-productos`. Es un **objetivo exigido por la build**, no un resultado.
+- **Testcontainers:** los tests de repositorio de `ms-clientes` (MySQL) y `ms-productos` (PostgreSQL) y los de `ms-pedidos` (MongoDB) corren contra bases reales y requieren Docker. En CI no se omite ninguno: `ops/check-no-skipped-tests.sh` hace fallar el job si algún reporte tiene tests omitidos. El `pom.xml` fija `api.version=1.40` por compatibilidad con Docker moderno.
+- **JaCoCo:** el umbral de **80 % de cobertura de instrucciones** (`COVEREDRATIO`) está configurado como regla `check` en `ms-clientes`, `ms-pedidos` y `ms-productos`, y lo aplica `mvn verify` (**no** `mvn test`). Es un objetivo exigido por la build, no un resultado.
 
-### Estado verificado (corrida local)
+### Estado verificado (corrida local del 2026-11-23)
 
 | Dato | Valor |
 |---|---|
-| Métodos de test anotados (`@Test` / `@ParameterizedTest`) | 330 |
-| Última corrida local (reportes de Surefire) | 330 ejecutados, 0 fallos, 0 errores, 10 omitidos |
-| Cobertura de instrucciones (reporte JaCoCo local) | `dan-gateway` 94,4 %, `ms-clientes` 91,2 %, `ms-productos` 86,2 %, `ms-pedidos` 84,5 % |
+| Tests de backend (reportes de Surefire) | 639 ejecutados, 0 fallos, 0 errores, 0 omitidos (`dan-common` 164, `dan-gateway` 64, `ms-clientes` 193, `ms-productos` 89, `ms-pedidos` 129) |
+| Cobertura de instrucciones (reporte JaCoCo local) | `dan-common` 88,9 %, `dan-gateway` 98,0 %, `ms-clientes` 94,5 %, `ms-productos` 91,0 %, `ms-pedidos` 88,2 % |
+| Tests de frontend | 108 de Vitest y 2 de Playwright (end to end) |
 
-Son cifras de reportes locales, no de un pipeline de CI. Para regenerarlas ejecutá `mvn verify` y abrí `target/site/jacoco-aggregate/index.html`.
+Son cifras de una corrida local, no un compromiso: la fuente de verdad es el pipeline (`.github/workflows/ci.yml`). Para regenerar las cifras de backend ejecutá `mvn verify` y abrí `target/site/jacoco-aggregate/index.html`.
 
 ### Frontend
 
