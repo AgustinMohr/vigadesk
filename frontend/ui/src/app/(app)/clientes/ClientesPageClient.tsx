@@ -17,6 +17,7 @@ import ClienteForm from '@/components/ClienteForm';
 import ClienteDetailModal from '@/components/ClienteDetailModal';
 import AsignarObraModal from '@/components/AsignarObraModal';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { useFeedback } from '@/components/Feedback';
 import { useFetch } from '@/hooks/useFetch';
 import FetchError from '@/components/FetchError';
 import { getErrorMessage } from '@/lib/http/api-error';
@@ -94,12 +95,12 @@ export default function ClientesPageClient () {
 
   // Elimina un cliente previa confirmación, luego refresca la lista
   const handleDelete = async (cliente: Cliente) => {
-    if (!window.confirm(`¿Eliminar al cliente "${cliente.nombre}"?`)) return;
+    if (!(await confirmar({ titulo: 'Eliminar cliente', mensaje: `¿Eliminar al cliente "${cliente.nombre}"?`, confirmar: 'Eliminar', peligro: true }))) return;
     try {
       await clienteService.delete(cliente.id!);
       await refreshClientes();
     } catch (err) {
-      alert(getErrorMessage(err, 'No se pudo eliminar el cliente.'));
+      avisar('error', getErrorMessage(err, 'No se pudo eliminar el cliente.'));
     }
   };
 
@@ -121,6 +122,7 @@ export default function ClientesPageClient () {
   };
 
   const { isAdmin } = useAuth();
+  const { avisar, confirmar } = useFeedback();
 
   // Configuración de los modos de búsqueda
   const searchModes: { key: SearchMode; label: string }[] = [

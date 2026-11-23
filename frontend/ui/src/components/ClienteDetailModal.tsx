@@ -19,6 +19,7 @@ import type { Cliente } from '@/services/clienteService';
 import type { Obra } from '@/services/obraService';
 import { obraService } from '@/services/obraService';
 import Button from './Button';
+import Modal from './Modal';
 
 /**
  * PROPS del modal de detalle.
@@ -72,91 +73,78 @@ export default function ClienteDetailModal ({
 
   return (
     // Overlay de modal: fondo oscuro + caja blanca centrada.
-    <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40'>
-      <div className='w-full max-w-lg rounded-lg bg-white p-6 shadow-xl'>
-        <div className='mb-4 flex items-center justify-between'>
-          <h3 className='text-lg font-semibold text-slate-900'>
-            Detalle del cliente
-          </h3>
-          <button
-            onClick={onClose}
-            className='text-slate-400 hover:text-slate-600 text-xl leading-none'
-          >
-            &times;
-          </button>
-        </div>
+    <Modal titulo='Detalle del cliente' onClose={onClose} ancho='max-w-lg' mostrarCerrar>
 
-        {/* Datos fijos del cliente (de la entidad ya cargada por el padre,
+      {/* Datos fijos del cliente (de la entidad ya cargada por el padre,
             no necesita fetch adicional). Los `?? '—'` cubren campos opcionales. */}
-        <div className='space-y-3 text-sm'>
-          <div>
-            <span className='font-medium text-slate-500'>Nombre:</span>
-            <p className='text-slate-900'>{cliente.nombre}</p>
-          </div>
-          <div>
-            <span className='font-medium text-slate-500'>Email:</span>
-            <p className='text-slate-900'>{cliente.correoElectronico}</p>
-          </div>
-          <div>
-            <span className='font-medium text-slate-500'>CUIT:</span>
-            <p className='text-slate-900'>{cliente.cuit ?? '—'}</p>
-          </div>
-          <div>
-            <span className='font-medium text-slate-500'>Descubierto máximo:</span>
-            {/* `!= null` acepta 0 como valor válido; toLocaleString formatea */}
-            <p className='text-slate-900'>
-              {cliente.maximoDescubierto != null
-                ? `$${cliente.maximoDescubierto.toLocaleString('es-AR')}`
-                : '—'}
-            </p>
-          </div>
+      <div className='space-y-3 text-sm'>
+        <div>
+          <span className='font-medium text-slate-500'>Nombre:</span>
+          <p className='text-slate-900'>{cliente.nombre}</p>
         </div>
-
-        <hr className='my-4 border-slate-200' />
-
-        {/* Segunda mitad: obras asociadas, cargadas en el useEffect */}
-        <h4 className='mb-3 text-sm font-semibold text-slate-700'>
-          Obras asignadas
-        </h4>
-
-        {loadingObras
-          ? (
-            <p className='text-sm text-slate-400'>Cargando obras…</p>
-            )
-          : obras.length === 0
-            ? (
-              <p className='text-sm text-slate-400'>Este cliente no tiene obras asignadas.</p>
-              )
-            : (
-              <div className='space-y-2'>
-                {/* Una tarjeta por obra del cliente */}
-                {obras.map((obra) => (
-                  <div
-                    key={obra.id}
-                    className='rounded-md border border-slate-200 bg-slate-50 p-3 text-sm'
-                  >
-                    <p className='font-medium text-slate-900'>{obra.direccion}</p>
-                    <div className='mt-1 flex flex-wrap gap-x-4 text-slate-500'>
-                      <span>
-                        Presupuesto: ${obra.presupuesto.toLocaleString('es-AR')}
-                      </span>
-                      {/* `esRemodelacion` es booleano → ternario para texto */}
-                      <span>
-                        {obra.esRemodelacion ? 'Remodelación' : 'Obra nueva'}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              )}
-
-        <div className='mt-6 flex justify-end'>
-          {/* Único botón: cerrar. No hay acciones que puedan fallar acá. */}
-          <Button variant='secondary' onClick={onClose}>
-            Cerrar
-          </Button>
+        <div>
+          <span className='font-medium text-slate-500'>Email:</span>
+          <p className='text-slate-900'>{cliente.correoElectronico}</p>
+        </div>
+        <div>
+          <span className='font-medium text-slate-500'>CUIT:</span>
+          <p className='text-slate-900'>{cliente.cuit ?? '—'}</p>
+        </div>
+        <div>
+          <span className='font-medium text-slate-500'>Descubierto máximo:</span>
+          {/* `!= null` acepta 0 como valor válido; toLocaleString formatea */}
+          <p className='text-slate-900'>
+            {cliente.maximoDescubierto != null
+              ? `$${cliente.maximoDescubierto.toLocaleString('es-AR')}`
+              : '—'}
+          </p>
         </div>
       </div>
-    </div>
+
+      <hr className='my-4 border-slate-200' />
+
+      {/* Segunda mitad: obras asociadas, cargadas en el useEffect */}
+      <h4 className='mb-3 text-sm font-semibold text-slate-700'>
+        Obras asignadas
+      </h4>
+
+      {loadingObras
+        ? (
+          <p className='text-sm text-slate-400'>Cargando obras…</p>
+          )
+        : obras.length === 0
+          ? (
+            <p className='text-sm text-slate-400'>Este cliente no tiene obras asignadas.</p>
+            )
+          : (
+            <div className='space-y-2'>
+              {/* Una tarjeta por obra del cliente */}
+              {obras.map((obra) => (
+                <div
+                  key={obra.id}
+                  className='rounded-md border border-slate-200 bg-slate-50 p-3 text-sm'
+                >
+                  <p className='font-medium text-slate-900'>{obra.direccion}</p>
+                  <div className='mt-1 flex flex-wrap gap-x-4 text-slate-500'>
+                    <span>
+                      Presupuesto: ${obra.presupuesto.toLocaleString('es-AR')}
+                    </span>
+                    {/* `esRemodelacion` es booleano → ternario para texto */}
+                    <span>
+                      {obra.esRemodelacion ? 'Remodelación' : 'Obra nueva'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            )}
+
+      <div className='mt-6 flex justify-end'>
+        {/* Único botón: cerrar. No hay acciones que puedan fallar acá. */}
+        <Button variant='secondary' onClick={onClose}>
+          Cerrar
+        </Button>
+      </div>
+    </Modal>
   );
 }

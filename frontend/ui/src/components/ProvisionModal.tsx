@@ -16,7 +16,9 @@
 import { useState } from 'react';
 import type { Producto } from '@/services/productoService';
 import Button from './Button';
+import Modal from './Modal';
 import { getErrorMessage } from '@/lib/http/api-error';
+import Field from './Field';
 
 /**
  * PROPS del modal de reposición de stock.
@@ -88,56 +90,48 @@ export default function ProvisionModal ({
   return (
     // Overlay de modal: fondo oscuro + caja blanca centrada (max-w-sm =
     // más angosto que los forms, porque solo trae un input).
-    <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40'>
-      <div className='w-full max-w-sm rounded-lg bg-white p-6 shadow-xl'>
-        <h3 className='mb-4 text-lg font-semibold text-slate-900'>
-          Reponer stock
-        </h3>
+    <Modal titulo='Reponer stock' onClose={onCancel} ancho='max-w-sm'>
 
-        {/* Contexto: recuerda al admin SOBRE qué producto está trabajando */}
-        <p className='mb-4 text-sm text-slate-600'>
-          Producto: <span className='font-medium text-slate-900'>{producto.nombre}</span>
+      {/* Contexto: recuerda al admin SOBRE qué producto está trabajando */}
+      <p className='mb-4 text-sm text-slate-600'>
+        Producto: <span className='font-medium text-slate-900'>{producto.nombre}</span>
+      </p>
+
+      <form onSubmit={handleSubmit} className='space-y-4'>
+        {/* min='1' → el navegador ayuda a no escribir 0 o negativos
+                (validación extra a la JS). */}
+        <Field label='Cantidad a agregar' required>
+          <input
+            type='number'
+            step='0.001'
+            min='0.001'
+            value={valor}
+            onChange={(e) => setValor(e.target.value)}
+            autoFocus
+            className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
+          />
+        </Field>
+
+        {/* Preview del resultado: stock actual → stock final. */}
+        <p className='rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-600'>
+          Stock actual: <span className='font-medium text-slate-900'>{stockActual}</span>
+          {' → '}
+          Stock final: <span className='font-medium text-slate-900'>{stockFinal}</span>
         </p>
 
-        <form onSubmit={handleSubmit} className='space-y-4'>
-          <div>
-            <label className='block text-sm font-medium text-slate-700'>
-              Cantidad a agregar <span className='text-red-500'>*</span>
-            </label>
-            {/* min='1' → el navegador ayuda a no escribir 0 o negativos
-                (validación extra a la JS). */}
-            <input
-              type='number'
-              step='0.001'
-              min='0.001'
-              value={valor}
-              onChange={(e) => setValor(e.target.value)}
-              autoFocus
-              className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
-            />
-          </div>
+        {error && (
+          <p className='text-sm text-red-600'>{error}</p>
+        )}
 
-          {/* Preview del resultado: stock actual → stock final. */}
-          <p className='rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-600'>
-            Stock actual: <span className='font-medium text-slate-900'>{stockActual}</span>
-            {' → '}
-            Stock final: <span className='font-medium text-slate-900'>{stockFinal}</span>
-          </p>
-
-          {error && (
-            <p className='text-sm text-red-600'>{error}</p>
-          )}
-
-          <div className='flex justify-end gap-2 pt-2'>
-            <Button variant='secondary' onClick={onCancel} disabled={submitting}>
-              Cancelar
-            </Button>
-            <Button type='submit' disabled={submitting}>
-              {submitting ? 'Reponiendo…' : 'Reponer'}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className='flex justify-end gap-2 pt-2'>
+          <Button variant='secondary' onClick={onCancel} disabled={submitting}>
+            Cancelar
+          </Button>
+          <Button type='submit' disabled={submitting}>
+            {submitting ? 'Reponiendo…' : 'Reponer'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }

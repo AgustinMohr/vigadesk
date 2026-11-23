@@ -25,7 +25,9 @@
 import { useState } from 'react';
 import type { Obra, EstadoObra } from '@/services/obraService';
 import Button from './Button';
+import Modal from './Modal';
 import { getErrorMessage } from '@/lib/http/api-error';
+import Field from './Field';
 
 /**
  * PROPS que recibe del padre (ObrasPageClient).
@@ -117,109 +119,89 @@ export default function ObraForm ({ obra, onSubmit, onCancel }: ObraFormProps) {
   return (
     // Overlay: `fixed inset-0` cubre toda la pantalla; `bg-black/40` es un
     // fondo semitransparente (40% de opacidad); flexbox centra la caja.
-    <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40'>
-      <div className='w-full max-w-md rounded-lg bg-white p-6 shadow-xl'>
-        <h3 className='mb-4 text-lg font-semibold text-slate-900'>
-          {isEditing ? 'Editar obra' : 'Nueva obra'}
-        </h3>
+    <Modal titulo={<>{isEditing ? 'Editar obra' : 'Nueva obra'}</>} onClose={onCancel}>
 
-        <form onSubmit={handleSubmit} className='space-y-4'>
-          <div>
-            <label className='block text-sm font-medium text-slate-700'>
-              Dirección <span className='text-red-500'>*</span>
-            </label>
-            {/* Cada input = un useState (input controlado) */}
-            <input
-              type='text'
-              value={direccion}
-              onChange={(e) => setDireccion(e.target.value)}
-              className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
-            />
-          </div>
+      <form onSubmit={handleSubmit} className='space-y-4'>
+        {/* Cada input = un useState (input controlado) */}
+        <Field label='Dirección' required>
+          <input
+            type='text'
+            value={direccion}
+            onChange={(e) => setDireccion(e.target.value)}
+            className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
+          />
+        </Field>
 
-          <div className='grid grid-cols-2 gap-3'>
-            <div>
-              <label className='block text-sm font-medium text-slate-700'>
-                Latitud
-              </label>
-              {/* `step='any'` permite decimales (12.3456), no solo enteros */}
-              <input
-                type='number'
-                step='any'
-                value={lat}
-                onChange={(e) => setLat(e.target.value)}
-                className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
-              />
-            </div>
-            <div>
-              <label className='block text-sm font-medium text-slate-700'>
-                Longitud
-              </label>
-              <input
-                type='number'
-                step='any'
-                value={lng}
-                onChange={(e) => setLng(e.target.value)}
-                className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className='block text-sm font-medium text-slate-700'>
-              Presupuesto <span className='text-red-500'>*</span>
-            </label>
+        <div className='grid grid-cols-2 gap-3'>
+          {/* `step='any'` permite decimales (12.3456), no solo enteros */}
+          <Field label='Latitud'>
             <input
               type='number'
-              value={presupuesto}
-              onChange={(e) => setPresupuesto(e.target.value)}
-              min={100}
+              step='any'
+              value={lat}
+              onChange={(e) => setLat(e.target.value)}
               className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
             />
-          </div>
+          </Field>
+          <Field label='Longitud'>
+            <input
+              type='number'
+              step='any'
+              value={lng}
+              onChange={(e) => setLng(e.target.value)}
+              className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
+            />
+          </Field>
+        </div>
 
-          <div>
-            <label className='block text-sm font-medium text-slate-700'>
-              Estado
-            </label>
-            {/* El <select> también es controlado: `value={estado}` viene del
+        <Field label='Presupuesto' required>
+          <input
+            type='number'
+            value={presupuesto}
+            onChange={(e) => setPresupuesto(e.target.value)}
+            min={100}
+            className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
+          />
+        </Field>
+
+        {/* El <select> también es controlado: `value={estado}` viene del
                 estado y cada opción usa la lista de estados como Union Type.
                 El casting `as EstadoObra | ''` en onChange es necesario
                 porque e.target.value SIEMPRE es string. */}
-            <select
-              value={estado}
-              onChange={(e) => setEstado(e.target.value as EstadoObra | '')}
-              className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
-            >
-              <option value=''>Sin estado</option>
-              {(['HABILITADA', 'PENDIENTE', 'FINALIZADA'] as EstadoObra[]).map(
-                (e) => (
-                  <option key={e} value={e}>
-                    {e}
-                  </option>
-                )
-              )}
-            </select>
-          </div>
+        <Field label='Estado'>
+          <select
+            value={estado}
+            onChange={(e) => setEstado(e.target.value as EstadoObra | '')}
+            className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
+          >
+            <option value=''>Sin estado</option>
+            {(['HABILITADA', 'PENDIENTE', 'FINALIZADA'] as EstadoObra[]).map(
+              (e) => (
+                <option key={e} value={e}>
+                  {e}
+                </option>
+              )
+            )}
+          </select>
+        </Field>
 
-          {/* Render condicional del error: si error es '' (falsy), no se pinta */}
-          {error && <p className='text-sm text-red-600'>{error}</p>}
+        {/* Render condicional del error: si error es '' (falsy), no se pinta */}
+        {error && <p className='text-sm text-red-600'>{error}</p>}
 
-          <div className='flex justify-end gap-2 pt-2'>
-            <Button
-              variant='secondary'
-              onClick={onCancel}
-              disabled={submitting}
-            >
-              Cancelar
-            </Button>
-            {/* type="submit" dispara el onSubmit del <form> */}
-            <Button type='submit' disabled={submitting}>
-              {submitting ? 'Guardando…' : 'Guardar'}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className='flex justify-end gap-2 pt-2'>
+          <Button
+            variant='secondary'
+            onClick={onCancel}
+            disabled={submitting}
+          >
+            Cancelar
+          </Button>
+          {/* type="submit" dispara el onSubmit del <form> */}
+          <Button type='submit' disabled={submitting}>
+            {submitting ? 'Guardando…' : 'Guardar'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }

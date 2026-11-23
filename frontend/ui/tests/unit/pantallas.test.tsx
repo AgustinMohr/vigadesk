@@ -1,4 +1,6 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render as renderBase, screen, waitFor } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { FeedbackProvider } from '@/components/Feedback';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ClientesPageClient from '@/app/(app)/clientes/ClientesPageClient';
@@ -16,6 +18,9 @@ const usuario = vi.hoisted(() => ({ actual: { email: 'a@a.com', nombre: 'Ana', r
 vi.mock('@/lib/auth/AuthContext', () => ({
   useAuth: () => ({ user: usuario.actual, isAdmin: usuario.actual.rol === 'ADMIN' }),
 }));
+
+/** Las pantallas usan avisos y confirmaciones: se montan dentro de su proveedor, como en la app. */
+const render = (ui: ReactElement) => renderBase(<FeedbackProvider>{ui}</FeedbackProvider>);
 
 const clientes = vi.mocked(clienteService.getAll);
 const productos = vi.mocked(productoService.getAll);

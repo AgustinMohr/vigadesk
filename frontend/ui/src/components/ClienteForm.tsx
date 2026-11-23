@@ -15,7 +15,9 @@
 import { useState } from 'react';
 import type { Cliente } from '@/services/clienteService';
 import Button from './Button';
+import Modal from './Modal';
 import { getErrorMessage } from '@/lib/http/api-error';
+import Field from './Field';
 
 /**
  * Forma de datos que el form devuelve al padre al guardar.
@@ -108,91 +110,73 @@ export default function ClienteForm ({
   return (
     // Overlay: fondo oscuro (bg-black/40) que cubre la pantalla + caja
     // centrada con flexbox. `z-50` asegura que quede por encima de todo.
-    <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40'>
-      <div className='w-full max-w-md rounded-lg bg-white p-6 shadow-xl'>
-        {/* Título dinámico según el modo (crear/editar) */}
-        <h3 className='mb-4 text-lg font-semibold text-slate-900'>
-          {isEditing ? 'Editar cliente' : 'Nuevo cliente'}
-        </h3>
+    <Modal titulo={<>{isEditing ? 'Editar cliente' : 'Nuevo cliente'}</>} onClose={onCancel}>
 
-        <form onSubmit={handleSubmit} className='space-y-4'>
-          <div>
-            {/* El asterisco rojo marca campos obligatorios */}
-            <label className='block text-sm font-medium text-slate-700'>
-              Nombre <span className='text-red-500'>*</span>
-            </label>
-            <input
-              type='text'
-              value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
-              className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
-            />
-          </div>
+      <form onSubmit={handleSubmit} className='space-y-4'>
+        {/* El asterisco rojo marca campos obligatorios */}
+        <Field label='Nombre' required>
+          <input
+            type='text'
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
+          />
+        </Field>
 
-          <div>
-            <label className='block text-sm font-medium text-slate-700'>
-              Correo electrónico <span className='text-red-500'>*</span>
-            </label>
-            {/* El navegador valida `type='email'` y muestra el teclado
+        {/* El navegador valida `type='email'` y muestra el teclado
                 apropiado en mobile. La validación REAL igual corre acá. */}
-            <input
-              type='email'
-              value={correoElectronico}
-              onChange={(e) => setCorreoElectronico(e.target.value)}
-              className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
-            />
-          </div>
+        <Field label='Correo electrónico' required>
+          <input
+            type='email'
+            value={correoElectronico}
+            onChange={(e) => setCorreoElectronico(e.target.value)}
+            className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
+          />
+        </Field>
 
-          <div>
-            <label className='block text-sm font-medium text-slate-700'>
-              CUIT
-            </label>
-            <input
-              type='text'
-              value={cuit}
-              onChange={(e) => setCuit(e.target.value)}
-              className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
-            />
-          </div>
+        <Field label='CUIT'>
+          <input
+            type='text'
+            value={cuit}
+            onChange={(e) => setCuit(e.target.value)}
+            className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
+          />
+        </Field>
 
-          <div>
-            <label className='block text-sm font-medium text-slate-700'>
-              Límite de crédito
-            </label>
-            <input
-              type='number'
-              value={maximoDescubierto}
-              onChange={(e) => setMaximoDescubierto(e.target.value)}
+        <Field label='Límite de crédito'>
+          <input
+            type='number'
+            value={maximoDescubierto}
+            onChange={(e) => setMaximoDescubierto(e.target.value)}
               // El atributo `min` es validación nativa del navegador, pero
               // solo bloquea el submit si el form es nativo (acá la
               // validación real corre en handleSubmit).
-              min={10000}
-              className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
-            />
-          </div>
+            min={10000}
+            className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
+          />
+        </Field>
 
-          {/* Render condicional del error: si `error` es '' (falsy) no se
+        {/* Render condicional del error: si `error` es '' (falsy) no se
               pinta nada */}
-          {error && (
-            <p className='text-sm text-red-600'>{error}</p>
-          )}
+        {error && (
+          <p className='text-sm text-red-600'>{error}</p>
+        )}
 
-          <div className='flex justify-end gap-2 pt-2'>
-            <Button
-              variant='secondary'
-              onClick={onCancel}
-              disabled={submitting}
-            >
-              Cancelar
-            </Button>
-            {/* type="submit" dispara handleSubmit (onSubmit del <form>).
+        <div className='flex justify-end gap-2 pt-2'>
+          <Button
+            variant='secondary'
+            onClick={onCancel}
+            disabled={submitting}
+          >
+            Cancelar
+          </Button>
+          {/* type="submit" dispara handleSubmit (onSubmit del <form>).
                 `disabled={submitting}` evita el doble envío. */}
-            <Button type='submit' disabled={submitting}>
-              {submitting ? 'Guardando…' : 'Guardar'}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+          <Button type='submit' disabled={submitting}>
+            {submitting ? 'Guardando…' : 'Guardar'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }

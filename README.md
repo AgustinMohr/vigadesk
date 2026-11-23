@@ -475,7 +475,9 @@ npm run test:e2e    # Playwright, contra el sistema levantado (ver abajo)
 
 TypeScript strict, ESLint con `neostandard` y React Compiler.
 
-Las pruebas unitarias (`frontend/ui/tests/unit`) cubren el cliente HTTP (`http.ts`: 401, 204, errores, paginación), `AuthContext`, `useSort` y el proxy BFF (whitelist de rutas, cabeceras reenviadas, límite de 5 MB, 502 y 504). La prueba end to end (`frontend/ui/e2e`) inicia sesión, crea un pedido y verifica su estado. Necesita el sistema levantado (`docker compose up -d --build` y `docker compose -f docker-compose.frontend.yml up -d --build`) y un administrador: `E2E_ADMIN_EMAIL` y `E2E_ADMIN_PASSWORD` (los `BOOTSTRAP_ADMIN_*` del `.env`); `E2E_BASE_URL` por defecto es `http://localhost`. Crea sus propios cliente, obra y producto con nombres únicos, así que se puede repetir. En CI corre en el job `End to end`.
+Componentes base del frontend (`src/components`): `Modal` (único overlay: `role="dialog"`, `aria-modal`, cierre con Esc, foco inicial y retorno, foco contenido), `Field` (etiqueta asociada al campo con `useId`), `Feedback` (`FeedbackProvider`, `useFeedback`: avisos en una región `aria-live` y confirmaciones en un diálogo; no se usan `alert()` ni `window.confirm()`) y `FetchError`.
+
+Las pruebas unitarias (`frontend/ui/tests/unit`) cubren el cliente HTTP (`http.ts`: 401, 204, errores, paginación), `AuthContext`, `useSort`, `useFetch`, el proxy BFF (whitelist de rutas, cabeceras reenviadas, límite de 5 MB, 502 y 504), los componentes base y la accesibilidad de las pantallas principales con axe-core. La prueba end to end (`frontend/ui/e2e`) inicia sesión, crea un pedido y verifica su estado. Necesita el sistema levantado (`docker compose up -d --build` y `docker compose -f docker-compose.frontend.yml up -d --build`) y un administrador: `E2E_ADMIN_EMAIL` y `E2E_ADMIN_PASSWORD` (los `BOOTSTRAP_ADMIN_*` del `.env`); `E2E_BASE_URL` por defecto es `http://localhost`. Crea sus propios cliente, obra y producto con nombres únicos, así que se puede repetir. En CI corre en el job `End to end`.
 
 
 ---

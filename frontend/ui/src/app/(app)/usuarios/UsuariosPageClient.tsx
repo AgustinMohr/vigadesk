@@ -35,6 +35,7 @@ import Button from '@/components/Button';
 import UsuarioTable from '@/components/UsuarioTable';
 import UsuarioForm from '@/components/UsuarioForm';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { useFeedback } from '@/components/Feedback';
 import { useFetch } from '@/hooks/useFetch';
 import FetchError from '@/components/FetchError';
 import { getErrorMessage } from '@/lib/http/api-error';
@@ -102,6 +103,7 @@ export default function UsuariosPageClient () {
   // useAuth: lee el usuario y su rol desde el Context global de auth.
   // `isAdmin` decide si mostramos el botón "Nuevo usuario".
   const { isAdmin } = useAuth();
+  const { avisar, confirmar } = useFeedback();
 
   // --------------------------------------------------------------
   // HANDLERS: funciones que responden a eventos del usuario y se pasan
@@ -125,9 +127,9 @@ export default function UsuariosPageClient () {
   // crear, editar o borrar para reflejar los cambios en pantalla.
   const refreshUsuarios = () => reload({ silent: true });
 
-  // Borra un usuario previa confirmación del navegador (`window.confirm`).
+  // Borra un usuario previa confirmación (diálogo accesible).
   const handleDelete = async (usuario: UsuarioCliente) => {
-    if (!window.confirm(`¿Eliminar al usuario "${usuario.nombre}"?`)) return;
+    if (!(await confirmar({ titulo: 'Eliminar usuario', mensaje: `¿Eliminar al usuario "${usuario.nombre}"?`, confirmar: 'Eliminar', peligro: true }))) return;
     try {
       // `id!` (non-null assertion): le decimos a TypeScript "confío en que
       // existe", aunque el tipo lo declare opcional. Si viniera null, la
@@ -135,7 +137,7 @@ export default function UsuariosPageClient () {
       await usuarioService.delete(usuario.id!);
       await refreshUsuarios();
     } catch (err) {
-      alert(getErrorMessage(err, 'No se pudo eliminar el usuario.'));
+      avisar('error', getErrorMessage(err, 'No se pudo eliminar el usuario.'));
     }
   };
 
@@ -180,7 +182,7 @@ export default function UsuariosPageClient () {
         <div className='mb-4 flex items-center gap-3'>
           <input
             type='text'
-            placeholder='Buscar por nombre, email o cliente…'
+            aria-label='Buscar por nombre, email o cliente' placeholder='Buscar por nombre, email o cliente…'
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className='w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'

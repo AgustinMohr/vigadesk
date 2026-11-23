@@ -18,6 +18,7 @@ import { useEffect, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthProvider, useAuth } from '@/lib/auth/AuthContext';
 import Navbar from '@/components/Navbar';
+import { FeedbackProvider } from '@/components/Feedback';
 import Sidebar from '@/components/Sidebar';
 
 // useSyncExternalStore espera una función "subscribe" que devuelva un
@@ -72,7 +73,9 @@ function AuthGuard ({ children }: { children: React.ReactNode }) {
 export default function AuthLayout ({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
-      <AuthGuard>{children}</AuthGuard>
+      <FeedbackProvider>
+        <AuthGuard>{children}</AuthGuard>
+      </FeedbackProvider>
     </AuthProvider>
   );
 }

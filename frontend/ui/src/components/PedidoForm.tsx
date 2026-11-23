@@ -30,7 +30,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useFetch } from '@/hooks/useFetch';
 import FetchError from './FetchError';
 import type { ClienteInfo, CrearPedidoInput } from '@/services/pedidoService';
@@ -40,7 +40,9 @@ import { productoService } from '@/services/productoService';
 import { obraService, type Obra } from '@/services/obraService';
 import { useAuth } from '@/lib/auth/AuthContext';
 import Button from './Button';
+import Modal from './Modal';
 import { getErrorMessage } from '@/lib/http/api-error';
+import Field from './Field';
 
 /**
  * Una línea del pedido: producto + cantidad, con datos desnormalizados
@@ -89,6 +91,7 @@ type PedidoFormProps = {
  */
 export default function PedidoForm ({ onSubmit, onCancel }: PedidoFormProps) {
   const { user } = useAuth();
+  const productosId = useId();
 
   // Un usuario de cliente opera siempre en nombre de su propia empresa:
   // por eso sus campos se fijan y deshabilitan más abajo.
@@ -325,116 +328,105 @@ export default function PedidoForm ({ onSubmit, onCancel }: PedidoFormProps) {
   return (
     // Overlay de modal: fondo oscuro + caja blanca centrada. Está ventana
     // es más ancha (max-w-2xl) porque lleva las líneas de productos.
-    <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40'>
-      {/* `max-h-[90vh] overflow-y-auto`: si el pedido tiene muchas líneas,
-          el modal hace scroll en vez de desbordar la pantalla. */}
-      <div className='w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto'>
-        <h3 className='mb-4 text-lg font-semibold text-slate-900'>Nuevo pedido</h3>
+    <Modal titulo='Nuevo pedido' onClose={onCancel} ancho='max-w-2xl' className='max-h-[90vh] overflow-y-auto'>
 
-        <form onSubmit={handleSubmit} className='space-y-4'>
-          {catalogoError && (
-            <FetchError mensaje={catalogoError} onRetry={catalogoReintentable ? () => recargarCatalogo() : undefined} />
-          )}
-          <div>
-            <label className='block text-sm font-medium text-slate-700'>
-              Cliente <span className='text-red-500'>*</span>
-            </label>
-            {/* `disabled={isCliente}`: el CLIENTE tiene fija su empresa
+      <form onSubmit={handleSubmit} className='space-y-4'>
+        {catalogoError && (
+          <FetchError mensaje={catalogoError} onRetry={catalogoReintentable ? () => recargarCatalogo() : undefined} />
+        )}
+        {/* `disabled={isCliente}`: el CLIENTE tiene fija su empresa
                 (no puede cargar pedidos para otra). disabled:bg-slate-100
                 da el look "grisado" de campo no editable. */}
-            <select
-              value={clienteId}
-              onChange={(e) => setClienteId(e.target.value)}
-              disabled={isCliente}
-              className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none disabled:bg-slate-100'
-            >
-              <option value=''>Seleccionar cliente</option>
-              {isCliente
-                ? (
-                  // Para el CLIENTE SOLO existe su empresa como opción.
-                  <option value={user?.clienteId}>{user?.clienteNombre}</option>
-                  )
-                : (
-                    clientes.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.nombre}
-                      </option>
-                    ))
-                  )}
-            </select>
-          </div>
+        <Field label='Cliente' required>
+          <select
+            value={clienteId}
+            onChange={(e) => setClienteId(e.target.value)}
+            disabled={isCliente}
+            className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none disabled:bg-slate-100'
+          >
+            <option value=''>Seleccionar cliente</option>
+            {isCliente
+              ? (
+            // Para el CLIENTE SOLO existe su empresa como opción.
+                <option value={user?.clienteId}>{user?.clienteNombre}</option>
+                )
+              : (
+                  clientes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nombre}
+                    </option>
+                  ))
+                )}
+          </select>
+        </Field>
 
-          {/* Selector de Obra (obligatoria): solo las obras HABILITADAS del
+        {/* Selector de Obra (obligatoria): solo las obras HABILITADAS del
               cliente del pedido. Deshabilitado hasta que haya cliente. */}
-          <div>
-            <label className='block text-sm font-medium text-slate-700'>
-              Obra <span className='text-red-500'>*</span>
-            </label>
-            <select
-              value={obraId}
-              onChange={(e) => setObraId(e.target.value)}
-              disabled={selectedClienteNumeric == null}
-              className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none disabled:bg-slate-100'
-            >
-              {selectedClienteNumeric == null
+        <Field label='Obra' required>
+          <select
+            value={obraId}
+            onChange={(e) => setObraId(e.target.value)}
+            disabled={selectedClienteNumeric == null}
+            className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none disabled:bg-slate-100'
+          >
+            {selectedClienteNumeric == null
+              ? (
+                <option value='' disabled>
+                  Seleccioná un cliente para ver sus obras
+                </option>
+                )
+              : obras.length === 0
                 ? (
                   <option value='' disabled>
-                    Seleccioná un cliente para ver sus obras
+                    Sin obras habilitadas para este cliente
                   </option>
                   )
-                : obras.length === 0
-                  ? (
-                    <option value='' disabled>
-                      Sin obras habilitadas para este cliente
-                    </option>
-                    )
-                  : (
-                    <>
-                      <option value=''>Sin obra</option>
-                      {obras.map((obra) => (
-                        <option key={obra.id} value={obra.id}>
-                          {obra.direccion}
-                        </option>
-                      ))}
-                    </>
-                    )}
-            </select>
-            {obrasError && <p className='mt-1 text-sm text-red-600'>{obrasError}</p>}
+                : (
+                  <>
+                    <option value=''>Sin obra</option>
+                    {obras.map((obra) => (
+                      <option key={obra.id} value={obra.id}>
+                        {obra.direccion}
+                      </option>
+                    ))}
+                  </>
+                  )}
+          </select>
+        </Field>
+        {obrasError && <p className='-mt-3 text-sm text-red-600'>{obrasError}</p>}
+
+        <Field label='Observaciones'>
+          <input
+            type='text'
+            value={observaciones}
+            onChange={(e) => setObservaciones(e.target.value)}
+            className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
+          />
+        </Field>
+
+        <div>
+          <div className='mb-2 flex items-center justify-between'>
+            <span id={productosId} className='block text-sm font-medium text-slate-700'>
+              Productos <span className='text-red-500' aria-hidden='true'>*</span>
+            </span>
+            {/* type='button' evita que este botón dispare el submit del form */}
+            <Button variant='secondary' onClick={handleAddLine} type='button'>
+              + Agregar producto
+            </Button>
           </div>
 
-          <div>
-            <label className='block text-sm font-medium text-slate-700'>Observaciones</label>
-            <input
-              type='text'
-              value={observaciones}
-              onChange={(e) => setObservaciones(e.target.value)}
-              className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
-            />
-          </div>
+          {lineItems.length === 0 && (
+            <p className='py-2 text-sm text-slate-400'>No hay productos agregados.</p>
+          )}
 
-          <div>
-            <div className='flex items-center justify-between mb-2'>
-              <label className='block text-sm font-medium text-slate-700'>
-                Productos <span className='text-red-500'>*</span>
-              </label>
-              {/* type='button' evita que este botón dispare el submit del form */}
-              <Button variant='secondary' onClick={handleAddLine} type='button'>
-                + Agregar producto
-              </Button>
-            </div>
-
-            {lineItems.length === 0 && (
-              <p className='text-sm text-slate-400 py-2'>No hay productos agregados.</p>
-            )}
-
-            {/* Render de líneas dinámicas: `lineItems.map`. OJO: la `key={i}`
-                usa el ÍNDICE (no un id único). Aceptable acá porque las
-                líneas solo se agregan/al final o se quitan (orden estable);
-                si se reordenaran, el índice sería un antipatrón. */}
-            {lineItems.map((item, i) => (
-              <div key={i} className='mb-2 flex items-end gap-2'>
-                <div className='flex-1'>
-                  <label className='block text-xs font-medium text-slate-500 mb-1'>Producto</label>
+          {/* Render de líneas dinámicas: `lineItems.map`. OJO: la `key={i}`
+              usa el ÍNDICE (no un id único). Aceptable acá porque las
+              líneas solo se agregan/al final o se quitan (orden estable);
+              si se reordenaran, el índice sería un antipatrón. */}
+          {lineItems.map((item, i) => (
+            <div key={i} className='mb-2 flex items-end gap-2'>
+              <div className='flex-1'>
+                <Field label={`Producto ${i + 1}`} labelClassName='mb-1 block text-xs font-medium text-slate-500'>
                   {/* Select de producto de la línea; onChange dispara la
                       copia de nombre/precio a la línea */}
                   <select
@@ -450,11 +442,10 @@ export default function PedidoForm ({ onSubmit, onCancel }: PedidoFormProps) {
                       </option>
                     ))}
                   </select>
-                </div>
-                <div className='w-28'>
-                  <label className='block text-xs font-medium text-slate-500 mb-1'>
-                    Cantidad ({item.unidadMedida})
-                  </label>
+                </Field>
+              </div>
+              <div className='w-28'>
+                <Field label={<>Cantidad ({item.unidadMedida})</>} labelClassName='mb-1 block text-xs font-medium text-slate-500'>
                   <input
                     type='number'
                     min={0.001}
@@ -463,60 +454,61 @@ export default function PedidoForm ({ onSubmit, onCancel }: PedidoFormProps) {
                     onChange={(e) => handleLineCantidadChange(i, Number(e.target.value))}
                     className='w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
                   />
-                </div>
-                {/* Desglose de la línea, en vivo: precio del producto,
+                </Field>
+              </div>
+              {/* Desglose de la línea, en vivo: precio del producto,
                     descuento aplicado en PESOS (% sobre el bruto) y el
                     total neto final. Solo se muestra si hay producto. */}
-                <div className='w-44 text-right text-xs text-slate-600 py-2 space-y-0.5'>
-                  {item.productoId > 0
-                    ? (
-                      <>
-                        <div>
-                          P. unitario: <span className='font-medium text-slate-900'>{formatPesos(item.precio)}</span>
+              <div className='w-44 text-right text-xs text-slate-600 py-2 space-y-0.5'>
+                {item.productoId > 0
+                  ? (
+                    <>
+                      <div>
+                        P. unitario: <span className='font-medium text-slate-900'>{formatPesos(item.precio)}</span>
+                      </div>
+                      {lineDescuentoPesos(item) > 0 && (
+                        <div className='text-emerald-700'>
+                          Descuento: −{formatPesos(lineDescuentoPesos(item))} ({item.descuento}%)
                         </div>
-                        {lineDescuentoPesos(item) > 0 && (
-                          <div className='text-emerald-700'>
-                            Descuento: −{formatPesos(lineDescuentoPesos(item))} ({item.descuento}%)
-                          </div>
-                        )}
-                        <div className='text-sm font-semibold text-slate-900'>
-                          Total: {formatPesos(lineSubtotal(item))}
-                        </div>
-                      </>
-                      )
-                    : (
-                      <div>—</div>
                       )}
-                </div>
-                {/* Botón quitar línea: `&times;` es la entidad HTML "×" */}
-                <button
-                  type='button'
-                  onClick={() => handleRemoveLine(i)}
-                  className='text-red-500 hover:text-red-700 text-lg leading-none pb-1'
-                >
-                  &times;
-                </button>
+                      <div className='text-sm font-semibold text-slate-900'>
+                        Total: {formatPesos(lineSubtotal(item))}
+                      </div>
+                    </>
+                    )
+                  : (
+                    <div>—</div>
+                    )}
               </div>
-            ))}
-          </div>
+              {/* Botón quitar línea: `&times;` es la entidad HTML "×" */}
+              <button
+                type='button'
+                onClick={() => handleRemoveLine(i)}
+                aria-label={`Quitar producto ${i + 1}`}
+                className='text-red-500 hover:text-red-700 text-lg leading-none pb-1'
+              >
+                &times;
+              </button>
+            </div>
+          ))}
+        </div>
 
-          {/* Total del pedido, recalculado en cada cambio */}
-          <div className='text-right text-base font-semibold text-slate-900'>
-            Total: ${total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-          </div>
+        {/* Total del pedido, recalculado en cada cambio */}
+        <div className='text-right text-base font-semibold text-slate-900'>
+          Total: ${total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+        </div>
 
-          {error && <p className='text-sm text-red-600'>{error}</p>}
+        {error && <p className='text-sm text-red-600'>{error}</p>}
 
-          <div className='flex justify-end gap-2 pt-2'>
-            <Button variant='secondary' onClick={onCancel} disabled={submitting}>
-              Cancelar
-            </Button>
-            <Button type='submit' disabled={submitting}>
-              {submitting ? 'Creando…' : 'Crear pedido'}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className='flex justify-end gap-2 pt-2'>
+          <Button variant='secondary' onClick={onCancel} disabled={submitting}>
+            Cancelar
+          </Button>
+          <Button type='submit' disabled={submitting}>
+            {submitting ? 'Creando…' : 'Crear pedido'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }

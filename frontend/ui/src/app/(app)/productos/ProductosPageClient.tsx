@@ -38,6 +38,7 @@ import ProductoForm from '@/components/ProductoForm';
 import DescuentoModal from '@/components/DescuentoModal';
 import ProvisionModal from '@/components/ProvisionModal';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { useFeedback } from '@/components/Feedback';
 import { useFetch } from '@/hooks/useFetch';
 import FetchError from '@/components/FetchError';
 import { getErrorMessage } from '@/lib/http/api-error';
@@ -117,6 +118,7 @@ export default function ProductosPageClient () {
   // useAuth: lee el rol del usuario desde el Context global. `isAdmin`
   // decide si mostramos el botón "Nuevo producto".
   const { isAdmin } = useAuth();
+  const { avisar, confirmar } = useFeedback();
 
   // --------------------------------------------------------------
   // HANDLERS: funciones que responden a eventos del usuario.
@@ -139,12 +141,12 @@ export default function ProductosPageClient () {
 
   // Borra un producto previa confirmación, luego refresca la lista.
   const handleDelete = async (producto: Producto) => {
-    if (!window.confirm(`¿Eliminar producto "${producto.nombre}"?`)) return;
+    if (!(await confirmar({ titulo: 'Eliminar producto', mensaje: `¿Eliminar producto "${producto.nombre}"?`, confirmar: 'Eliminar', peligro: true }))) return;
     try {
       await productoService.delete(producto.id!);
       await refreshProductos();
     } catch (err) {
-      alert(getErrorMessage(err, 'No se pudo eliminar el producto.'));
+      avisar('error', getErrorMessage(err, 'No se pudo eliminar el producto.'));
     }
   };
 
@@ -219,12 +221,12 @@ export default function ProductosPageClient () {
           de estado; el filtrado combinado ocurre en `filteredProductos`. */}
       <div className='mt-6'>
         <div className='mb-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3'>
-          <input placeholder='Nombre…' value={searchNombre} onChange={(e) => setSearchNombre(e.target.value)} className='rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none' />
-          <input placeholder='Código…' value={searchCodigo} onChange={(e) => setSearchCodigo(e.target.value)} className='rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none' />
-          <input type='number' placeholder='Precio mín…' value={searchPrecioMin} onChange={(e) => setSearchPrecioMin(e.target.value)} className='rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none' />
-          <input type='number' placeholder='Precio máx…' value={searchPrecioMax} onChange={(e) => setSearchPrecioMax(e.target.value)} className='rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none' />
-          <input type='number' placeholder='Stock mín…' value={searchStockMin} onChange={(e) => setSearchStockMin(e.target.value)} className='rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none' />
-          <input type='number' placeholder='Stock máx…' value={searchStockMax} onChange={(e) => setSearchStockMax(e.target.value)} className='rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none' />
+          <input aria-label='Nombre' placeholder='Nombre…' value={searchNombre} onChange={(e) => setSearchNombre(e.target.value)} className='rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none' />
+          <input aria-label='Código' placeholder='Código…' value={searchCodigo} onChange={(e) => setSearchCodigo(e.target.value)} className='rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none' />
+          <input type='number' aria-label='Precio mín' placeholder='Precio mín…' value={searchPrecioMin} onChange={(e) => setSearchPrecioMin(e.target.value)} className='rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none' />
+          <input type='number' aria-label='Precio máx' placeholder='Precio máx…' value={searchPrecioMax} onChange={(e) => setSearchPrecioMax(e.target.value)} className='rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none' />
+          <input type='number' aria-label='Stock mín' placeholder='Stock mín…' value={searchStockMin} onChange={(e) => setSearchStockMin(e.target.value)} className='rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none' />
+          <input type='number' aria-label='Stock máx' placeholder='Stock máx…' value={searchStockMax} onChange={(e) => setSearchStockMax(e.target.value)} className='rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none' />
         </div>
 
         {/* Render condicional con 3 estados: cargando / error / tabla. */}

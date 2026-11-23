@@ -17,7 +17,9 @@
 import { useState } from 'react';
 import type { EstadoObra } from '@/services/obraService';
 import Button from './Button';
+import Modal from './Modal';
 import { getErrorMessage } from '@/lib/http/api-error';
+import Field from './Field';
 
 /**
  * PROPS del modal de estado de obra.
@@ -88,47 +90,39 @@ export default function ObraEstadoModal ({
   return (
     // Overlay de modal: fondo oscuro + caja blanca centrada (angosta,
     // solo trae un select).
-    <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40'>
-      <div className='w-full max-w-sm rounded-lg bg-white p-6 shadow-xl'>
-        <h3 className='mb-4 text-lg font-semibold text-slate-900'>
-          Cambiar estado
-        </h3>
+    <Modal titulo='Cambiar estado' onClose={onCancel} ancho='max-w-sm'>
 
-        {/* Contexto de la acción */}
-        <p className='mb-3 text-sm text-slate-600'>{obraDireccion}</p>
+      {/* Contexto de la acción */}
+      <p className='mb-3 text-sm text-slate-600'>{obraDireccion}</p>
 
-        <form onSubmit={handleSubmit} className='space-y-4'>
-          <div>
-            <label className='block text-sm font-medium text-slate-700'>
-              Nuevo estado <span className='text-red-500'>*</span>
-            </label>
-            {/* Select controlado por estado */}
-            <select
-              value={estado}
-              onChange={(e) => setEstado(e.target.value as EstadoObra | '')}
-              className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
-            >
-              <option value=''>Seleccionar estado</option>
-              {estadosPermitidos.map((e) => (
-                <option key={e} value={e}>
-                  {e}
-                </option>
-              ))}
-            </select>
-          </div>
+      <form onSubmit={handleSubmit} className='space-y-4'>
+        {/* Select controlado por estado */}
+        <Field label='Nuevo estado' required>
+          <select
+            value={estado}
+            onChange={(e) => setEstado(e.target.value as EstadoObra | '')}
+            className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
+          >
+            <option value=''>Seleccionar estado</option>
+            {estadosPermitidos.map((e) => (
+              <option key={e} value={e}>
+                {e}
+              </option>
+            ))}
+          </select>
+        </Field>
 
-          {error && <p className='text-sm text-red-600'>{error}</p>}
+        {error && <p className='text-sm text-red-600'>{error}</p>}
 
-          <div className='flex justify-end gap-2 pt-2'>
-            <Button variant='secondary' onClick={onCancel} disabled={submitting}>
-              Cancelar
-            </Button>
-            <Button type='submit' disabled={submitting}>
-              {submitting ? 'Actualizando…' : 'Actualizar'}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className='flex justify-end gap-2 pt-2'>
+          <Button variant='secondary' onClick={onCancel} disabled={submitting}>
+            Cancelar
+          </Button>
+          <Button type='submit' disabled={submitting}>
+            {submitting ? 'Actualizando…' : 'Actualizar'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }

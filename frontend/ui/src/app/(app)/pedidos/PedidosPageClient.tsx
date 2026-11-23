@@ -26,9 +26,11 @@ import PedidoEstadoModal from '@/components/PedidoEstadoModal';
 import PedidoDetalleModal from '@/components/PedidoDetalleModal';
 import EntregaModal from '@/components/EntregaModal';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { useFeedback } from '@/components/Feedback';
 import { useFetch } from '@/hooks/useFetch';
 import FetchError from '@/components/FetchError';
 import { getErrorMessage } from '@/lib/http/api-error';
+import Field from '@/components/Field';
 
 const ESTADOS_PEDIDO = ['RECIBIDO', 'ACEPTADO', 'EN_PREPARACION', 'ENTREGA_PARCIAL', 'ENTREGADO', 'CANCELADO', 'RECHAZADO'];
 
@@ -46,12 +48,6 @@ function avisoDeCreacion (pedido: Pedido): Aviso {
   return { tipo: 'ok', texto: `Pedido #${n} creado y stock reservado (${pedido.estado}).` };
 }
 
-const avisoClasses: Record<Aviso['tipo'], string> = {
-  ok: 'border-green-300 bg-green-50 text-green-800',
-  warn: 'border-amber-300 bg-amber-50 text-amber-800',
-  error: 'border-red-300 bg-red-50 text-red-800',
-};
-
 /**
  * Componente "cerebro" de la página /pedidos.
  *
@@ -66,6 +62,7 @@ const avisoClasses: Record<Aviso['tipo'], string> = {
  */
 export default function PedidosPageClient () {
   const { user, isAdmin } = useAuth();
+  const { avisar, confirmar } = useFeedback();
 
   // Un usuario de cliente solo ve los pedidos de su propia empresa
   const clienteId = user?.rol === 'CLIENTE' ? user.clienteId : undefined;
@@ -93,7 +90,6 @@ export default function PedidosPageClient () {
   const [pedidoEntrega, setPedidoEntrega] = useState<Pedido | null>(null);
   const [searchCliente, setSearchCliente] = useState('');
   const [searchEstado, setSearchEstado] = useState('');
-  const [aviso, setAviso] = useState<Aviso | null>(null);
 
   const handleCreate = () => {
     setShowForm(true);
@@ -127,12 +123,12 @@ export default function PedidosPageClient () {
 
   // Elimina pedido previa confirmación
   const handleDelete = async (pedido: Pedido) => {
-    if (!window.confirm(`¿Eliminar pedido #${pedido.numeroPedido}?`)) return;
+    if (!(await confirmar({ titulo: 'Eliminar pedido', mensaje: `¿Eliminar pedido #${pedido.numeroPedido}?`, confirmar: 'Eliminar', peligro: true }))) return;
     try {
       await pedidoService.delete(pedido.id!);
       await refreshPedidos();
     } catch (err) {
-      alert(getErrorMessage(err, 'No se pudo eliminar el pedido.'));
+      avisar('error', getErrorMessage(err, 'No se pudo eliminar el pedido.'));
     }
   };
 
@@ -140,7 +136,8 @@ export default function PedidosPageClient () {
   const handleFormSubmit = async (data: CrearPedidoInput, idempotencyKey: string) => {
     const creado = await pedidoService.create(data, idempotencyKey);
     setShowForm(false);
-    setAviso(avisoDeCreacion(creado));
+    const aviso = avisoDeCreacion(creado);
+    avisar(aviso.tipo, aviso.texto);
     await refreshPedidos();
   };
 
@@ -148,12 +145,9 @@ export default function PedidosPageClient () {
   const handleReintentarReserva = async (pedido: Pedido) => {
     try {
       const actualizado = await pedidoService.reintentarReserva(pedido.id!);
-      setAviso({
-        tipo: 'ok',
-        texto: `Pedido #${actualizado.numeroPedido}: stock reservado, pasó a ${actualizado.estado}.`,
-      });
+      avisar('ok', `Pedido #${actualizado.numeroPedido}: stock reservado, pasó a ${actualizado.estado}.`);
     } catch (err) {
-      setAviso({ tipo: 'error', texto: getErrorMessage(err, 'No se pudo reintentar la reserva.') });
+      avisar('error', getErrorMessage(err, 'No se pudo reintentar la reserva.'));
     }
     await refreshPedidos();
   };
@@ -191,33 +185,19 @@ export default function PedidosPageClient () {
         {canCreatePedido && <Button onClick={handleCreate}>Nuevo pedido</Button>}
       </div>
 
-      {aviso && (
-        <div
-          role='status'
-          className={`mt-4 flex items-start justify-between rounded border px-4 py-3 text-sm ${avisoClasses[aviso.tipo]}`}
-        >
-          <span>{aviso.texto}</span>
-          <button onClick={() => setAviso(null)} aria-label='Cerrar aviso' className='ml-4 font-medium'>
-            ×
-          </button>
-        </div>
-      )}
-
       {/* Filtros de búsqueda: nombre de cliente, estado, y botones buscar/limpiar */}
       <div className='mt-6'>
         <div className='mb-4 flex items-end gap-3'>
-          <div className='flex-1'>
-            <label className='block text-xs font-medium text-slate-500 mb-1'>Cliente</label>
+          <Field label='Cliente' labelClassName='block text-xs font-medium text-slate-500 mb-1'>
             <input
-              placeholder='Nombre del cliente…'
+              aria-label='Nombre del cliente' placeholder='Nombre del cliente…'
               value={searchCliente}
               maxLength={100}
               onChange={(e) => setSearchCliente(e.target.value)}
               className='w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
             />
-          </div>
-          <div>
-            <label className='block text-xs font-medium text-slate-500 mb-1'>Estado</label>
+          </Field>
+          <Field label='Estado' labelClassName='block text-xs font-medium text-slate-500 mb-1'>
             <select
               value={searchEstado}
               onChange={(e) => setSearchEstado(e.target.value)}
@@ -228,7 +208,7 @@ export default function PedidosPageClient () {
                 <option key={est} value={est}>{est}</option>
               ))}
             </select>
-          </div>
+          </Field>
           <Button onClick={handleSearch}>Buscar</Button>
           <button
             onClick={handleClearFilters}

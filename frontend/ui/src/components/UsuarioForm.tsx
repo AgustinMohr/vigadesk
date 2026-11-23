@@ -21,7 +21,9 @@ import { useEffect, useState } from 'react';
 import type { UsuarioCliente } from '@/services/usuarioService';
 import { clienteService, type Cliente } from '@/services/clienteService';
 import Button from './Button';
+import Modal from './Modal';
 import { getErrorMessage } from '@/lib/http/api-error';
+import Field from './Field';
 
 /**
  * PROPS del modal de usuario de cliente.
@@ -136,106 +138,87 @@ export default function UsuarioForm ({
 
   return (
     // Overlay de modal: fondo oscuro + caja blanca centrada.
-    <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40'>
-      <div className='w-full max-w-md rounded-lg bg-white p-6 shadow-xl'>
-        <h3 className='mb-4 text-lg font-semibold text-slate-900'>
-          {isEditing ? 'Editar usuario' : 'Nuevo usuario'}
-        </h3>
+    <Modal titulo={<>{isEditing ? 'Editar usuario' : 'Nuevo usuario'}</>} onClose={onCancel}>
 
-        <form onSubmit={handleSubmit} className='space-y-4'>
-          <div>
-            <label className='block text-sm font-medium text-slate-700'>
-              Nombre <span className='text-red-500'>*</span>
-            </label>
+      <form onSubmit={handleSubmit} className='space-y-4'>
+        <Field label='Nombre' required>
+          <input
+            type='text'
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
+          />
+        </Field>
+
+        <div className='grid grid-cols-2 gap-4'>
+          <Field label='Apellido'>
             <input
               type='text'
-              value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
+              value={apellido}
+              onChange={(e) => setApellido(e.target.value)}
               className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
             />
-          </div>
-
-          <div className='grid grid-cols-2 gap-4'>
-            <div>
-              <label className='block text-sm font-medium text-slate-700'>Apellido</label>
-              <input
-                type='text'
-                value={apellido}
-                onChange={(e) => setApellido(e.target.value)}
-                className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
-              />
-            </div>
-            <div>
-              <label className='block text-sm font-medium text-slate-700'>DNI</label>
-              <input
-                type='text'
-                inputMode='numeric'
-                value={dni}
-                onChange={(e) => setDni(e.target.value)}
-                className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className='block text-sm font-medium text-slate-700'>
-              Email <span className='text-red-500'>*</span>
-            </label>
+          </Field>
+          <Field label='DNI'>
             <input
-              type='email'
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type='text'
+              inputMode='numeric'
+              value={dni}
+              onChange={(e) => setDni(e.target.value)}
               className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
             />
-          </div>
+          </Field>
+        </div>
 
-          <div>
-            <label className='block text-sm font-medium text-slate-700'>
-              {/* El asterisco es obligatorio SOLO en creación */}
-              Contraseña {isEditing ? '' : <span className='text-red-500'>*</span>}
-            </label>
-            <input
-              type='password' // el navegador enmascara los caracteres
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder={isEditing ? 'Dejar vacía para conservar' : 'Mínimo 12 caracteres'}
-              className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
-            />
-          </div>
+        <Field label='Email' required>
+          <input
+            type='email'
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
+          />
+        </Field>
 
-          <div>
-            <label className='block text-sm font-medium text-slate-700'>
-              Cliente <span className='text-red-500'>*</span>
-            </label>
-            {/* Select de clientes cargado desde la API */}
-            <select
-              value={clienteId}
-              onChange={(e) => setClienteId(e.target.value)}
-              className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
-            >
-              <option value=''>Seleccionar cliente</option>
-              {clientes.map((c) => (
-                // value puede ser number | undefined (Cliente.id es
-                // opcional); en la práctica los listados siempre traen id.
-                <option key={c.id} value={c.id}>
-                  {c.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
+        {/* La contraseña es obligatoria SOLO en creación */}
+        <Field label='Contraseña' required={!isEditing}>
+          <input
+            type='password' // el navegador enmascara los caracteres
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder={isEditing ? 'Dejar vacía para conservar' : 'Mínimo 12 caracteres'}
+            className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
+          />
+        </Field>
 
-          {error && <p className='text-sm text-red-600'>{error}</p>}
+        {/* Select de clientes cargado desde la API */}
+        <Field label='Cliente' required>
+          <select
+            value={clienteId}
+            onChange={(e) => setClienteId(e.target.value)}
+            className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
+          >
+            <option value=''>Seleccionar cliente</option>
+            {clientes.map((c) => (
+              // value puede ser number | undefined (Cliente.id es
+              // opcional); en la práctica los listados siempre traen id.
+              <option key={c.id} value={c.id}>
+                {c.nombre}
+              </option>
+            ))}
+          </select>
+        </Field>
 
-          <div className='flex justify-end gap-2 pt-2'>
-            <Button variant='secondary' onClick={onCancel} disabled={submitting}>
-              Cancelar
-            </Button>
-            <Button type='submit' disabled={submitting}>
-              {submitting ? 'Guardando…' : 'Guardar'}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        {error && <p className='text-sm text-red-600'>{error}</p>}
+
+        <div className='flex justify-end gap-2 pt-2'>
+          <Button variant='secondary' onClick={onCancel} disabled={submitting}>
+            Cancelar
+          </Button>
+          <Button type='submit' disabled={submitting}>
+            {submitting ? 'Guardando…' : 'Guardar'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }

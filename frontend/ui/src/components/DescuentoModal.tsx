@@ -26,7 +26,9 @@
 import { useState } from 'react';
 import type { Producto } from '@/services/productoService';
 import Button from './Button';
+import Modal from './Modal';
 import { getErrorMessage } from '@/lib/http/api-error';
+import Field from './Field';
 
 /**
  * PROPS del modal de descuento.
@@ -102,50 +104,42 @@ export default function DescuentoModal ({
   return (
     // Overlay de modal: fondo oscuro + caja blanca centrada (max-w-sm =
     // más angosto que los forms, porque solo trae un input).
-    <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40'>
-      <div className='w-full max-w-sm rounded-lg bg-white p-6 shadow-xl'>
-        <h3 className='mb-4 text-lg font-semibold text-slate-900'>
-          Aplicar descuento promocional
-        </h3>
+    <Modal titulo='Aplicar descuento promocional' onClose={onCancel} ancho='max-w-sm'>
 
-        {/* Contexto: recuerda al admin SOBRE qué producto está trabajando */}
-        <p className='mb-4 text-sm text-slate-600'>
-          Producto: <span className='font-medium text-slate-900'>{producto.nombre}</span>
-        </p>
+      {/* Contexto: recuerda al admin SOBRE qué producto está trabajando */}
+      <p className='mb-4 text-sm text-slate-600'>
+        Producto: <span className='font-medium text-slate-900'>{producto.nombre}</span>
+      </p>
 
-        <form onSubmit={handleSubmit} className='space-y-4'>
-          <div>
-            <label className='block text-sm font-medium text-slate-700'>
-              Descuento promocional (%)
-            </label>
-            {/* step='0.01' → permite porcentajes con decimales; min/max='0/100'
+      <form onSubmit={handleSubmit} className='space-y-4'>
+        {/* step='0.01' → permite porcentajes con decimales; min/max='0/100'
                 → el navegador ayuda a no escribir valores fuera de rango
                 (validación extra a la JS). */}
-            <input
-              type='number'
-              step='0.01'
-              min='0'
-              max='100'
-              value={valor}
-              onChange={(e) => setValor(e.target.value)}
-              className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
-            />
-          </div>
+        <Field label='Descuento promocional (%)'>
+          <input
+            type='number'
+            step='0.01'
+            min='0'
+            max='100'
+            value={valor}
+            onChange={(e) => setValor(e.target.value)}
+            className='mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
+          />
+        </Field>
 
-          {error && (
-            <p className='text-sm text-red-600'>{error}</p>
-          )}
+        {error && (
+          <p className='text-sm text-red-600'>{error}</p>
+        )}
 
-          <div className='flex justify-end gap-2 pt-2'>
-            <Button variant='secondary' onClick={onCancel} disabled={submitting}>
-              Cancelar
-            </Button>
-            <Button type='submit' disabled={submitting}>
-              {submitting ? 'Aplicando…' : 'Aplicar'}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className='flex justify-end gap-2 pt-2'>
+          <Button variant='secondary' onClick={onCancel} disabled={submitting}>
+            Cancelar
+          </Button>
+          <Button type='submit' disabled={submitting}>
+            {submitting ? 'Aplicando…' : 'Aplicar'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }

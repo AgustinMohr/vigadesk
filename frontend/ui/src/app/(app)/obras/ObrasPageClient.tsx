@@ -25,6 +25,7 @@ import ObraForm from '@/components/ObraForm';
 import ObraEstadoModal from '@/components/ObraEstadoModal';
 import AsignarClienteModal from '@/components/AsignarClienteModal';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { useFeedback } from '@/components/Feedback';
 import { useFetch } from '@/hooks/useFetch';
 import FetchError from '@/components/FetchError';
 import { getErrorMessage } from '@/lib/http/api-error';
@@ -86,6 +87,7 @@ export default function ObrasPageClient () {
 
   // useAuth: lee el usuario del Context global de autenticación.
   const { isAdmin } = useAuth();
+  const { avisar, confirmar } = useFeedback();
 
   // --------------------------------------------------------------
   // HANDLERS: funciones que responden a eventos del usuario.
@@ -106,12 +108,12 @@ export default function ObrasPageClient () {
   const refreshObras = () => reload({ silent: true });
 
   const handleDelete = async (obra: Obra) => {
-    if (!window.confirm(`¿Eliminar la obra "${obra.direccion}"?`)) return;
+    if (!(await confirmar({ titulo: 'Eliminar obra', mensaje: `¿Eliminar la obra "${obra.direccion}"?`, confirmar: 'Eliminar', peligro: true }))) return;
     try {
       await obraService.delete(obra.id!);
       await refreshObras();
     } catch (err) {
-      alert(getErrorMessage(err, 'No se pudo eliminar la obra.'));
+      avisar('error', getErrorMessage(err, 'No se pudo eliminar la obra.'));
     }
   };
 
@@ -169,12 +171,13 @@ export default function ObrasPageClient () {
         <div className='mb-4 flex items-center gap-3'>
           <input
             type='text'
-            placeholder='Buscar por dirección o cliente…'
+            aria-label='Buscar por dirección o cliente' placeholder='Buscar por dirección o cliente…'
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className='flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
           />
           <select
+            aria-label='Estado de la obra'
             value={searchEstado}
             onChange={(e) => setSearchEstado(e.target.value as EstadoObra | '')}
             className='rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'

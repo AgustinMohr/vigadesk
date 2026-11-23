@@ -56,17 +56,18 @@ test.describe('flujo principal', () => {
     // 2. Nuevo pedido: cliente, obra, un producto y su cantidad
     await page.goto('/pedidos');
     await page.getByRole('button', { name: 'Nuevo pedido' }).click();
-    const formulario = page.locator('form').filter({ hasText: 'Nuevo pedido' }).or(page.getByRole('heading', { name: 'Nuevo pedido' }).locator('..'));
-    const selects = formulario.locator('select');
-    await selects.nth(0).selectOption({ label: clienteNombre });
-    await expect(selects.nth(1)).toContainText(obraDireccion); // las obras se cargan al elegir el cliente
-    await selects.nth(1).selectOption({ label: obraDireccion });
+    const formulario = page.getByRole('dialog', { name: 'Nuevo pedido' });
+    await formulario.getByRole('combobox', { name: /^Cliente/ }).selectOption({ label: clienteNombre });
+    const obra = formulario.getByRole('combobox', { name: /^Obra/ });
+    await expect(obra).toContainText(obraDireccion); // las obras se cargan al elegir el cliente
+    await obra.selectOption({ label: obraDireccion });
     await formulario.getByRole('button', { name: '+ Agregar producto' }).click();
-    // el texto de la opcion incluye precio y stock: se elige por el valor de la opcion que contiene el nombre
-    const valorProducto = await selects.nth(2).locator('option', { hasText: productoNombre }).getAttribute('value');
-    await selects.nth(2).selectOption(valorProducto!);
-    await formulario.locator('input[type="number"]').first().fill('3');
-    await formulario.getByRole('button', { name: /crear|guardar/i }).click();
+    // el texto de la opcion incluye el precio: se elige por el valor de la opcion que contiene el nombre
+    const producto = formulario.getByRole('combobox', { name: 'Producto 1' });
+    const valorProducto = await producto.locator('option', { hasText: productoNombre }).getAttribute('value');
+    await producto.selectOption(valorProducto!);
+    await formulario.getByRole('spinbutton', { name: /^Cantidad/ }).fill('3');
+    await formulario.getByRole('button', { name: /crear pedido/i }).click();
 
     // 3. El pedido aparece en la lista con su estado
     const fila = page.getByRole('row').filter({ hasText: clienteNombre });
