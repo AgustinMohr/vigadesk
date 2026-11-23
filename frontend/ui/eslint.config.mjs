@@ -17,5 +17,8 @@ export default neostandard({
     'build/**',
     'next-env.d.ts',
     'public/**',
+    'coverage/**',
+    'playwright-report/**',
+    'test-results/**',
   ],
 });

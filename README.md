@@ -468,10 +468,15 @@ Son cifras de reportes locales, no de un pipeline de CI. Para regenerarlas ejecu
 cd frontend/ui
 npm ci
 npm run lint
+npm test            # Vitest: unitarias y de componente (jsdom)
 npm run build
+npm run test:e2e    # Playwright, contra el sistema levantado (ver abajo)
 ```
 
 TypeScript strict, ESLint con `neostandard` y React Compiler.
+
+Las pruebas unitarias (`frontend/ui/tests/unit`) cubren el cliente HTTP (`http.ts`: 401, 204, errores, paginación), `AuthContext`, `useSort` y el proxy BFF (whitelist de rutas, cabeceras reenviadas, límite de 5 MB, 502 y 504). La prueba end to end (`frontend/ui/e2e`) inicia sesión, crea un pedido y verifica su estado. Necesita el sistema levantado (`docker compose up -d --build` y `docker compose -f docker-compose.frontend.yml up -d --build`) y un administrador: `E2E_ADMIN_EMAIL` y `E2E_ADMIN_PASSWORD` (los `BOOTSTRAP_ADMIN_*` del `.env`); `E2E_BASE_URL` por defecto es `http://localhost`. Crea sus propios cliente, obra y producto con nombres únicos, así que se puede repetir. En CI corre en el job `End to end`.
+
 
 ---
 
