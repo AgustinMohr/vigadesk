@@ -3,7 +3,7 @@
 // --------------------------------------------------------------
 // Mismo patrón que /obras: el server solo monta al Client Component
 // <ProductosPageClient> con la lista inicial vacía; el cliente hace
-// el fetch con reintentos y aplica los filtros de búsqueda.
+// la carga de datos y aplica los filtros de búsqueda.
 // ==============================================================
 
 import ProductosPageClient from './ProductosPageClient';
@@ -14,5 +14,5 @@ import ProductosPageClient from './ProductosPageClient';
  * @returns {JSX.Element} El <ProductosPageClient> con la lista inicial vacía.
  */
 export default function ProductosPage () {
-  return <ProductosPageClient initialProductos={[]} />;
+  return <ProductosPageClient />;
 }

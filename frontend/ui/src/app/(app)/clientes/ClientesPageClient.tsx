@@ -1,7 +1,7 @@
 // ==============================================================
 // COMPONENTE CLIENTE de /clientes
 // Es la MISMA estructura que ObrasPageClient.tsx (ahí está explicada
-// en detalle: useState, useEffect con reintentos, useMemo para filtrar,
+// en detalle: useState, useFetch, useMemo para filtrar,
 // handlers, modales condicionales). Particularidades de esta pantalla:
 //  - Búsqueda con MODO: el mismo término se filtra por nombre, CUIT o email.
 //  - Modales extra: ver detalle del cliente y asignarle una obra.
@@ -9,7 +9,7 @@
 
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { clienteService, type Cliente } from '@/services/clienteService';
 import Button from '@/components/Button';
 import ClienteTable from '@/components/ClienteTable';
@@ -17,6 +17,8 @@ import ClienteForm from '@/components/ClienteForm';
 import ClienteDetailModal from '@/components/ClienteDetailModal';
 import AsignarObraModal from '@/components/AsignarObraModal';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { useFetch } from '@/hooks/useFetch';
+import FetchError from '@/components/FetchError';
 import { getErrorMessage } from '@/lib/http/api-error';
 
 // Modos de búsqueda disponibles: por nombre, CUIT o email
@@ -24,7 +26,7 @@ type SearchMode = 'nombre' | 'cuit' | 'email';
 
 /**
  * Componente "cerebro" de la página /clientes: maneja el estado de los
- * clientes, el fetch inicial con reintentos (cada 5s si falla), la
+ * clientes, la carga inicial (con error y "Reintentar"), la
  * búsqueda por nombre/CUIT/email y los modales de crear/editar/detalle/
  * asignación de obra.
  *
@@ -33,37 +35,14 @@ type SearchMode = 'nombre' | 'cuit' | 'email';
  *   el fetch real a la API.
  * @returns {JSX.Element} La sección completa con tabla, buscador y modales.
  */
-export default function ClientesPageClient ({
-  initialClientes,
-}: {
-  initialClientes: Cliente[];
-}) {
+export default function ClientesPageClient () {
   // Estados principales
-  const [clientes, setClientes] = useState<Cliente[]>(initialClientes);
-  const [loading, setLoading] = useState(initialClientes.length === 0);
-  const [fetchError, setFetchError] = useState('');
-
-  // Si SSR no trajo datos, el cliente intenta obtenerlos con reintentos cada 5s
-  useEffect(() => {
-    if (initialClientes.length > 0) return;
-
-    let cancelled = false;
-
-    const fetchData = async () => {
-      try {
-        const data = await clienteService.getAll();
-        if (!cancelled) {
-          setClientes(data);
-          setLoading(false);
-        }
-      } catch {
-        if (!cancelled) setTimeout(fetchData, 5000);
-      }
-    };
-
-    fetchData();
-    return () => { cancelled = true; };
-  }, []);
+  // Carga al montar y expone carga y error; no reintenta solo (el usuario elige "Reintentar").
+  const { data: clientes, loading, error: fetchError, retryable, reload } = useFetch(
+    () => clienteService.getAll(),
+    [] as Cliente[],
+    'No se pudieron cargar los clientes.'
+  );
 
   // Estados para modales y búsqueda
   const [showForm, setShowForm] = useState(false);
@@ -111,14 +90,7 @@ export default function ClientesPageClient ({
   };
 
   // Refresca la lista completa desde la API
-  const refreshClientes = async () => {
-    try {
-      const data = await clienteService.getAll();
-      setClientes(data);
-    } catch (err) {
-      setFetchError(getErrorMessage(err, 'No se pudieron cargar los clientes.'));
-    }
-  };
+  const refreshClientes = () => reload({ silent: true });
 
   // Elimina un cliente previa confirmación, luego refresca la lista
   const handleDelete = async (cliente: Cliente) => {
@@ -216,7 +188,7 @@ export default function ClientesPageClient ({
             )
           : fetchError
             ? (
-              <p className='text-red-600'>{fetchError}</p>
+              <FetchError mensaje={fetchError} onRetry={retryable ? () => reload() : undefined} />
               )
             : (
               <ClienteTable

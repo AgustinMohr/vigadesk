@@ -11,7 +11,7 @@
 // clientes, pedidos y usuarios):
 //  1. El Server Component (page.tsx) renderiza este cliente con datos
 //     iniciales (`initialProductos`).
-//  2. Si vienen vacíos, `useEffect` hace un fetch a la API con reintentos.
+//  2. `useFetch` pide los datos a la API al montar (error con "Reintentar").
 //  3. El estado (`productos`) guarda la data; al cambiar, React re-renderiza.
 //  4. `useMemo` recalcula el filtro SOLO cuando cambian sus dependencias.
 //  5. Los modales (ProductoForm, DescuentoModal) se muestran según
@@ -30,7 +30,7 @@
 
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { productoService, type Producto } from '@/services/productoService';
 import Button from '@/components/Button';
 import ProductoTable from '@/components/ProductoTable';
@@ -38,11 +38,13 @@ import ProductoForm from '@/components/ProductoForm';
 import DescuentoModal from '@/components/DescuentoModal';
 import ProvisionModal from '@/components/ProvisionModal';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { useFetch } from '@/hooks/useFetch';
+import FetchError from '@/components/FetchError';
 import { getErrorMessage } from '@/lib/http/api-error';
 
 /**
  * Componente "cerebro" de la página /productos: maneja el estado de los
- * productos, el fetch inicial con reintentos, los 6 filtros de búsqueda
+ * productos, la carga inicial (con error y "Reintentar"), los 6 filtros de búsqueda
  * (nombre, código, precio min/max, stock min/max) y los modales de
  * crear/editar y de aplicar descuento promocional.
  *
@@ -51,11 +53,7 @@ import { getErrorMessage } from '@/lib/http/api-error';
  *   hace el fetch real a la API.
  * @returns {JSX.Element} La sección completa con filtros, tabla y modales.
  */
-export default function ProductosPageClient ({
-  initialProductos,
-}: {
-  initialProductos: Producto[];
-}) {
+export default function ProductosPageClient () {
   // --------------------------------------------------------------
   // useState: estado local del componente.
   //  - `productos`: la lista que se muestra en la tabla.
@@ -64,36 +62,12 @@ export default function ProductosPageClient ({
   // Si SSR ya hidrató los productos, `loading` arranca en false y no
   // se muestra ningún estado de espera.
   // --------------------------------------------------------------
-  const [productos, setProductos] = useState<Producto[]>(initialProductos);
-  const [loading, setLoading] = useState(initialProductos.length === 0);
-  const [fetchError, setFetchError] = useState('');
-
-  // --------------------------------------------------------------
-  // useEffect: si el server no trajo productos, hacemos el fetch real.
-  // La bandera `cancelled` evita hacer setState tras desmontar, y el
-  // `setTimeout(fetchData, 5000)` implementa un retry simple si falla.
-  // El array `[]` = "ejecutar solo una vez al montar".
-  // --------------------------------------------------------------
-  useEffect(() => {
-    if (initialProductos.length > 0) return;
-
-    let cancelled = false;
-
-    const fetchData = async () => {
-      try {
-        const data = await productoService.getAll();
-        if (!cancelled) {
-          setProductos(data);
-          setLoading(false);
-        }
-      } catch {
-        if (!cancelled) setTimeout(fetchData, 5000);
-      }
-    };
-
-    fetchData();
-    return () => { cancelled = true; };
-  }, []);
+  // Carga al montar y expone carga y error; no reintenta solo (el usuario elige "Reintentar").
+  const { data: productos, loading, error: fetchError, retryable, reload } = useFetch(
+    () => productoService.getAll(),
+    [] as Producto[],
+    'No se pudieron cargar los productos.'
+  );
 
   // --------------------------------------------------------------
   // Estados para el modal de formulario, el modal de descuento y los
@@ -161,14 +135,7 @@ export default function ProductosPageClient ({
   };
 
   // Vuelve a pedir TODOS los productos a la API para reflejar cambios.
-  const refreshProductos = async () => {
-    try {
-      const data = await productoService.getAll();
-      setProductos(data);
-    } catch (err) {
-      setFetchError(getErrorMessage(err, 'No se pudieron cargar los productos.'));
-    }
-  };
+  const refreshProductos = () => reload({ silent: true });
 
   // Borra un producto previa confirmación, luego refresca la lista.
   const handleDelete = async (producto: Producto) => {
@@ -267,7 +234,7 @@ export default function ProductosPageClient ({
             )
           : fetchError
             ? (
-              <p className='text-red-600'>{fetchError}</p>
+              <FetchError mensaje={fetchError} onRetry={retryable ? () => reload() : undefined} />
               )
             : (
               <ProductoTable

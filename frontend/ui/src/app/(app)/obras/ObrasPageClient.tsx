@@ -17,7 +17,7 @@
 
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { obraService, type Obra, type EstadoObra } from '@/services/obraService';
 import Button from '@/components/Button';
 import ObraTable from '@/components/ObraTable';
@@ -25,22 +25,20 @@ import ObraForm from '@/components/ObraForm';
 import ObraEstadoModal from '@/components/ObraEstadoModal';
 import AsignarClienteModal from '@/components/AsignarClienteModal';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { useFetch } from '@/hooks/useFetch';
+import FetchError from '@/components/FetchError';
 import { getErrorMessage } from '@/lib/http/api-error';
 
 /**
  * Componente "cerebro" de la página /obras: concentra todo el flujo de
- * datos (fetch con reintentos), filtros, handlers de CRUD y la apertura
+ * datos (carga con error y "Reintentar"), filtros, handlers de CRUD y la apertura
  * condicional de modales (form, estado, asignación de cliente).
  *
  * @param {{ initialObras: Obra[] }} props - Datos iniciales del Server
  *   Component. Vacíos → el cliente hace el fetch real a la API.
  * @returns {JSX.Element} La sección con filtros, tabla y modales.
  */
-export default function ObrasPageClient ({
-  initialObras,
-}: {
-  initialObras: Obra[];
-}) {
+export default function ObrasPageClient () {
   // --------------------------------------------------------------
   // useState: estado local del componente.
   //  - `obras`: la lista de obras que se muestra.
@@ -49,38 +47,12 @@ export default function ObrasPageClient ({
   // Cuando llamamos a setObras(...), React vuelve a renderizar y la
   // tabla se actualiza automáticamente.
   // --------------------------------------------------------------
-  const [obras, setObras] = useState<Obra[]>(initialObras);
-  const [loading, setLoading] = useState(initialObras.length === 0);
-  const [fetchError, setFetchError] = useState('');
-
-  // --------------------------------------------------------------
-  // useEffect: corre código DESPUÉS de que el componente se monta.
-  // Acá, si el server no trajo obras, hacemos el fetch real a la API.
-  // La variable `cancelled` es el patrón estándar para no hacer
-  // setState si el componente ya se desmontó (evita "memory leak").
-  // Si falla, se reintenta cada 5 segundos.
-  // El array vacío `[]` = "ejecutar solo una vez al montar".
-  // --------------------------------------------------------------
-  useEffect(() => {
-    if (initialObras.length > 0) return;
-
-    let cancelled = false;
-
-    const fetchData = async () => {
-      try {
-        const data = await obraService.getAll();
-        if (!cancelled) {
-          setObras(data);
-          setLoading(false);
-        }
-      } catch {
-        if (!cancelled) setTimeout(fetchData, 5000); // reintento
-      }
-    };
-
-    fetchData();
-    return () => { cancelled = true; }; // cleanup al desmontar
-  }, []);
+  // Carga al montar y expone carga y error; no reintenta solo (el usuario elige "Reintentar").
+  const { data: obras, loading, error: fetchError, retryable, reload } = useFetch(
+    () => obraService.getAll(),
+    [] as Obra[],
+    'No se pudieron cargar las obras.'
+  );
 
   // Estados que controlan los modales y la búsqueda
   const [showForm, setShowForm] = useState(false);
@@ -131,14 +103,7 @@ export default function ObrasPageClient ({
   };
 
   // Vuelve a pedir todas las obras a la API (se usa tras crear/editar/borrar).
-  const refreshObras = async () => {
-    try {
-      const data = await obraService.getAll();
-      setObras(data);
-    } catch (err) {
-      setFetchError(getErrorMessage(err, 'No se pudieron cargar las obras.'));
-    }
-  };
+  const refreshObras = () => reload({ silent: true });
 
   const handleDelete = async (obra: Obra) => {
     if (!window.confirm(`¿Eliminar la obra "${obra.direccion}"?`)) return;
@@ -232,7 +197,7 @@ export default function ObrasPageClient ({
             )
           : fetchError
             ? (
-              <p className='text-red-600'>{fetchError}</p>
+              <FetchError mensaje={fetchError} onRetry={retryable ? () => reload() : undefined} />
               )
             : (
               <ObraTable

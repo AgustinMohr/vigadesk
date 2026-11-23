@@ -30,7 +30,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { clienteService, type Cliente } from '@/services/clienteService';
 import { obraService, type Obra } from '@/services/obraService';
 import {
@@ -40,6 +40,8 @@ import {
 import { pedidoService, type Pedido } from '@/services/pedidoService';
 import StockBajoModal from '@/components/StockBajoModal';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { useFetch } from '@/hooks/useFetch';
+import FetchError from '@/components/FetchError';
 
 // Mapa de clases de estilo para la "pill" (etiqueta redondeada) de cada
 // estado de pedido. La clave es el estado y el valor son clases Tailwind
@@ -85,63 +87,30 @@ export default function DashboardClient () {
   const isGuest = user?.rol === 'GUEST';
 
   // --------------------------------------------------------------
-  // useState: una lista de estado por entidad + flags de UI.
-  // Cuando cada setter actualiza su lista, React re-renderiza y los
-  // cálculos derivados de abajo se vuelven a ejecutar.
+  // useFetch: al montar carga las 4 entidades en paralelo (`Promise.all`).
+  // Si UNA falla, se muestra el error con "Reintentar" (no se reintenta
+  // solo). El de pedidos se filtra por clienteId si hay sesión CLIENTE
+  // (solo su empresa); si no, trae todos (admin). GUEST no pide nada.
   // --------------------------------------------------------------
-  const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [obras, setObras] = useState<Obra[]>([]);
-  const [productos, setProductos] = useState<Producto[]>([]);
-  const [pedidos, setPedidos] = useState<Pedido[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: datos, loading, error: fetchError, retryable, reload } = useFetch(
+    async () => {
+      if (isGuest) return { clientes: [] as Cliente[], obras: [] as Obra[], productos: [] as Producto[], pedidos: [] as Pedido[] };
+      const [clientes, obras, productos, pedidos] = await Promise.all([
+        clienteService.getAll(),
+        obraService.getAll(),
+        productoService.getAll(),
+        clienteId != null
+          ? pedidoService.search({ clienteId })
+          : pedidoService.getAll(),
+      ]);
+      return { clientes, obras, productos, pedidos };
+    },
+    { clientes: [] as Cliente[], obras: [] as Obra[], productos: [] as Producto[], pedidos: [] as Pedido[] },
+    'No se pudieron cargar los datos del dashboard.'
+  );
+  const { clientes, obras, productos, pedidos } = datos;
   // Controla la visibilidad del StockBajoModal (los más de 10 ítems).
   const [showAllStockBajo, setShowAllStockBajo] = useState(false);
-
-  // --------------------------------------------------------------
-  // useEffect: al montar, carga las 4 entidades en paralelo.
-  // `Promise.all([...])` recibe un array de promesas y resuelve con un
-  // array con sus resultados en el mismo orden. Si UNA falla, toda la
-  // promesa se rechaza y caemos en el catch (retry a los 5s).
-  // La bandera `cancelled` evita setState tras desmontar (patrón estándar).
-  // El array `[]` = "ejecutar solo una vez al montar".
-  // --------------------------------------------------------------
-  useEffect(() => {
-    if (isGuest) {
-      setLoading(false);
-      return;
-    }
-    let cancelled = false;
-    const fetchAll = async () => {
-      try {
-        // Desestructuración del array resultante en 4 variables. Los 4
-        // fetches se lanzan al mismo tiempo (paralelo), no en serie. El de
-        // pedidos se filtra por clienteId si hay sesión CLIENTE (solo su
-        // empresa); si no, trae todos (admin/guest).
-        const [c, o, p, pe] = await Promise.all([
-          clienteService.getAll(),
-          obraService.getAll(),
-          productoService.getAll(),
-          clienteId != null
-            ? pedidoService.search({ clienteId })
-            : pedidoService.getAll(),
-        ]);
-        if (!cancelled) {
-          setClientes(c);
-          setObras(o);
-          setProductos(p);
-          setPedidos(pe);
-          setLoading(false);
-        }
-      } catch {
-        // Retry simple: si algo falló, reintenta todo en 5 segundos.
-        if (!cancelled) setTimeout(fetchAll, 5000);
-      }
-    };
-    fetchAll();
-    // Cleanup al desmontar: marca la bandera para que el fetch pendiente
-    // no intente actualizar un componente que ya no existe.
-    return () => { cancelled = true; };
-  }, [isGuest]);
 
   // --------------------------------------------------------------
   // Cálculos "derivados": se recomputan en CADA render (son baratos).
@@ -174,6 +143,10 @@ export default function DashboardClient () {
 
   // Render condicional temprano: mientras carga, devolvemos una vista
   // reducida y NO seguimos ejecutando el JSX completo.
+  if (fetchError) {
+    return <FetchError mensaje={fetchError} onRetry={retryable ? () => reload() : undefined} />;
+  }
+
   if (loading) {
     return (
       <section>

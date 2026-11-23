@@ -11,7 +11,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   pedidoService,
   type CrearPedidoInput,
@@ -26,6 +26,8 @@ import PedidoEstadoModal from '@/components/PedidoEstadoModal';
 import PedidoDetalleModal from '@/components/PedidoDetalleModal';
 import EntregaModal from '@/components/EntregaModal';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { useFetch } from '@/hooks/useFetch';
+import FetchError from '@/components/FetchError';
 import { getErrorMessage } from '@/lib/http/api-error';
 
 const ESTADOS_PEDIDO = ['RECIBIDO', 'ACEPTADO', 'EN_PREPARACION', 'ENTREGA_PARCIAL', 'ENTREGADO', 'CANCELADO', 'RECHAZADO'];
@@ -59,24 +61,22 @@ const avisoClasses: Record<Aviso['tipo'], string> = {
  * obras/clientes que filtran en el cliente con useMemo.
  *
  * @param {{ initialPedidos: Pedido[] }} props - Datos iniciales del Server
- *   Component. Vacíos → fetch real con reintentos cada 5s.
+ *   Component.
  * @returns {JSX.Element} La sección con filtros, tabla y modales.
  */
-export default function PedidosPageClient ({
-  initialPedidos,
-}: {
-  initialPedidos: Pedido[];
-}) {
+export default function PedidosPageClient () {
   const { user, isAdmin } = useAuth();
 
   // Un usuario de cliente solo ve los pedidos de su propia empresa
   const clienteId = user?.rol === 'CLIENTE' ? user.clienteId : undefined;
   const canCreatePedido = isAdmin || user?.rol === 'CLIENTE';
 
-  // Si SSR no trajo datos, reintenta cada 5s hasta obtenerlos
-  const [pedidos, setPedidos] = useState<Pedido[]>(initialPedidos);
-  const [loading, setLoading] = useState(initialPedidos.length === 0);
-  const [fetchError, setFetchError] = useState('');
+  // Carga al montar y expone carga y error; no reintenta solo (el usuario elige "Reintentar").
+  const { data: pedidos, loading, error: fetchError, retryable, reload } = useFetch(
+    () => pedidoService.search(buildParams()),
+    [] as Pedido[],
+    'No se pudieron cargar los pedidos.'
+  );
 
   const buildParams = (): SearchParams => {
     const params: SearchParams = {};
@@ -85,29 +85,6 @@ export default function PedidosPageClient ({
     if (searchEstado) params.estado = searchEstado;
     return params;
   };
-
-  useEffect(() => {
-    if (initialPedidos.length > 0) return;
-
-    let cancelled = false;
-
-    const fetchData = async () => {
-      try {
-        const params: SearchParams = {};
-        if (clienteId != null) params.clienteId = clienteId;
-        const data = await pedidoService.search(params);
-        if (!cancelled) {
-          setPedidos(data);
-          setLoading(false);
-        }
-      } catch {
-        if (!cancelled) setTimeout(fetchData, 5000);
-      }
-    };
-
-    fetchData();
-    return () => { cancelled = true; };
-  }, []);
 
   // Estados para modales y filtros de búsqueda
   const [showForm, setShowForm] = useState(false);
@@ -143,28 +120,10 @@ export default function PedidosPageClient ({
   };
 
   // Refresca la lista completa desde la API (aplica filtros si existen)
-  const refreshPedidos = async () => {
-    try {
-      const data = await pedidoService.search(buildParams());
-      setPedidos(data);
-    } catch (err) {
-      setFetchError(getErrorMessage(err, 'No se pudieron cargar los pedidos.'));
-    }
-  };
+  const refreshPedidos = () => reload({ silent: true });
 
   // Búsqueda: obtiene pedidos con filtros desde la API
-  const handleSearch = async () => {
-    setLoading(true);
-    setFetchError('');
-    try {
-      const data = await pedidoService.search(buildParams());
-      setPedidos(data);
-    } catch (err) {
-      setFetchError(getErrorMessage(err, 'No se pudieron cargar los pedidos.'));
-    } finally {
-      setLoading(false);
-    }
-  };
+  const handleSearch = () => reload();
 
   // Elimina pedido previa confirmación
   const handleDelete = async (pedido: Pedido) => {
@@ -212,21 +171,11 @@ export default function PedidosPageClient ({
   };
 
   // Limpia filtros de búsqueda y recarga sin filtros
-  const handleClearFilters = async () => {
+  const handleClearFilters = () => {
     setSearchCliente('');
     setSearchEstado('');
-    setLoading(true);
-    setFetchError('');
-    try {
-      const params: SearchParams = {};
-      if (clienteId != null) params.clienteId = clienteId;
-      const data = await pedidoService.search(params);
-      setPedidos(data);
-    } catch (err) {
-      setFetchError(getErrorMessage(err, 'No se pudieron cargar los pedidos.'));
-    } finally {
-      setLoading(false);
-    }
+    // los filtros del estado todavía no se actualizaron en este render: se piden sin ellos
+    return reload({ fetcher: () => pedidoService.search(clienteId != null ? { clienteId } : {}) });
   };
 
   return (
@@ -296,7 +245,7 @@ export default function PedidosPageClient ({
             )
           : fetchError
             ? (
-              <p className='text-red-600'>{fetchError}</p>
+              <FetchError mensaje={fetchError} onRetry={retryable ? () => reload() : undefined} />
               )
             : (
               <PedidoTable

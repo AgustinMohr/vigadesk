@@ -8,7 +8,7 @@
 // PATRÓN CLÁVE de Next.js: los componentes de servidor pueden pasar
 // props "hacia abajo" a componentes de cliente. Acá le pasamos un array
 // vacío porque el SSR no consulta la API (evita duplicar llamadas);
-// el cliente se encarga de traer los datos con reintentos.
+// el cliente se encarga de traer los datos.
 // ==============================================================
 
 import ObrasPageClient from './ObrasPageClient';
@@ -19,5 +19,5 @@ import ObrasPageClient from './ObrasPageClient';
  * @returns {JSX.Element} El <ObrasPageClient> con la lista inicial vacía.
  */
 export default function ObrasPage () {
-  return <ObrasPageClient initialObras={[]} />;
+  return <ObrasPageClient />;
 }

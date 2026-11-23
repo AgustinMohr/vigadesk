@@ -29,17 +29,19 @@
 
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { usuarioService, type UsuarioCliente } from '@/services/usuarioService';
 import Button from '@/components/Button';
 import UsuarioTable from '@/components/UsuarioTable';
 import UsuarioForm from '@/components/UsuarioForm';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { useFetch } from '@/hooks/useFetch';
+import FetchError from '@/components/FetchError';
 import { getErrorMessage } from '@/lib/http/api-error';
 
 /**
  * Componente "cerebro" de la página /usuarios: maneja el estado de los
- * usuarios, el fetch inicial con reintentos (cada 5s si falla), la
+ * usuarios, la carga inicial (con error y "Reintentar"), la
  * búsqueda por nombre/email/cliente y el modal de crear/editar.
  *
  * @param {{ initialUsuarios: UsuarioCliente[] }} props - Datos iniciales
@@ -47,11 +49,7 @@ import { getErrorMessage } from '@/lib/http/api-error';
  *   cliente hace el fetch real a la API.
  * @returns {JSX.Element} La sección completa con buscador, tabla y modal.
  */
-export default function UsuariosPageClient ({
-  initialUsuarios,
-}: {
-  initialUsuarios: UsuarioCliente[];
-}) {
+export default function UsuariosPageClient () {
   // --------------------------------------------------------------
   // useState: estado local del componente.
   //  - `usuarios`: la lista que se muestra en la tabla.
@@ -59,46 +57,14 @@ export default function UsuariosPageClient ({
   //  - `fetchError`: mensaje si falla la carga inicial.
   // setUsuarios(...) dispara un re-render y la tabla se actualiza sola.
   // --------------------------------------------------------------
-  const [usuarios, setUsuarios] = useState<UsuarioCliente[]>(initialUsuarios);
+  // Carga al montar y expone carga y error; no reintenta solo (el usuario elige "Reintentar").
+  const { data: usuarios, loading, error: fetchError, retryable, reload } = useFetch(
+    () => usuarioService.getAll(),
+    [] as UsuarioCliente[],
+    'No se pudieron cargar los usuarios.'
+  );
   // `loading` arranca en true SOLO si el server no trajo datos. Si SSR
   // ya hidrató la lista, no hay que esperar a ningún fetch.
-  const [loading, setLoading] = useState(initialUsuarios.length === 0);
-  const [fetchError, setFetchError] = useState('');
-
-  // --------------------------------------------------------------
-  // useEffect: corre DESPUÉS de que el componente se monta en el DOM.
-  // Si el server ya trajo usuarios, `return` evita el fetch innecesario.
-  // La variable `cancelled` implementa el patrón estándar para no hacer
-  // setState cuando el componente ya se desmontó (evita fugas/errores).
-  // Si el fetch falla, se reintenta cada 5 segundos (retry simple).
-  // El array vacío `[]` = "ejecutar solo una vez al montar".
-  // --------------------------------------------------------------
-  useEffect(() => {
-    if (initialUsuarios.length > 0) return;
-
-    // Bandera local: se vuelve true en el cleanup. La closure `fetchData`
-    // la consulta antes de hacer setState → nunca pisamos un componente
-    // que ya no existe en pantalla.
-    let cancelled = false;
-
-    const fetchData = async () => {
-      try {
-        // `await` pausa la ejecución hasta que el backend responda.
-        const data = await usuarioService.getAll();
-        if (!cancelled) {
-          setUsuarios(data);
-          setLoading(false); // ya llegó la data → quitar el "Cargando…"
-        }
-      } catch {
-        // Reintento con backoff fijo de 5s, solo si seguimos montados.
-        if (!cancelled) setTimeout(fetchData, 5000);
-      }
-    };
-
-    fetchData();
-    // Cleanup que React ejecuta al desmontar (o antes de re-correr el efecto).
-    return () => { cancelled = true; };
-  }, []);
 
   // --------------------------------------------------------------
   // Estados que controlan el modal del formulario y la búsqueda.
@@ -157,14 +123,7 @@ export default function UsuariosPageClient ({
 
   // Vuelve a pedir TODOS los usuarios a la API. Se invoca después de
   // crear, editar o borrar para reflejar los cambios en pantalla.
-  const refreshUsuarios = async () => {
-    try {
-      const data = await usuarioService.getAll();
-      setUsuarios(data);
-    } catch (err) {
-      setFetchError(getErrorMessage(err, 'No se pudieron cargar los usuarios.'));
-    }
-  };
+  const refreshUsuarios = () => reload({ silent: true });
 
   // Borra un usuario previa confirmación del navegador (`window.confirm`).
   const handleDelete = async (usuario: UsuarioCliente) => {
@@ -236,7 +195,7 @@ export default function UsuariosPageClient ({
             )
           : fetchError
             ? (
-              <p className='text-red-600'>{fetchError}</p>
+              <FetchError mensaje={fetchError} onRetry={retryable ? () => reload() : undefined} />
               )
             : (
               <UsuarioTable

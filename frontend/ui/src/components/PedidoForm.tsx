@@ -31,6 +31,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useFetch } from '@/hooks/useFetch';
+import FetchError from './FetchError';
 import type { ClienteInfo, CrearPedidoInput } from '@/services/pedidoService';
 import type { Producto } from '@/services/productoService';
 import { clienteService } from '@/services/clienteService';
@@ -93,8 +95,25 @@ export default function PedidoForm ({ onSubmit, onCancel }: PedidoFormProps) {
   const isCliente = user?.rol === 'CLIENTE';
 
   // Catálogos cargados desde la API (clientes y productos).
-  const [clientes, setClientes] = useState<ClienteInfo[]>([]);
-  const [productos, setProductos] = useState<Producto[]>([]);
+  // Un CLIENTE no necesita la lista de clientes (su empresa está fija). Los productos se ordenan
+  // ALFABÉTICAMENTE por nombre para que el select del pedido sea fácil de recorrer. Si la carga falla
+  // se avisa en el modal, con "Reintentar" (antes el error se tragaba y los selects quedaban vacíos).
+  const { data: catalogo, error: catalogoError, retryable: catalogoReintentable, reload: recargarCatalogo } = useFetch(
+    async () => {
+      const [clientesApi, productosApi] = await Promise.all([
+        isCliente ? Promise.resolve([]) : clienteService.getAll(),
+        productoService.getAll(),
+      ]);
+      return {
+        // El form solo necesita id+nombre (ClienteInfo); `c.id!`: los ids de los listados siempre vienen.
+        clientes: clientesApi.map((c): ClienteInfo => ({ id: c.id!, nombre: c.nombre })),
+        productos: [...productosApi].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')),
+      };
+    },
+    { clientes: [] as ClienteInfo[], productos: [] as Producto[] },
+    'No se pudieron cargar los clientes y productos.'
+  );
+  const { clientes, productos } = catalogo;
 
   // Si es CLIENTE, su empresa ya viene de la sesión (user.clienteId) y el
   // select se deshabilita; si no, arranca vacío para que el admin elija.
@@ -109,33 +128,12 @@ export default function PedidoForm ({ onSubmit, onCancel }: PedidoFormProps) {
   // Obras del cliente seleccionado (solo HABILITADAS) y la elegida en el
   // form. `obraId` vacío = pedido sin obra (el modelo lo permite).
   const [obras, setObras] = useState<Obra[]>([]);
+  const [obrasError, setObrasError] = useState('');
   const [obraId, setObraId] = useState('');
   // Las líneas del pedido: el corazón de este componente.
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-
-  // Efecto de montaje: precarga los catálogos una vez.
-  useEffect(() => {
-    // Un CLIENTE no necesita la lista de clientes (su empresa está fija).
-    if (!isCliente) {
-      // Adapatación de forma: el service devuelve Cliente[] y el form solo
-      // necesita id+nombre (ClienteInfo). `.map()` transforma el array —
-      // crea un array NUEVO con la forma reducida.
-      clienteService.getAll().then((data) => {
-        // `c.id!` — non-null assertion: los ids de los listados siempre vienen.
-        setClientes(data.map((c) => ({ id: c.id!, nombre: c.nombre })));
-      }).catch(() => {});
-    }
-    // Los productos los necesitan todos los roles. Se ordenan ALFABÉTICAMENTE
-    // por nombre para que el select del pedido sea fácil de recorrer; el spread
-    // `[...]` copia el array antes de ordenar (no mutar la respuesta).
-    productoService.getAll()
-      .then((data) =>
-        setProductos([...data].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')))
-      )
-      .catch(() => {});
-  }, []);
 
   // Id del cliente "efectivo" del pedido:
   //  - CLIENTE → el de su sesión (fijo).
@@ -152,11 +150,14 @@ export default function PedidoForm ({ onSubmit, onCancel }: PedidoFormProps) {
   useEffect(() => {
     setObraId('');
     setObras([]);
+    setObrasError('');
     if (selectedClienteNumeric == null) return;
 
+    let cancelado = false;
     obraService.getByClienteId(selectedClienteNumeric)
-      .then((data) => setObras(data.filter((o) => o.estado === 'HABILITADA')))
-      .catch(() => setObras([]));
+      .then((data) => { if (!cancelado) setObras(data.filter((o) => o.estado === 'HABILITADA')); })
+      .catch((err) => { if (!cancelado) setObrasError(getErrorMessage(err, 'No se pudieron cargar las obras del cliente.')); });
+    return () => { cancelado = true; };
   }, [selectedClienteNumeric]);
 
   // TOTAL EN VIVO: `reduce` acumula el subtotal NETO línea por línea, con
@@ -331,6 +332,9 @@ export default function PedidoForm ({ onSubmit, onCancel }: PedidoFormProps) {
         <h3 className='mb-4 text-lg font-semibold text-slate-900'>Nuevo pedido</h3>
 
         <form onSubmit={handleSubmit} className='space-y-4'>
+          {catalogoError && (
+            <FetchError mensaje={catalogoError} onRetry={catalogoReintentable ? () => recargarCatalogo() : undefined} />
+          )}
           <div>
             <label className='block text-sm font-medium text-slate-700'>
               Cliente <span className='text-red-500'>*</span>
@@ -395,6 +399,7 @@ export default function PedidoForm ({ onSubmit, onCancel }: PedidoFormProps) {
                     </>
                     )}
             </select>
+            {obrasError && <p className='mt-1 text-sm text-red-600'>{obrasError}</p>}
           </div>
 
           <div>
