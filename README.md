@@ -316,7 +316,7 @@ flowchart LR
     P --> G[Grafana]
 ```
 
-Actuator escucha en un puerto de gestión interno (`management.server.port`, 8081 por defecto) que no se publica ni se enruta por HAProxy ni por el Gateway. Prometheus (`prometheus.yml`) raspa `/actuator/prometheus` de los cuatro servicios por ese puerto. Grafana trae el datasource de Prometheus y el dashboard `grafana/dashboards/spring-boot.json` provisionados.
+Actuator escucha en un puerto de gestión interno (`management.server.port`, 8081 por defecto) que no se publica ni se enruta por HAProxy ni por el Gateway. Prometheus (`prometheus.yml`) raspa `/actuator/prometheus` de los cuatro servicios por ese puerto. Grafana trae el datasource de Prometheus y el dashboard `grafana/dashboards/spring-boot.json` provisionados. Con el sistema levantado, `bash ops/smoke-observabilidad.sh` comprueba que los cuatro targets están `UP`, que Actuator no responde por las rutas públicas y que hay métricas HTTP (también corre en el job `End to end` de CI).
 
 ---
 

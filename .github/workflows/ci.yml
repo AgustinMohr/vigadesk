@@ -123,6 +123,8 @@ jobs:
           docker compose ps
           docker compose logs --tail=80
           exit 1
+      - name: Prueba de humo de observabilidad (targets de Prometheus y Actuator no expuesto)
+        run: bash ops/smoke-observabilidad.sh
       - name: Instalar dependencias y navegador
         working-directory: frontend/ui
         run: |
