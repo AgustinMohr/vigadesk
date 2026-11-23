@@ -5,6 +5,7 @@ name: Dependencias
 # - OWASP Dependency-Check: genera el reporte de los modulos Maven. Es informativo (no falla el flujo):
 #   la base de datos de vulnerabilidades (NVD) cambia todos los dias y un hallazgo nuevo no debe
 #   bloquear un cambio que no toco las dependencias. Se revisa el reporte publicado como artefacto.
+#   Requiere el secret NVD_API_KEY; sin el, el job lo avisa y no analiza.
 # Corre cada lunes, a pedido, y cuando un pull request cambia un pom.xml o el package.json.
 
 on:
@@ -54,38 +55,51 @@ jobs:
   owasp-dependency-check:
     name: OWASP Dependency-Check (backend)
     runs-on: ubuntu-latest
-    # Sin NVD_API_KEY la primera descarga de la base tarda unos 40 minutos; despues queda en cache.
-    timeout-minutes: 90
+    timeout-minutes: 60
+    env:
+      NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
     steps:
+      # Sin clave la API de la NVD limita las peticiones y la descarga de la base falla o queda a medias
+      # (probado: reintentos agotados y base corrupta). Por eso el analisis solo corre con la clave.
+      # Se pide gratis en https://nvd.nist.gov/developers/request-an-api-key y se guarda como secret NVD_API_KEY.
+      - name: Comprobar NVD_API_KEY
+        id: clave
+        run: |
+          if [ -n "$NVD_API_KEY" ]; then
+            echo "disponible=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "disponible=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=OWASP Dependency-Check omitido::Falta el secret NVD_API_KEY (gratis en nvd.nist.gov). Sin la clave la NVD limita las descargas y el analisis no es confiable."
+          fi
       - uses: actions/checkout@v4
+        if: steps.clave.outputs.disponible == 'true'
       - uses: actions/setup-java@v4
+        if: steps.clave.outputs.disponible == 'true'
         with:
           distribution: temurin
           java-version: '17'
           cache: maven
-      # La base se guarda siempre (aunque el analisis falle) para no volver a descargarla desde cero.
+      # La clave de cache lleva la version del plugin: una base de otra version no se reutiliza.
       - name: Restaurar la base de vulnerabilidades
-        id: cache-nvd
+        if: steps.clave.outputs.disponible == 'true'
         uses: actions/cache/restore@v4
         with:
           path: ~/.m2/repository/org/owasp/dependency-check-data
-          key: owasp-nvd-${{ github.run_id }}
-          restore-keys: owasp-nvd-
-      # Con NVD_API_KEY (secret opcional del repositorio, gratis en nvd.nist.gov) la descarga tarda pocos minutos.
+          key: owasp-nvd-12.2.0-${{ github.run_id }}
+          restore-keys: owasp-nvd-12.2.0-
       - name: Dependency-Check
-        env:
-          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        if: steps.clave.outputs.disponible == 'true'
         run: |
           mvn -B -q -DskipTests install -pl :dan-common
-          mvn -B org.owasp:dependency-check-maven:12.2.0:aggregate             -Dformat=ALL             -DfailBuildOnCVSS=11             -DnvdApiKey="$NVD_API_KEY"             -DossindexAnalyzerEnabled=false
+          mvn -B org.owasp:dependency-check-maven:12.2.0:aggregate -Dformat=ALL -DfailBuildOnCVSS=11 -DnvdApiKey="$NVD_API_KEY" -DossindexAnalyzerEnabled=false
       - name: Guardar la base de vulnerabilidades
-        if: always()
+        if: success() && steps.clave.outputs.disponible == 'true'
         uses: actions/cache/save@v4
         with:
           path: ~/.m2/repository/org/owasp/dependency-check-data
-          key: owasp-nvd-${{ github.run_id }}
+          key: owasp-nvd-12.2.0-${{ github.run_id }}
       - name: Publicar reporte de Dependency-Check
-        if: always()
+        if: always() && steps.clave.outputs.disponible == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: dependency-check
