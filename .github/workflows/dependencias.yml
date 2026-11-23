@@ -54,6 +54,8 @@ jobs:
   owasp-dependency-check:
     name: OWASP Dependency-Check (backend)
     runs-on: ubuntu-latest
+    # Sin NVD_API_KEY la primera descarga de la base tarda unos 40 minutos; despues queda en cache.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -61,24 +63,27 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: maven
-      - name: Cache de la base de vulnerabilidades
-        uses: actions/cache@v4
+      # La base se guarda siempre (aunque el analisis falle) para no volver a descargarla desde cero.
+      - name: Restaurar la base de vulnerabilidades
+        id: cache-nvd
+        uses: actions/cache/restore@v4
         with:
           path: ~/.m2/repository/org/owasp/dependency-check-data
           key: owasp-nvd-${{ github.run_id }}
           restore-keys: owasp-nvd-
-      # Sin NVD_API_KEY (secret opcional del repositorio) la descarga de la base es lenta y suele
-      # quedar limitada; con la clave tarda pocos minutos. Pedirla es gratis en nvd.nist.gov.
+      # Con NVD_API_KEY (secret opcional del repositorio, gratis en nvd.nist.gov) la descarga tarda pocos minutos.
       - name: Dependency-Check
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
           mvn -B -q -DskipTests install -pl :dan-common
-          mvn -B org.owasp:dependency-check-maven:12.1.0:aggregate \
-            -Dformat=HTML,JSON \
-            -DfailBuildOnCVSS=11 \
-            -DnvdApiKey="$NVD_API_KEY" \
-            -DossindexAnalyzerEnabled=false
+          mvn -B org.owasp:dependency-check-maven:12.2.0:aggregate             -Dformat=ALL             -DfailBuildOnCVSS=11             -DnvdApiKey="$NVD_API_KEY"             -DossindexAnalyzerEnabled=false
+      - name: Guardar la base de vulnerabilidades
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.m2/repository/org/owasp/dependency-check-data
+          key: owasp-nvd-${{ github.run_id }}
       - name: Publicar reporte de Dependency-Check
         if: always()
         uses: actions/upload-artifact@v4
