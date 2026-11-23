@@ -298,6 +298,7 @@ Next.js 16 (App Router), React 19, TypeScript 5, Tailwind CSS 4 y React Compiler
 
 - **Dockerfiles multietapa** (dependencias → build → runtime) con usuario no-root y `HEALTHCHECK`.
 - **`docker-compose.yml`:** Eureka, las tres bases, los tres microservicios, Gateway, Prometheus y Grafana.
+- **`docker-compose.dev.yml`:** overlay de desarrollo que activa los datos de ejemplo.
 - **`docker-compose.frontend.yml`:** Next.js y HAProxy.
 - **Arranque ordenado:** los microservicios usan `depends_on` con `condition: service_healthy` sobre su base de datos.
 - **Red:** ambos archivos usan la red externa `backend-net`, que se crea una vez.
@@ -361,8 +362,16 @@ docker network create backend-net
 
 ### 4. Backend e infraestructura
 
+El compose base es neutro: no crea usuarios ni datos de ejemplo. Elegí una de dos formas de tener acceso:
+
 ```bash
+# Desarrollo: carga clientes, obras y usuarios de ejemplo (incluido un ADMIN) si la base está vacía
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+
+# Sin datos de ejemplo: el primer administrador sale de BOOTSTRAP_ADMIN_EMAIL y BOOTSTRAP_ADMIN_PASSWORD
+# (mínimo 12 caracteres) definidas en .env; sin ellas la base queda sin usuarios y ms-clientes lo avisa en el log
 docker compose up -d --build
+
 docker compose ps
 ```
 
@@ -387,7 +396,7 @@ docker compose -f docker-compose.frontend.yml up -d --build
 
 Las credenciales de Grafana son las que definiste en `.env`.
 
-En el primer arranque, `ms-clientes` carga datos de ejemplo de desarrollo mediante `DataInitializer`, incluido un usuario `ADMIN`. Sus credenciales están en ese archivo. Cambialas antes de cualquier uso real.
+Con el overlay `docker-compose.dev.yml`, `ms-clientes` carga en el primer arranque los datos de ejemplo de `DataInitializer`, incluido un usuario `ADMIN` (credenciales en ese archivo, solo para desarrollo local). Sin el overlay no se crea ningún dato de ejemplo.
 
 ### Ejemplo de uso de la API
 

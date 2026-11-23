@@ -60,9 +60,6 @@ services:
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.MySQL8Dialect
       SPRING_EUREKA_DEFAULT_ZONE: http://ms-eureka:8761/eureka/
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET requerido}
-      # Desarrollo: carga clientes, obras y usuarios de ejemplo si la base esta vacia.
-      # El overlay docker-compose.prod.yml lo desactiva.
-      APP_SEED_ENABLED: "true"
       JAVA_TOOL_OPTIONS: "-Xms128m -Xmx256m"
     ports:
       - "127.0.0.1:6080:8080"

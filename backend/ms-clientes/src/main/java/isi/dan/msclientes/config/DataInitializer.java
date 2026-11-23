@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.annotation.Order;
@@ -20,8 +19,8 @@ import isi.dan.msclientes.model.Obra;
 import isi.dan.msclientes.model.UsuarioCliente;
 
 // Inicializa datos de prueba al arrancar si la BD está vacía.
-// Solo se activa con app.seed.enabled=true (desarrollo). Por defecto está
-// apagado: en producción nunca crea clientes, obras ni usuarios de ejemplo.
+// Solo se activa con app.seed.enabled=true, que pone el overlay docker-compose.dev.yml. Por defecto
+// está apagado (compose base y producción): sin ese overlay nunca crea clientes, obras ni usuarios.
 @Component
 @Order(1)
 @ConditionalOnProperty(prefix = "app.seed", name = "enabled", havingValue = "true")
@@ -29,17 +28,18 @@ public class DataInitializer implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(DataInitializer.class);
 
-    @Autowired
-    private ClienteRepository clienteRepository;
+    private final ClienteRepository clienteRepository;
+    private final ObraRepository obraRepository;
+    private final UsuarioRepository usuarioRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    @Autowired
-    private ObraRepository obraRepository;
-
-    @Autowired
-    private UsuarioRepository usuarioRepository;
-
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    public DataInitializer(ClienteRepository clienteRepository, ObraRepository obraRepository,
+            UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder) {
+        this.clienteRepository = clienteRepository;
+        this.obraRepository = obraRepository;
+        this.usuarioRepository = usuarioRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
 
     @Override
     public void run(String... args) {

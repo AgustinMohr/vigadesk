@@ -1,0 +1,8 @@
+# Overlay de desarrollo: carga clientes, obras y usuarios de ejemplo (incluido un ADMIN) si la base esta vacia.
+# El compose base es neutro: sin este archivo no se crea ningun dato de ejemplo.
+# Uso: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+# Las credenciales de ejemplo estan en backend/ms-clientes/.../config/DataInitializer.java: solo para desarrollo local.
+services:
+  ms-clientes:
+    environment:
+      APP_SEED_ENABLED: "true"
