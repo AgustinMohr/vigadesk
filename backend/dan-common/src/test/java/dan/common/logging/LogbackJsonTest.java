@@ -12,6 +12,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -38,7 +39,9 @@ class LogbackJsonTest {
         }
 
         String linea = salida.getOut().lines().filter(l -> l.contains("creado")).findFirst().orElseThrow();
-        JsonNode evento = new ObjectMapper().readTree(linea);
+        JsonNode evento = new ObjectMapper()
+                .enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
+                .readTree(linea);
         assertThat(evento.get("level").asText()).isEqualTo("INFO");
         assertThat(evento.get("app").asText()).isEqualTo("servicio-de-prueba");
         assertThat(evento.get("requestId").asText()).isEqualTo("abc-123");

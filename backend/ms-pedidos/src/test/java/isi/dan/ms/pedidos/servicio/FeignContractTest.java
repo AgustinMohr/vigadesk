@@ -13,6 +13,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -35,7 +36,8 @@ import isi.dan.ms.pedidos.modelo.Producto;
 class FeignContractTest {
 
     /** Lo ultimo que recibio el servidor falso. */
-    private record Recibido(String metodo, String rutaYQuery, String contentType, String rol, String cuerpo) {
+    private record Recibido(String metodo, String rutaYQuery, String contentType, String rol, String cuerpo,
+            String idPeticion) {
     }
 
     private static final AtomicReference<Recibido> RECIBIDO = new AtomicReference<>();
@@ -56,7 +58,8 @@ class FeignContractTest {
                         exchange.getRequestURI().toString(),
                         exchange.getRequestHeaders().getFirst("Content-Type"),
                         exchange.getRequestHeaders().getFirst("X-User-Rol"),
-                        new String(cuerpo, StandardCharsets.UTF_8)));
+                        new String(cuerpo, StandardCharsets.UTF_8),
+                        exchange.getRequestHeaders().getFirst("X-Request-Id")));
                 Respuesta respuesta = RESPUESTA.get();
                 byte[] salida = respuesta.cuerpo().getBytes(StandardCharsets.UTF_8);
                 exchange.getResponseHeaders().add("Content-Type", "application/json");
@@ -164,6 +167,30 @@ class FeignContractTest {
                     assertThat(e.status()).isEqualTo(404);
                     assertThat(e.contentUTF8()).contains("\"code\":\"NOT_FOUND\"");
                 });
+    }
+
+    // ---- identificador de peticion ----
+
+    @Test
+    void conUnaPeticionEnCurso_ShouldPropagarSuIdentificadorEnAmbosClientes() {
+        try (var id = MDC.putCloseable("requestId", "pedido-42")) {
+            RESPUESTA.set(new Respuesta(200, "1"));
+            clientes.getMaximoDescubierto(5);
+            assertThat(RECIBIDO.get().idPeticion()).isEqualTo("pedido-42");
+
+            RESPUESTA.set(new Respuesta(200, "true"));
+            productos.checkStock(List.of(item(1, "1")));
+            assertThat(RECIBIDO.get().idPeticion()).isEqualTo("pedido-42");
+        }
+    }
+
+    @Test
+    void sinPeticionEnCurso_NoShouldEnviarElHeader() {
+        RESPUESTA.set(new Respuesta(200, "1"));
+
+        clientes.getMaximoDescubierto(5);
+
+        assertThat(RECIBIDO.get().idPeticion()).isNull();
     }
 
     // ---- ms-productos ----

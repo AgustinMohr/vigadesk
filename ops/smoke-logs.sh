@@ -27,6 +27,20 @@ for c in ms-eureka ms-clientes ms-productos ms-pedidos ms-gateway; do
   [ "$fallos" -eq 0 ] && echo "OK: $c"
 done
 
+# El identificador enviado al gateway tiene que verse en los logs del gateway y del servicio, y volver
+base=${GATEWAY_URL:-http://127.0.0.1:3080}
+id="humo-$$-$RANDOM"
+cabeceras=$(curl -s -D - -o /dev/null -H "X-Request-Id: $id" -X POST "$base/api/usuarios/login"   -H 'Content-Type: application/json' -d '{"email":"humo@example.com","password":"no-existe"}')
+[ "$(grep -ci "^x-request-id: $id" <<<"$cabeceras")" -eq 1 ] || fallo "la respuesta no devuelve el X-Request-Id una vez"
+sleep 2
+for c in ms-gateway ms-clientes; do
+  if docker logs "$c" 2>&1 | grep -q "\"requestId\":\"$id\""; then
+    echo "OK: $c registra el identificador"
+  else
+    fallo "$c: no registra el identificador $id"
+  fi
+done
+
 if [ "$fallos" -gt 0 ]; then
   echo "$fallos comprobaciones fallidas"
   exit 1

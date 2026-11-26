@@ -4,9 +4,8 @@
   <springProperty scope="context" name="app" source="spring.application.name" defaultValue="ms-eureka"/>
 
   <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-    <encoder class="net.logstash.logback.encoder.LogstashEncoder">
-      <customFields>{"app":"${app}"}</customFields>
-    </encoder>
+    <!-- Las propiedades de contexto (app) y el MDC se escriben como campos del JSON -->
+    <encoder class="net.logstash.logback.encoder.LogstashEncoder"/>
   </appender>
 
   <root level="INFO">
