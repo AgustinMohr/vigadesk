@@ -125,6 +125,8 @@ jobs:
           exit 1
       - name: Prueba de humo de observabilidad (targets de Prometheus y Actuator no expuesto)
         run: bash ops/smoke-observabilidad.sh
+      - name: Prueba de humo de logs (JSON a stdout en cada servicio)
+        run: bash ops/smoke-logs.sh
       - name: Instalar dependencias y navegador
         working-directory: frontend/ui
         run: |

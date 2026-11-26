@@ -17,6 +17,12 @@
 		<java.version>17</java.version>
 	</properties>
 	<dependencies>
+		<!-- Logs en JSON (ver dan/common/logging/logback-json.xml): los servicios la reciben por esta via -->
+		<dependency>
+			<groupId>net.logstash.logback</groupId>
+			<artifactId>logstash-logback-encoder</artifactId>
+			<version>7.4</version>
+		</dependency>
 		<!-- Solo el filtro servlet las usa; cada servicio ya las trae y el gateway (reactivo) no las carga -->
 		<dependency>
 			<groupId>org.springframework</groupId>

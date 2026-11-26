@@ -23,11 +23,12 @@ public class LoggingAspect {
 
         long executionTime = System.currentTimeMillis() - start;
 
-        logger.info("{};{}", joinPoint.getSignature().getDeclaringType()
-        +"."+
-        joinPoint.getSignature().getName(), executionTime);
-        MDC.put("metodo", joinPoint.getSignature().toLongString());
-        MDC.put("duracion", executionTime+"");
+        // El MDC viaja como campos del JSON solo en esta linea: si no se quita, queda pegado al hilo
+        try (var metodo = MDC.putCloseable("metodo", joinPoint.getSignature().toLongString());
+             var duracion = MDC.putCloseable("duracion", String.valueOf(executionTime))) {
+            logger.info("{};{}", joinPoint.getSignature().getDeclaringType()
+                    + "." + joinPoint.getSignature().getName(), executionTime);
+        }
 
         return proceed;
     }

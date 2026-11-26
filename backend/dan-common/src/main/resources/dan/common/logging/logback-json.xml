@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Configuracion de logs compartida: una linea JSON por evento, solo a stdout. Docker guarda y rota esa salida.
+  No agregar appenders de red: resolver un host inexistente bloquea durante segundos el hilo que escribe el log.
+  El nivel se cambia por entorno con LOGGING_LEVEL_ROOT o LOGGING_LEVEL_<PAQUETE>.
+-->
+<included>
+  <springProperty scope="context" name="app" source="spring.application.name" defaultValue="desconocida"/>
+
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+      <customFields>{"app":"${app}"}</customFields>
+    </encoder>
+  </appender>
+
+  <root level="INFO">
+    <appender-ref ref="STDOUT"/>
+  </root>
+</included>

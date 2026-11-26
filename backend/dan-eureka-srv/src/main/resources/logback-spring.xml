@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Mismo formato que dan-common/.../logback-json.xml: una linea JSON por evento, solo a stdout. -->
+<configuration>
+  <springProperty scope="context" name="app" source="spring.application.name" defaultValue="ms-eureka"/>
+
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+      <customFields>{"app":"${app}"}</customFields>
+    </encoder>
+  </appender>
+
+  <root level="INFO">
+    <appender-ref ref="STDOUT"/>
+  </root>
+</configuration>
